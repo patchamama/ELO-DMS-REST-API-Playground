@@ -17,16 +17,20 @@
 export class EloError extends Error {}
 
 export class EloClient {
-  constructor({ proxyUrl = "/api/elo/proxy", credentials = null, mock = false, topicId = null } = {}) {
+  constructor({ proxyUrl = "/api/elo/proxy", credentials = null, mock = false, topicId = null, mockData = null } = {}) {
     this._proxyUrl = proxyUrl;
     this._credentials = credentials; // {base_url, user, password, tls_verify} or null
     this._mock = mock;
     this._topicId = topicId; // lets the backend load this topic's mock: block
+    this._mockData = mockData; // { "<method>": <entry>, ... } - resolve locally, no backend
+    this._calls = {};
     this.user = null;
   }
 
   /** Make one IX RPC call (via the backend proxy) and return its `result`. */
   async call(method, body = {}) {
+    if (this._mockData) return this._mockCall(method);
+
     let resp;
     try {
       resp = await fetch(this._proxyUrl, {
@@ -48,6 +52,24 @@ export class EloClient {
       throw new EloError(`${method}: ${data.error || "HTTP " + resp.status}`);
     }
     return data.result;
+  }
+
+  /** Local mock resolution (static demo) - mirrors the Python MockEloClient. */
+  _mockCall(method) {
+    if (!(method in this._mockData)) {
+      throw new EloError(`${method}: no mock response configured for the static demo`);
+    }
+    let entry = this._mockData[method];
+    if (Array.isArray(entry)) {
+      const i = Math.min(this._calls[method] ?? 0, entry.length - 1);
+      this._calls[method] = i + 1;
+      entry = entry[i];
+    }
+    if (entry && typeof entry === "object" && "exception" in entry) {
+      throw new EloError(`${method}: ${entry.exception}`);
+    }
+    if (entry && typeof entry === "object" && "result" in entry) return entry.result;
+    return entry;
   }
 
   async login() {
@@ -107,6 +129,7 @@ export async function connect({ login = true } = {}) {
     credentials: cfg.credentials ?? null,
     mock: !!cfg.mock,
     topicId: cfg.topicId ?? null,
+    mockData: cfg.mockData ?? null, // static demo: resolve calls locally, no backend
   });
   if (login) await client.login();
   return client;

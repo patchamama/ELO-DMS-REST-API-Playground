@@ -52,5 +52,8 @@
   "deep.open": "Deep dive",
   "scratch.language": "Language",
   "scratch.hint": "Import the shared client with:  Python  from elo_playground import connect   ·   Node  import { connect } from \"elo-playground\"   ·   Browser  connect() is preloaded",
-  "warn.localOnly": "Run executes code on THIS machine with your ELO credentials. Local development only."
+  "warn.localOnly": "Run executes code on THIS machine with your ELO credentials. Local development only.",
+  "static.badge": "static demo · mock data",
+  "static.noRun": "This output is not pre-computed. Clone the repo and run the local app to execute it.",
+  "static.precomputed": "pre-computed"
 }

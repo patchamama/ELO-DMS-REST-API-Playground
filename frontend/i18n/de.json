@@ -52,5 +52,8 @@
   "deep.open": "Vertiefung",
   "scratch.language": "Sprache",
   "scratch.hint": "Den gemeinsamen Client importieren:  Python  from elo_playground import connect   ·   Node  import { connect } from \"elo-playground\"   ·   Browser  connect() ist vorab geladen",
-  "warn.localOnly": "\"Ausführen\" startet Code auf DIESEM Rechner mit Ihren ELO-Zugangsdaten. Nur für die lokale Entwicklung."
+  "warn.localOnly": "\"Ausführen\" startet Code auf DIESEM Rechner mit Ihren ELO-Zugangsdaten. Nur für die lokale Entwicklung.",
+  "static.badge": "Statische Demo · Mock-Daten",
+  "static.noRun": "Diese Ausgabe ist nicht vorberechnet. Klone das Repo und starte die lokale App, um sie auszuführen.",
+  "static.precomputed": "vorberechnet"
 }

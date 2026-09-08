@@ -133,6 +133,17 @@ python scripts/smoke.py            # offline: catalogue, snippet sync, one run e
 3. `python -m pytest backend-python` - `test_catalog`, `test_snippets_sync` and
    `test_i18n` keep you honest.
 
+## Static demo (no backend)
+
+`python scripts/build_static.py` writes a fully static copy into `dist/`: the
+whole catalogue, every snippet, the shared-client source and the API reference,
+all backed by mock data. **Browser** snippets run for real in the sandboxed
+iframe against a JS mock; **Python / Node** snippets show their pre-computed
+mock-mode output (the build runs each one).
+
+`.github/workflows/pages.yml` builds and publishes it to GitHub Pages on every
+push to `main` (enable it once at **Settings -> Pages -> Source = GitHub Actions**).
+
 ## Regenerate the offline OpenAPI sample (after an ELO upgrade)
 
 ```powershell

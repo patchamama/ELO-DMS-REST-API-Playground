@@ -43,10 +43,33 @@
   if (!["en", "de", "es"].includes(LANG)) LANG = "en";
   let BROWSER_CLIENT_SRC = null; // cached source of eloClient.browser.js
 
+  // "static demo" mode: no backend - baked JSON under ./api/ and a run cache
+  const STATIC = !!CFG.staticMode;
+  let RUN_CACHE = {}; // key "t:<id>|<lang>" / "d:<cat>#<i>|<lang>" -> RunResult
+  let CURRENT_MOCK = null; // merged mock:{} of the open topic/deep, for the browser JS mock
+
+  // map a former "/api/..." endpoint to its baked static file
+  function toStatic(url) {
+    const [path, qs] = url.split("?");
+    const p = new URLSearchParams(qs || "");
+    const lang = p.get("lang") || LANG;
+    let m;
+    if (path === "/api/catalog") return `api/catalog/${lang}.json`;
+    if ((m = path.match(/^\/api\/i18n\/(.+)$/))) return `api/i18n/${m[1]}.json`;
+    if ((m = path.match(/^\/api\/topics\/(.+)$/))) return `api/topics/${lang}/${m[1]}.json`;
+    if ((m = path.match(/^\/api\/deep\/(.+)$/))) return `api/deep/${m[1]}.json`;
+    if (path === "/api/client-lib") return "api/client-lib.json";
+    if (path === "/api/spec/services") return "api/spec/services.json";
+    if (path === "/api/spec/operations") return `api/spec/operations/${p.get("service")}.json`;
+    if ((m = path.match(/^\/api\/spec\/op\/(.+)$/))) return `api/spec/op/${m[1]}.json`;
+    return url;
+  }
+
   // ---- small fetch helpers ------------------------------------------- //
   async function getJSON(url) {
-    const r = await fetch(url);
-    if (!r.ok) throw new Error(`${url} -> HTTP ${r.status}`);
+    const target = STATIC && url.startsWith("/api/") ? toStatic(url) : url;
+    const r = await fetch(target);
+    if (!r.ok) throw new Error(`${target} -> HTTP ${r.status}`);
     return r.json();
   }
   async function postJSON(url, body) {
@@ -75,7 +98,7 @@
     return { base_url: c.base_url, user: c.user, password: c.password, tls_verify: c.tls_verify };
   }
   function isMock() {
-    return $("#conn").mock.checked;
+    return STATIC || $("#conn").mock.checked;
   }
   function saveConn() {
     const c = readConn();
@@ -156,7 +179,7 @@
   }
 
   // ---- Run: backend (python / node) ------------------------------ //
-  async function runBackend(language, code, topicId, outputEl, metaEl, btn) {
+  async function runBackend(language, code, topicId, outputEl, metaEl, btn, cacheKey) {
     const label = btn ? btn.textContent : "";
     if (btn) {
       btn.disabled = true;
@@ -165,6 +188,22 @@
     outputEl.textContent = "";
     outputEl.className = "output";
     if (metaEl) metaEl.textContent = "";
+
+    if (STATIC) {
+      const cached = cacheKey && RUN_CACHE[cacheKey + "|" + language];
+      if (cached) renderRunResult(cached, outputEl, metaEl);
+      else {
+        outputEl.textContent = tr("static.noRun");
+        outputEl.classList.add("err");
+      }
+      if (metaEl && cached) metaEl.textContent += " · " + tr("static.precomputed");
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = label;
+      }
+      return;
+    }
+
     try {
       const res = await postJSON("/api/run", {
         language,
@@ -214,7 +253,8 @@
   // ---- Run: browser (sandboxed iframe) -------------------------- //
   async function loadBrowserClientSrc() {
     if (BROWSER_CLIENT_SRC == null) {
-      BROWSER_CLIENT_SRC = await (await fetch("/client/eloClient.browser.js")).text();
+      const u = STATIC ? "client/eloClient.browser.js" : "/client/eloClient.browser.js";
+      BROWSER_CLIENT_SRC = await (await fetch(u)).text();
     }
     return BROWSER_CLIENT_SRC;
   }
@@ -235,6 +275,8 @@
       credentials: isMock() ? null : creds(),
       mock: isMock(),
       topicId: topicId || null,
+      // static demo: the browser client resolves calls against this locally
+      mockData: STATIC ? CURRENT_MOCK : null,
     };
     const srcdoc = buildIframeDoc(clientSrc, config, code);
 
@@ -308,9 +350,9 @@ ${snippet}
 <\/script>`;
   }
 
-  function runAny(language, code, topicId, outputEl, metaEl, btn) {
+  function runAny(language, code, topicId, outputEl, metaEl, btn, cacheKey) {
     if (language === "browser") return runBrowser(code, topicId, outputEl, metaEl, btn);
-    return runBackend(language, code, topicId, outputEl, metaEl, btn);
+    return runBackend(language, code, topicId, outputEl, metaEl, btn, cacheKey);
   }
 
   // ---- catalogue nav ------------------------------------------- //
@@ -368,6 +410,7 @@ ${snippet}
       host.innerHTML = `<p class="err">${esc(String(e))}</p>`;
       return;
     }
+    CURRENT_MOCK = topic.mock || null; // for browser snippets in static mode
 
     const apiRows = (topic.elo_api || [])
       .map(
@@ -429,7 +472,7 @@ ${snippet}
       store.set(LS.sub, lang);
       $$(".sub", sub).forEach((b) => b.classList.toggle("active", b.dataset.lang === lang));
       snipHost.innerHTML = "";
-      snipHost.appendChild(makeRunner(lang, topic.snippets[lang], topic.id));
+      snipHost.appendChild(makeRunner(lang, topic.snippets[lang], topic.id, "t:" + topic.id));
     }
     sub.addEventListener("click", (ev) => {
       const b = ev.target.closest(".sub");
@@ -444,7 +487,7 @@ ${snippet}
   }
 
   // one code block + Copy + Run + output panel
-  function makeRunner(language, code, topicId) {
+  function makeRunner(language, code, topicId, cacheKey) {
     const wrap = document.createElement("div");
     wrap.className = "runner";
     wrap.innerHTML = `
@@ -464,7 +507,7 @@ ${snippet}
     const copyBtn = wrap.querySelector(".copy");
     const out = wrap.querySelector(".output");
     const meta = wrap.querySelector(".meta");
-    btn.addEventListener("click", () => runAny(language, code, topicId, out, meta, btn));
+    btn.addEventListener("click", () => runAny(language, code, topicId, out, meta, btn, cacheKey));
     copyBtn.addEventListener("click", async () => {
       try {
         await navigator.clipboard.writeText(code);
@@ -490,10 +533,12 @@ ${snippet}
       host.innerHTML = `<p class="err">${esc(String(e))}</p>`;
       return;
     }
+    CURRENT_MOCK = data.mock || null; // for browser snippets in static mode
     const html = window.DOMPurify.sanitize(window.marked.parse(data.markdown, { breaks: false }));
     host.innerHTML = `<article class="topic deepdoc">${html}</article>`;
 
     // Turn each fenced code block into a runnable snippet.
+    let bi = -1; // index among python/node/browser blocks (matches build_static)
     $$("pre code", host).forEach((codeEl) => {
       const cls = codeEl.className || "";
       let language = null;
@@ -504,8 +549,9 @@ ${snippet}
         if (window.hljs) window.hljs.highlightElement(codeEl);
         return;
       }
+      bi += 1;
       const pre = codeEl.closest("pre");
-      pre.replaceWith(makeRunner(language, codeEl.textContent.replace(/\n$/, ""), catId));
+      pre.replaceWith(makeRunner(language, codeEl.textContent.replace(/\n$/, ""), catId, `d:${catId}#${bi}`));
     });
   }
 
@@ -807,6 +853,24 @@ ${snippet}
     });
   }
 
+  async function enterStaticMode() {
+    // hide the connection form, show a banner, load the pre-computed run cache
+    const conn = $("#conn");
+    if (conn) conn.hidden = true;
+    try {
+      RUN_CACHE = await getJSON("api/run-cache.json");
+    } catch (e) {
+      RUN_CACHE = {};
+    }
+    const bar = document.querySelector(".topbar");
+    if (bar && !bar.querySelector(".static-badge")) {
+      const b = document.createElement("span");
+      b.className = "static-badge";
+      b.textContent = tr("static.badge");
+      bar.appendChild(b);
+    }
+  }
+
   // ---- boot ------------------------------------------------ //
   (async function init() {
     await loadI18n(LANG);
@@ -817,6 +881,7 @@ ${snippet}
     wireNav();
     wireTabs();
     wireScratchpad();
+    if (STATIC) await enterStaticMode();
     await loadCatalog();
     reopenLast();
   })();

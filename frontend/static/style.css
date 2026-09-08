@@ -46,6 +46,10 @@ code, pre, textarea, .code { font-family: "SFMono-Regular", Consolas, "Liberatio
 .conn-status { font-size: 12px; color: var(--muted); }
 .conn-status.ok { color: var(--ok); }
 .conn-status.err { color: var(--err); }
+.static-badge {
+  margin-left: auto; align-self: center; font-size: 11px; color: var(--warn);
+  border: 1px solid var(--warn); border-radius: 5px; padding: 2px 8px;
+}
 
 /* ---- tabs ---- */
 .tabs { display: flex; gap: 4px; padding: 0 20px; border-bottom: 1px solid var(--line); }
