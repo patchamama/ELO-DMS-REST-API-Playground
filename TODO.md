@@ -41,6 +41,8 @@ Continuation notes. Checkbox items ordered roughly by value. Paths relative to
 
 ---
 
+- [x] **Backend-free static demo** (`scripts/build_static.py` -> `dist/`, published by `.github/workflows/pages.yml`): browser snippets run for real against a JS mock, Python/Node show pre-computed mock output. Needs a one-time repo setting: Settings -> Pages -> Source = GitHub Actions.
+
 ## M1 polish
 
 - [x] Inline SVG favicon (`frontend/templates/base.html`).
