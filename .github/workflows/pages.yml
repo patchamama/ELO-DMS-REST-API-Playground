@@ -1,7 +1,9 @@
 name: pages
 
 # Build the backend-free static demo and publish it to GitHub Pages.
-# One-time setup in the repo: Settings -> Pages -> Source = "GitHub Actions".
+# `configure-pages` with enablement:true turns Pages on automatically on the
+# first run (the workflow has `pages: write`). If your org blocks that, enable
+# it once by hand: Settings -> Pages -> Source = "GitHub Actions".
 
 on:
   push:
@@ -32,6 +34,8 @@ jobs:
       - run: npm install
       - run: python scripts/build_static.py
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
