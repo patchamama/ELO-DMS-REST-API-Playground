@@ -53,8 +53,8 @@ def _copy_tree(src: Path, dst_rel: str) -> None:
 
 # ---- Node snippet runner without the Express hop ------------------------ #
 def _run_node_mock(code: str, mock: dict) -> dict:
-    work = Path(tempfile.mkdtemp(dir=ROOT / "runtime"))
     (ROOT / "runtime").mkdir(exist_ok=True)
+    work = Path(tempfile.mkdtemp(dir=ROOT / "runtime"))
     try:
         (work / "mock.json").write_text(json.dumps(mock), encoding="utf-8")
         (work / "snippet.mjs").write_text(code, encoding="utf-8")
