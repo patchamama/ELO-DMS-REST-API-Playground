@@ -1,0 +1,114 @@
+id: workflows.templates
+order: 1
+category:
+  en: Workflows
+  de: Workflows
+  es: Flujos de trabajo
+title:
+  en: List workflow templates and their diagram
+  de: Workflow-Vorlagen und ihr Diagramm auflisten
+  es: Listar plantillas de workflow y su diagrama
+summary:
+  en: >
+    `findFirstWorkflows` with type bitset 2 (TEMPLATE) returns the defined
+    workflow templates. Ask for the full `wfDiagramZ` bitset and IX also hands
+    back every node and every connection (the matrix), so you can reconstruct
+    the flow chart without a second call.
+
+  de: "`findFirstWorkflows` mit Typ-Bitset 2 (TEMPLATE) liefert die definierten Workflow-Vorlagen. Fragt man das volle `wfDiagramZ`-Bitset an, liefert IX zusätzlich jeden Knoten und jede Verbindung (die Matrix) mit, sodass sich das Flussdiagramm ohne zweiten Aufruf rekonstruieren lässt."
+  es: "`findFirstWorkflows` con el bitset de tipo 2 (TEMPLATE) devuelve las plantillas de workflow definidas. Si se pide el bitset `wfDiagramZ` completo, IX también entrega cada nodo y cada conexión (la matriz), así se reconstruye el diagrama de flujo sin una segunda llamada."
+
+elo_api:
+- method: findFirstWorkflows
+  rpc: POST /rest/IXServicePortIF/findFirstWorkflows
+  doc_url: "{base}/rest/openapi.json"
+  spec: IXServicePortIF/findFirstWorkflows
+  notes:
+    en: >
+      findInfo.type {bset:"2"} = templates. wfDiagramZ {bset:"1073741823"}
+      (all bits) includes nodes[] and matrix.assocs[] in the response.
+
+    de: findInfo.type {bset:"2"} = Vorlagen. wfDiagramZ {bset:"1073741823"} (alle Bits) liefert nodes[] und matrix.assocs[] mit in der Antwort.
+    es: findInfo.type {bset:"2"} = plantillas. wfDiagramZ {bset:"1073741823"} (todos los bits) incluye nodes[] y matrix.assocs[] en la respuesta.
+result_shape: |
+  40 templates. First few:
+    [5] sol.dev.deploy  -  3 nodes, 2 connections
+          - sol.dev.deploy
+          - deploy
+          - Finish
+    [6] sol.dev.undeploy  -  3 nodes, 2 connections
+
+snippets:
+  python: |
+    from elo_playground import connect
+
+    elo = connect()
+
+    res = elo.call("findFirstWorkflows", {
+        "findInfo": {"type": {"bset": "2"}, "inclHidden": True},   # 2 = TEMPLATE
+        "max": 100,
+        "wfDiagramZ": {"bset": "1073741823"},                      # all diagram bits
+    })
+    workflows = sorted(res.get("workflows", []), key=lambda w: w.get("id", 0))
+    print(f"{len(workflows)} templates. First few:")
+
+    for wf in workflows[:5]:                          # keep the output readable
+        nodes = [n.get("nodeName") or n.get("name") for n in wf.get("nodes", [])]
+        assocs = (wf.get("matrix") or {}).get("assocs", [])
+        print(f"  [{wf['id']}] {wf['name']}  -  {len(nodes)} nodes, {len(assocs)} connections")
+        for n in nodes[:6]:
+            print(f"        - {n}")
+
+  node: |
+    import { connect } from "elo-playground";
+
+    const elo = await connect();
+
+    const res = await elo.call("findFirstWorkflows", {
+      findInfo: { type: { bset: "2" }, inclHidden: true },   // 2 = TEMPLATE
+      max: 100,
+      wfDiagramZ: { bset: "1073741823" },                    // all diagram bits
+    });
+    const workflows = (res.workflows || []).sort((a, b) => (a.id || 0) - (b.id || 0));
+    console.log(`${workflows.length} templates. First few:`);
+
+    for (const wf of workflows.slice(0, 5)) {
+      const nodes = (wf.nodes || []).map((n) => n.nodeName || n.name);
+      const assocs = (wf.matrix || {}).assocs || [];
+      console.log(`  [${wf.id}] ${wf.name}  -  ${nodes.length} nodes, ${assocs.length} connections`);
+      nodes.slice(0, 6).forEach((n) => console.log(`        - ${n}`));
+    }
+
+  browser: |
+    const elo = await connect();
+
+    const res = await elo.call("findFirstWorkflows", {
+      findInfo: { type: { bset: "2" }, inclHidden: true },
+      max: 100,
+      wfDiagramZ: { bset: "1073741823" },
+    });
+    const workflows = (res.workflows || []).sort((a, b) => (a.id || 0) - (b.id || 0));
+    console.log(`${workflows.length} templates. First few:`);
+    workflows.slice(0, 5).forEach((wf) => {
+      const nodes = (wf.nodes || []).map((n) => n.nodeName || n.name);
+      console.log(`  [${wf.id}] ${wf.name}  -  ${nodes.length} nodes`);
+    });
+
+mock:
+  findFirstWorkflows:
+    searchId: "(MOCK-WF)"
+    moreResults: false
+    workflows:
+    - id: 12
+      name: "Invoice approval"
+      ownerName: "Administrator"
+      nodes:
+      - {id: 0, nodeName: "Start", type: 1}
+      - {id: 1, nodeName: "Clerk checks", type: 2}
+      - {id: 2, nodeName: "Manager approves", type: 4}
+      - {id: 3, nodeName: "End", type: 6}
+      matrix:
+        assocs:
+        - {nodeFrom: 0, nodeTo: 1, type: -3}
+        - {nodeFrom: 1, nodeTo: 2, type: -3}
+        - {nodeFrom: 2, nodeTo: 3, type: -1}

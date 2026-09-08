@@ -1,0 +1,9 @@
+{
+  "name": "elo-playground",
+  "version": "0.1.0",
+  "description": "Tiny teaching client for the ELO IX REST API (Node)",
+  "type": "module",
+  "main": "eloClient.mjs",
+  "exports": "./eloClient.mjs",
+  "license": "MIT"
+}

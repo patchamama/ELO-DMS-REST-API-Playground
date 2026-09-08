@@ -1,0 +1,74 @@
+id: repository.sord-types
+order: 3
+category:
+  en: Repository & objects
+  de: Archiv & Objekte
+  es: Repositorio y objetos
+title:
+  en: List Sord types (the entry icons)
+  de: Sord-Typen auflisten (die Eintragssymbole)
+  es: Listar los tipos de Sord (los iconos de entrada)
+summary:
+  en: >
+    A "Sord type" is the little icon/kind an object shows in the client
+    (folder, e-mail, PDF, ...). `checkoutSordTypes` returns the whole table -
+    id, name, GUID and a base64 icon - which you need to render an archive tree
+    faithfully.
+
+  de: "Ein „Sord-Typ“ ist das Symbol/die Art, die ein Objekt im Client zeigt (Ordner, E-Mail, PDF, …). `checkoutSordTypes` liefert die ganze Tabelle – ID, Name, GUID und ein Base64-Icon –, die man braucht, um einen Archivbaum originalgetreu darzustellen."
+  es: "Un “tipo de Sord” es el icono/clase que un objeto muestra en el cliente (carpeta, correo, PDF, …). `checkoutSordTypes` devuelve la tabla entera – id, nombre, GUID y un icono en base64 – que hace falta para dibujar un árbol del archivo con fidelidad."
+
+elo_api:
+- method: checkoutSordTypes
+  rpc: POST /rest/IXServicePortIF/checkoutSordTypes
+  doc_url: "{base}/rest/openapi.json"
+  spec: IXServicePortIF/checkoutSordTypes
+  notes:
+    en: 'id = -1 means "all types"; sordTypeZ {bset:"31"} selects name + icon + flags.'
+
+    de: id = -1 bedeutet "alle Typen"; sordTypeZ {bset:"31"} wählt Name + Icon + Flags.
+    es: id = -1 significa "todos los tipos"; sordTypeZ {bset:"31"} selecciona nombre + icono + flags.
+result_shape: |
+  [ { "id": 0, "name": "Folder", "guid": "(...)", "icon": "<base64 png>" },
+    { "id": 254, "name": "PDF document", "guid": "(...)", "icon": "..." }, ... ]
+
+snippets:
+  python: |
+    from elo_playground import connect
+
+    elo = connect()
+
+    res = elo.call("checkoutSordTypes", {"id": -1, "sordTypeZ": {"bset": "31"}})
+    types = res if isinstance(res, list) else res.get("sordTypes", [])
+
+    print(f"{len(types)} Sord types")
+    for t in types:
+        has_icon = "icon" if t.get("icon") else "no icon"
+        print(f"  [{t['id']:>4}] {t['name']}  ({has_icon})")
+
+  node: |
+    import { connect } from "elo-playground";
+
+    const elo = await connect();
+
+    const res = await elo.call("checkoutSordTypes", { id: -1, sordTypeZ: { bset: "31" } });
+    const types = Array.isArray(res) ? res : res.sordTypes || [];
+
+    console.log(`${types.length} Sord types`);
+    for (const t of types) {
+      console.log(`  [${String(t.id).padStart(4)}] ${t.name}  (${t.icon ? "icon" : "no icon"})`);
+    }
+
+  browser: |
+    const elo = await connect();
+
+    const res = await elo.call("checkoutSordTypes", { id: -1, sordTypeZ: { bset: "31" } });
+    const types = Array.isArray(res) ? res : res.sordTypes || [];
+    console.log(`${types.length} Sord types`);
+    types.forEach((t) => console.log(`  [${t.id}] ${t.name}`));
+
+mock:
+  checkoutSordTypes:
+  - {id: 0, name: "Folder", guid: "(9C45DA3C-0001-0000-0000-000000000000)", icon: ""}
+  - {id: 254, name: "PDF document", guid: "(9C45DA3C-00FE-0000-0000-000000000000)", icon: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="}
+  - {id: 253, name: "E-mail", guid: "(9C45DA3C-00FD-0000-0000-000000000000)", icon: ""}

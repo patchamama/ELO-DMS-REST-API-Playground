@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block content %}
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">ELO</span>
+    <div>
+      <div class="brand-title" data-t="app.title">ELO API Playground</div>
+      <div class="brand-sub" data-t="app.tagline"></div>
+    </div>
+  </div>
+
+  <form id="conn" class="conn" autocomplete="off">
+    <label><span data-t="conn.baseUrl">Base URL</span>
+      <input name="base_url" type="text" spellcheck="false" />
+    </label>
+    <label><span data-t="conn.user">User</span>
+      <input name="user" type="text" spellcheck="false" />
+    </label>
+    <label><span data-t="conn.password">Password</span>
+      <input name="password" type="password" />
+    </label>
+    <label class="chk"><input name="tls_verify" type="checkbox" checked />
+      <span data-t="conn.tlsVerify">Verify TLS certificate</span></label>
+    <label class="chk"><input name="remember" type="checkbox" />
+      <span data-t="conn.remember">Remember password</span></label>
+    <label class="chk mock"><input name="mock" type="checkbox" />
+      <span data-t="conn.mock">Mock mode</span></label>
+    <button type="button" id="conn-check" data-t="conn.check">Check connection</button>
+    <span id="conn-status" class="conn-status"></span>
+  </form>
+</header>
+
+<nav class="tabs">
+  <button class="tab active" data-view="catalog" data-t="nav.catalog">Catalog</button>
+  <button class="tab" data-view="spec" data-t="nav.spec">API reference</button>
+  <button class="tab" data-view="scratchpad" data-t="nav.scratchpad">Scratchpad</button>
+  <span class="langsw" aria-label="language">
+    <button class="lang" data-lang="en">EN</button>
+    <button class="lang" data-lang="de">DE</button>
+    <button class="lang" data-lang="es">ES</button>
+  </span>
+</nav>
+
+<main>
+  <section id="view-catalog" class="view">
+    <nav id="catnav" class="catnav" aria-label="topics"></nav>
+    <div id="topic-host" class="topic-host">
+      <p class="hint" data-t="catalog.pick">Pick a topic on the left.</p>
+    </div>
+  </section>
+
+  <section id="view-spec" class="view" hidden>
+    <nav id="specnav" class="catnav" aria-label="operations"></nav>
+    <div id="spec-host" class="topic-host">
+      <p class="hint" data-t="spec.pick">Pick a service, then an operation.</p>
+    </div>
+  </section>
+
+  <section id="view-scratchpad" class="view" hidden>
+    <div class="scratch">
+      <div class="scratch-bar">
+        <label><span data-t="scratch.language">Language</span>
+          <select id="scratch-lang">
+            <option value="python">Python</option>
+            <option value="node">Node.js</option>
+            <option value="browser">Browser JS</option>
+          </select>
+        </label>
+        <button id="scratch-run" data-t="run.button">Run</button>
+        <span class="warn" data-t="warn.localOnly"></span>
+      </div>
+      <p class="scratch-hint" data-t="scratch.hint"></p>
+      <textarea id="scratch-code" spellcheck="false" rows="16">from elo_playground import connect
+
+elo = connect()
+print(elo.call("getServerInfo", {}).get("version"))
+</textarea>
+      <div class="output-wrap">
+        <div class="output-head"><span data-t="topic.output">Output</span><span id="scratch-meta" class="meta"></span></div>
+        <pre id="scratch-output" class="output"></pre>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+  window.__PLAYGROUND__ = {
+    defaultBaseUrl: {{ default_base_url | tojson }},
+    defaultUser: {{ default_user | tojson }},
+    mockDefault: {{ mock_default | tojson }},
+    proxyUrl: window.location.origin + "/api/elo/proxy"
+  };
+</script>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/app.js?v={{ static_v }}"></script>
+{% endblock %}

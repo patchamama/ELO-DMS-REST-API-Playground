@@ -1,0 +1,94 @@
+id: search.fulltext
+order: 3
+category:
+  en: Search
+  de: Suche
+  es: Búsqueda
+title:
+  en: Full-text search
+  de: Volltextsuche
+  es: Búsqueda de texto completo
+summary:
+  en: >
+    `findFirstSords` with a `findByFulltext` selector queries the full-text
+    index (document content + metadata) instead of a single field. It needs the
+    ELO full-text service to be running; the query syntax is the same one the
+    ELO client's search bar uses.
+
+  de: "`findFirstSords` mit einem `findByFulltext`-Selektor durchsucht den Volltextindex (Dokumentinhalt + Metadaten) statt eines einzelnen Felds. Der ELO-Volltextdienst muss laufen; die Abfragesyntax ist dieselbe wie in der Suchleiste des ELO-Clients."
+  es: "`findFirstSords` con un selector `findByFulltext` consulta el índice de texto completo (contenido del documento + metadatos) en vez de un solo campo. Necesita que el servicio de texto completo de ELO esté en marcha; la sintaxis de consulta es la misma que usa la barra de búsqueda del cliente de ELO."
+
+elo_api:
+- method: findFirstSords
+  rpc: POST /rest/IXServicePortIF/findFirstSords
+  doc_url: "{base}/rest/openapi.json"
+  spec: IXServicePortIF/findFirstSords
+  notes:
+    en: >
+      findInfo.findByFulltext { fulltext, isTree }. Combine with findByIndex
+      in the same findInfo to narrow by mask or folder as well.
+
+    de: findInfo.findByFulltext { fulltext, isTree }. Im selben findInfo mit findByIndex kombinieren, um zusätzlich nach Maske oder Ordner einzugrenzen.
+    es: findInfo.findByFulltext { fulltext, isTree }. Combinalo con findByIndex en el mismo findInfo para acotar además por máscara o carpeta.
+result_shape: |
+  [ { "id": 6001, "name": "Framework agreement 2026.pdf" },
+    { "id": 6002, "name": "Agreement addendum.docx" } ]
+
+snippets:
+  python: |
+    from elo_playground import connect
+
+    elo = connect()
+
+    rows = elo.find_all(
+        "findFirstSords", "findNextSords", "sords",
+        {
+            "findInfo": {"findByFulltext": {"fulltext": "agreement", "isTree": False}},
+            "max": 50,
+            "sordZ": {"bset": "449304431574384639"},
+        },
+    )
+
+    print(f"{len(rows)} documents match 'agreement'")
+    for s in rows:
+        print(f"  {s['name']}")
+    if not rows:
+        print("  (0 hits usually means the ELO full-text service is not running "
+              "or has not finished indexing on this instance)")
+
+  node: |
+    import { connect } from "elo-playground";
+
+    const elo = await connect();
+
+    const rows = await elo.findAll("findFirstSords", "findNextSords", "sords", {
+      findInfo: { findByFulltext: { fulltext: "agreement", isTree: false } },
+      max: 50,
+      sordZ: { bset: "449304431574384639" },
+    });
+
+    console.log(`${rows.length} documents match 'agreement'`);
+    rows.forEach((s) => console.log(`  ${s.name}`));
+    if (!rows.length) {
+      console.log("  (0 hits usually means the ELO full-text service is not running " +
+        "or has not finished indexing on this instance)");
+    }
+
+  browser: |
+    const elo = await connect();
+
+    const rows = await elo.findAll("findFirstSords", "findNextSords", "sords", {
+      findInfo: { findByFulltext: { fulltext: "agreement", isTree: false } },
+      max: 50,
+      sordZ: { bset: "449304431574384639" },
+    });
+    console.log(`${rows.length} documents match 'agreement'`);
+    rows.forEach((s) => console.log(`  ${s.name}`));
+
+mock:
+  findFirstSords:
+    moreResults: false
+    searchId: "(MOCK-FT)"
+    sords:
+    - {id: 6001, name: "Framework agreement 2026.pdf", type: 254}
+    - {id: 6002, name: "Agreement addendum.docx", type: 254}

@@ -1,0 +1,118 @@
+id: repository.create-folder
+order: 4
+category:
+  en: Repository & objects
+  de: Archiv & Objekte
+  es: Repositorio y objetos
+title:
+  en: Create a folder (write)
+  de: Einen Ordner anlegen (schreibend)
+  es: Crear una carpeta (escritura)
+summary:
+  en: >
+    Creating an object is two calls: `createSord` returns a blank Sord shaped by
+    a parent and a mask; you fill in the name, then `checkinSord` persists it and
+    returns the new id. This one WRITES to the archive - only run it against a
+    scratch repository. (Verified live - the test folder was deleted.)
+  de: "Ein Objekt anzulegen sind zwei Aufrufe: `createSord` liefert ein leeres Sord, geprägt von Elternobjekt und Maske; man trägt den Namen ein, dann speichert `checkinSord` es und gibt die neue ID zurück. Das hier SCHREIBT ins Archiv – nur gegen ein Test-Repository ausführen. (Live bestätigt - der Testordner wurde gelöscht.)"
+  es: "Crear un objeto son dos llamadas: `createSord` devuelve un Sord en blanco moldeado por un padre y una máscara; se rellena el nombre y luego `checkinSord` lo persiste y devuelve el nuevo id. Esto ESCRIBE en el archivo – ejecutalo solo contra un repositorio de pruebas. (Verificado en vivo - la carpeta de prueba se borró.)"
+
+elo_api:
+  - method: createSord
+    rpc: POST /rest/IXServicePortIF/createSord
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/createSord
+    notes:
+      en: >
+        Body { parentId, maskId, editInfoZ }. Like checkoutSord, put sordZ INSIDE
+        editInfoZ (bset "1") or result.sord comes back empty. maskId 1 is
+        "Ordner" on a stock install. Returns an EditInfo with a blank
+        result.sord template.
+      de: 'Body { parentId, maskId, editInfoZ }. Wie bei checkoutSord gehört sordZ IN editInfoZ (bset "1"), sonst kommt result.sord leer zurück. maskId 1 ist "Ordner" bei einer Standardinstallation. Liefert ein EditInfo mit einer leeren result.sord-Vorlage.'
+      es: 'Cuerpo { parentId, maskId, editInfoZ }. Igual que en checkoutSord, sordZ va DENTRO de editInfoZ (bset "1") o result.sord vuelve vacío. maskId 1 es "Ordner" en una instalación estándar. Devuelve un EditInfo con una plantilla result.sord en blanco.'
+  - method: checkinSord
+    rpc: POST /rest/IXServicePortIF/checkinSord
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/checkinSord
+    notes:
+      en: >
+        Body { sord, sordZ, unlockZ }. sordZ is the WRITE mask - it must cover
+        the fields you changed (a full bitset is simplest), NOT "0", which
+        persists nothing. Returns the new object id.
+      de: 'Body { sord, sordZ, unlockZ }. sordZ ist die SCHREIB-Maske - sie muss die geänderten Felder abdecken (ein volles Bitset ist am einfachsten), NICHT "0", das nichts speichert. Liefert die neue Objekt-ID.'
+      es: 'Cuerpo { sord, sordZ, unlockZ }. sordZ es la máscara de ESCRITURA: debe cubrir los campos que cambiaste (un bitset completo es lo más simple), NO "0", que no persiste nada. Devuelve el id del nuevo objeto.'
+
+result_shape: |
+  created folder id: 5357
+
+snippets:
+  python: |
+    from elo_playground import connect
+
+    elo = connect()
+    ALL = "449304431574384639"   # SordC.mbAllIndex
+
+    # 1) blank Sord template under parent 1, "Ordner" mask (id 1).
+    #    sordZ goes INSIDE editInfoZ, exactly like checkoutSord.
+    tmpl = elo.call("createSord", {
+        "parentId": 1,
+        "maskId": 1,
+        "editInfoZ": {"bset": "1", "sordZ": {"bset": ALL}},
+    })
+    sord = tmpl["sord"]
+    sord["name"] = "Playground test folder"
+
+    # 2) persist it - sordZ here is the WRITE mask, so use a full bitset
+    new_id = elo.call("checkinSord", {
+        "sord": sord,
+        "sordZ": {"bset": ALL},
+        "unlockZ": {"bset": "1"},
+    })
+    print("created folder id:", new_id)
+
+  node: |
+    import { connect } from "elo-playground";
+
+    const elo = await connect();
+    const ALL = "449304431574384639"; // SordC.mbAllIndex
+
+    // 1) blank Sord template under parent 1, "Ordner" mask (id 1).
+    //    sordZ goes INSIDE editInfoZ, exactly like checkoutSord.
+    const tmpl = await elo.call("createSord", {
+      parentId: 1,
+      maskId: 1,
+      editInfoZ: { bset: "1", sordZ: { bset: ALL } },
+    });
+    const sord = tmpl.sord;
+    sord.name = "Playground test folder";
+
+    // 2) persist it - sordZ here is the WRITE mask, so use a full bitset
+    const newId = await elo.call("checkinSord", {
+      sord,
+      sordZ: { bset: ALL },
+      unlockZ: { bset: "1" },
+    });
+    console.log("created folder id:", newId);
+
+  browser: |
+    const elo = await connect();
+    const ALL = "449304431574384639";
+
+    const tmpl = await elo.call("createSord", {
+      parentId: 1, maskId: 1,
+      editInfoZ: { bset: "1", sordZ: { bset: ALL } },
+    });
+    const sord = tmpl.sord;
+    sord.name = "Playground test folder";
+    const newId = await elo.call("checkinSord", { sord, sordZ: { bset: ALL }, unlockZ: { bset: "1" } });
+    console.log("created folder id:", newId);
+
+mock:
+  createSord:
+    sord:
+      id: -1
+      parentId: 1
+      maskName: "Ordner"
+      type: 1
+      name: null
+  checkinSord: 5357

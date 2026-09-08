@@ -1,0 +1,16 @@
+{
+  "_comment": "Mock responses for the runnable blocks in _deep.md (topic_id = category id '00-connection'). Block 1 uses an explicit EloClient and only runs against a real ELO.",
+  "getServerInfo": {
+    "version": "25.00.001.003",
+    "instanceName": "ELO-BASIS",
+    "indexServers": [{ "arcName": "Repository1" }],
+    "license": { "licenseOptions": { "product": "ELO ECM Suite" } }
+  },
+  "getSessionOptions": {
+    "options": [
+      { "key": "CLIENT.LANGUAGE", "value": "de" },
+      { "key": "IX.FEATURE.FULLTEXT", "value": "enabled" }
+    ]
+  },
+  "checkoutSord": { "exception": "objectNotFound: 999999999" }
+}

@@ -1,0 +1,104 @@
+id: repository.add-reference
+order: 8
+category:
+  en: Repository & objects
+  de: Archiv & Objekte
+  es: Repositorio y objetos
+title:
+  en: File an object into a second folder (reference, write)
+  de: Ein Objekt in einen zweiten Ordner einhängen (Referenz, schreibend)
+  es: Archivar un objeto en una segunda carpeta (referencia, escritura)
+summary:
+  en: >
+    ELO objects can live in several places at once. `refSord` adds a *reference*
+    (a link, not a copy) of an object into another folder: pass the object id,
+    its current parent, and the new parent. Removing the last reference deletes
+    the object. This WRITES. (Verified live - both folders were deleted.)
+  de: "ELO-Objekte können an mehreren Stellen gleichzeitig liegen. `refSord` fügt eine *Referenz* (einen Link, keine Kopie) eines Objekts in einen anderen Ordner ein: Objekt-ID, aktuelles Elternobjekt und neues Elternobjekt übergeben. Wird die letzte Referenz entfernt, wird das Objekt gelöscht. Das SCHREIBT. (Live bestätigt - beide Ordner wurden gelöscht.)"
+  es: "Los objetos de ELO pueden estar en varios lugares a la vez. `refSord` agrega una *referencia* (un enlace, no una copia) de un objeto a otra carpeta: se pasa el id del objeto, su padre actual y el nuevo padre. Al quitar la última referencia se borra el objeto. Esto ESCRIBE. (Verificado en vivo - ambas carpetas se borraron.)"
+
+elo_api:
+  - method: refSord
+    rpc: POST /rest/IXServicePortIF/refSord
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/refSord
+    notes:
+      en: >
+        Body { objId, oldParentId, newParentId, manSortIdx }. oldParentId may be
+        any folder the object already sits in. Returns {}.
+      de: 'Body { objId, oldParentId, newParentId, manSortIdx }. oldParentId darf ein beliebiger Ordner sein, in dem das Objekt bereits liegt. Liefert {}.'
+      es: 'Cuerpo { objId, oldParentId, newParentId, manSortIdx }. oldParentId puede ser cualquier carpeta en la que el objeto ya esté. Devuelve {}.'
+  - method: findFirstSords
+    rpc: POST /rest/IXServicePortIF/findFirstSords
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/findFirstSords
+    notes:
+      en: 'findChildren of the new parent to confirm the reference landed.'
+      de: 'findChildren des neuen Elternobjekts, um zu prüfen, dass die Referenz angekommen ist.'
+      es: 'findChildren del nuevo padre para confirmar que la referencia quedó.'
+
+result_shape: |
+  reference added
+  new parent now contains: ['Quarterly report.pdf']
+
+snippets:
+  python: |
+    from elo_playground import connect
+
+    elo = connect()
+    ALL = "449304431574384639"
+
+    obj_id = 4711            # the object to reference
+    old_parent = 1           # a folder it is already in
+    new_parent = 4712        # the folder to also file it under
+
+    elo.call("refSord", {
+        "objId": str(obj_id),
+        "oldParentId": str(old_parent),
+        "newParentId": str(new_parent),
+    })
+    print("reference added")
+
+    kids = elo.call("findFirstSords", {
+        "findInfo": {"findChildren": {"parentId": new_parent, "mainParent": False, "endLevel": 1}},
+        "max": 20,
+        "sordZ": {"bset": ALL},
+    }).get("sords", [])
+    print("new parent now contains:", [k["name"] for k in kids])
+
+  node: |
+    import { connect } from "elo-playground";
+
+    const elo = await connect();
+    const ALL = "449304431574384639";
+
+    const objId = 4711;      // the object to reference
+    const oldParent = 1;     // a folder it is already in
+    const newParent = 4712;  // the folder to also file it under
+
+    await elo.call("refSord", {
+      objId: String(objId),
+      oldParentId: String(oldParent),
+      newParentId: String(newParent),
+    });
+    console.log("reference added");
+
+    const kids = (await elo.call("findFirstSords", {
+      findInfo: { findChildren: { parentId: newParent, mainParent: false, endLevel: 1 } },
+      max: 20,
+      sordZ: { bset: ALL },
+    })).sords || [];
+    console.log("new parent now contains:", kids.map((k) => k.name));
+
+  browser: |
+    const elo = await connect();
+    await elo.call("refSord", { objId: "4711", oldParentId: "1", newParentId: "4712" });
+    console.log("reference added");
+
+mock:
+  refSord: {}
+  findFirstSords:
+    moreResults: false
+    searchId: "(MOCK-REF)"
+    sords:
+      - { id: 4711, name: "Quarterly report.pdf", type: 254 }

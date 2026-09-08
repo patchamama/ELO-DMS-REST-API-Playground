@@ -1,0 +1,105 @@
+id: repository.folder-children
+order: 2
+category:
+  en: Repository & objects
+  de: Archiv & Objekte
+  es: Repositorio y objetos
+title:
+  en: List the children of a folder
+  de: Die Unterelemente eines Ordners auflisten
+  es: Listar los hijos de una carpeta
+summary:
+  en: >
+    `findFirstSords` with a `findChildren` selector walks the archive tree.
+    Point it at a parent id (1 is the repository root), set how deep to go, and
+    it returns every Sord below - each with its own id, parent id, name and
+    child count so you can rebuild the hierarchy.
+
+  de: "`findFirstSords` mit einem `findChildren`-Selektor durchläuft den Archivbaum. Man gibt eine Eltern-ID an (1 ist die Repository-Wurzel) und die Tiefe; zurück kommt jedes darunterliegende Sord – jeweils mit ID, Eltern-ID, Name und Kindanzahl, sodass sich die Hierarchie rekonstruieren lässt."
+  es: "`findFirstSords` con un selector `findChildren` recorre el árbol del archivo. Se le indica un id padre (1 es la raíz del repositorio) y hasta qué profundidad ir, y devuelve cada Sord por debajo – cada uno con su id, id del padre, nombre y número de hijos para poder reconstruir la jerarquía."
+
+elo_api:
+- method: findFirstSords
+  rpc: POST /rest/IXServicePortIF/findFirstSords
+  doc_url: "{base}/rest/openapi.json"
+  spec: IXServicePortIF/findFirstSords
+  notes:
+    en: >
+      findInfo.findChildren { parentId, mainParent, endLevel } selects a
+      subtree. The paginated findNext/findClose pair is handled by the shared
+      client's find_all() / findAll() helper.
+    de: findInfo.findChildren { parentId, mainParent, endLevel } wählt einen Teilbaum aus. Das paginierte findNext/findClose-Paar übernimmt der find_all() / findAll()-Helfer des gemeinsamen Clients.
+    es: findInfo.findChildren { parentId, mainParent, endLevel } selecciona un subárbol. El par paginado findNext/findClose lo gestiona el ayudante find_all() / findAll() del cliente compartido.
+- method: findNextSords
+  rpc: POST /rest/IXServicePortIF/findNextSords
+  doc_url: "{base}/rest/openapi.json"
+  spec: IXServicePortIF/findNextSords
+  notes:
+    en: Fetches the next page for the searchId returned by findFirstSords.
+
+    de: Holt die nächste Seite zur searchId aus findFirstSords.
+    es: Trae la página siguiente para el searchId devuelto por findFirstSords.
+result_shape: |
+  [ { "id": 2, "parentId": 1, "name": "Administration", "childCount": 7 },
+    { "id": 3, "parentId": 1, "name": "Filing structure", "childCount": 12 }, ... ]
+
+snippets:
+  python: |
+    from elo_playground import connect
+
+    elo = connect()
+
+    # find_all() runs findFirstSords -> findNextSords -> findClose for us.
+    rows = elo.find_all(
+        "findFirstSords", "findNextSords", "sords",
+        {
+            "findInfo": {"findChildren": {
+                "parentId": 1,          # 1 = repository root
+                "mainParent": True,
+                "endLevel": 2,          # root + one level down
+            }},
+            "max": 100,
+            "sordZ": {"bset": "449304431574384639"},   # full objects
+        },
+    )
+
+    print(f"{len(rows)} objects under the root")
+    for s in rows:
+        print(f"  [{s['id']:>5}] {s['name']}  ({s.get('childCount', 0)} children)")
+
+  node: |
+    import { connect } from "elo-playground";
+
+    const elo = await connect();
+
+    // findAll() runs findFirstSords -> findNextSords -> findClose for us.
+    const rows = await elo.findAll("findFirstSords", "findNextSords", "sords", {
+      findInfo: { findChildren: { parentId: 1, mainParent: true, endLevel: 2 } },
+      max: 100,
+      sordZ: { bset: "449304431574384639" },
+    });
+
+    console.log(`${rows.length} objects under the root`);
+    for (const s of rows) {
+      console.log(`  [${String(s.id).padStart(5)}] ${s.name}  (${s.childCount || 0} children)`);
+    }
+
+  browser: |
+    const elo = await connect();
+
+    const rows = await elo.findAll("findFirstSords", "findNextSords", "sords", {
+      findInfo: { findChildren: { parentId: 1, mainParent: true, endLevel: 2 } },
+      max: 100,
+      sordZ: { bset: "449304431574384639" },
+    });
+    console.log(`${rows.length} objects under the root`);
+    rows.forEach((s) => console.log(`  [${s.id}] ${s.name} (${s.childCount || 0} children)`));
+
+mock:
+  findFirstSords:
+    moreResults: false
+    searchId: "(MOCK-CHILDREN)"
+    sords:
+    - {id: 2, parentId: 1, name: "Administration", maskName: "Folder", type: 1, childCount: 7}
+    - {id: 3, parentId: 1, name: "Filing structure", maskName: "Folder", type: 1, childCount: 12}
+    - {id: 4, parentId: 1, name: "Inbox", maskName: "Folder", type: 1, childCount: 0}

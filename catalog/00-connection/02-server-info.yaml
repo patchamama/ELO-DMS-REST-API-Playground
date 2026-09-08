@@ -1,0 +1,90 @@
+id: connection.server-info
+order: 2
+category:
+  en: Connection & session
+  de: Verbindung & Sitzung
+  es: Conexión y sesión
+title:
+  en: Read server info and licence
+  de: Serverinfo und Lizenz lesen
+  es: Leer info del servidor y licencia
+summary:
+  en: >
+    `getServerInfo` is the quickest "am I really talking to ELO?" check. It
+    returns the repository name, the IX build version, the database engine and
+    the licence (serial, product, valid-through, user count, feature flags).
+
+  de: "`getServerInfo` ist die schnellste Prüfung nach dem Motto „rede ich wirklich mit ELO?“. Es liefert den Repository-Namen, die IX-Build-Version, die Datenbank-Engine und die Lizenz (Seriennummer, Produkt, Gültigkeit, Benutzeranzahl, Feature-Flags)."
+  es: "`getServerInfo` es la comprobación más rápida de “¿realmente estoy hablando con ELO?”. Devuelve el nombre del repositorio, la versión de build de IX, el motor de base de datos y la licencia (serie, producto, validez, número de usuarios, indicadores de funciones)."
+
+elo_api:
+- method: getServerInfo
+  rpc: POST /rest/IXServicePortIF/getServerInfo
+  doc_url: "{base}/rest/openapi.json"
+  spec: IXServicePortIF/getServerInfo
+  notes:
+    en: No parameters. The interesting fields are nested under indexServers[0] and license.
+
+    de: Keine Parameter. Die interessanten Felder liegen unter indexServers[0] und license.
+    es: Sin parámetros. Los campos interesantes están anidados bajo indexServers[0] y license.
+result_shape: |
+  {
+    "version": "25.00.001.003",
+    "instanceName": "ELO-BASIS",
+    "databaseEngine": "MS SQL Server",
+    "indexServers": [ { "arcName": "Repository1", "url": "http://elo:9090/ix-Repository1/ix" } ],
+    "license": { "serno": "...", "licenseOptions": { "product": "ELO ECM Suite", "usercount1": "50" } }
+  }
+
+snippets:
+  python: |
+    from elo_playground import connect
+
+    elo = connect()                              # env vars + login() already done
+
+    info = elo.call("getServerInfo", {})         # -> POST .../getServerInfo
+    server = (info.get("indexServers") or [{}])[0]
+    lic = (info.get("license") or {}).get("licenseOptions", {})
+
+    print("repository :", server.get("arcName"))
+    print("IX version :", info.get("version"))
+    print("database   :", info.get("databaseEngine"))
+    print("product    :", lic.get("product"), "/ users:", lic.get("usercount1"))
+
+  node: |
+    import { connect } from "elo-playground";
+
+    const elo = await connect();                 // env vars + login() already done
+
+    const info = await elo.call("getServerInfo", {});
+    const server = (info.indexServers || [{}])[0];
+    const lic = (info.license || {}).licenseOptions || {};
+
+    console.log("repository :", server.arcName);
+    console.log("IX version :", info.version);
+    console.log("database   :", info.databaseEngine);
+    console.log("product    :", lic.product, "/ users:", lic.usercount1);
+
+  browser: |
+    const elo = await connect();
+
+    const info = await elo.call("getServerInfo", {});
+    const server = (info.indexServers || [{}])[0];
+    console.log("repository :", server.arcName);
+    console.log("IX version :", info.version);
+    console.log("database   :", info.databaseEngine);
+
+mock:
+  getServerInfo:
+    version: "25.00.001.003"
+    instanceName: ELO-BASIS
+    databaseEngine: MS SQL Server
+    indexServers:
+    - arcName: Repository1
+      url: "http://elo.example.local:9090/ix-Repository1/ix"
+    license:
+      serno: "0000-0000-0000-0000"
+      licenseOptions:
+        product: ELO ECM Suite
+        usercount1: "50"
+        validThru: "2099-12-31"

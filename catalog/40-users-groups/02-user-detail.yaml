@@ -1,0 +1,83 @@
+id: users.user-detail
+order: 2
+category:
+  en: Users & groups
+  de: Benutzer & Gruppen
+  es: Usuarios y grupos
+title:
+  en: Read a user's full record
+  de: Den vollständigen Datensatz eines Benutzers lesen
+  es: Leer el registro completo de un usuario
+summary:
+  en: >
+    `findFirstUsers` gives you ids and names; `checkoutUsers` gives you the full
+    `UserInfo` for a set of ids - group membership, flags, LDAP properties, last
+    login. The bitset `513` (CHECKOUT_USERS.BY_IDS) says "resolve these ids".
+
+  de: "`findFirstUsers` liefert IDs und Namen; `checkoutUsers` liefert die vollständige `UserInfo` zu einer Menge von IDs – Gruppenzugehörigkeit, Flags, LDAP-Eigenschaften, letzte Anmeldung. Das Bitset `513` (CHECKOUT_USERS.BY_IDS) sagt „Diese IDs auflösen“."
+  es: "`findFirstUsers` te da ids y nombres; `checkoutUsers` te da la `UserInfo` completa de un conjunto de ids – pertenencia a grupos, flags, propiedades LDAP, último inicio de sesión. El bitset `513` (CHECKOUT_USERS.BY_IDS) significa “resolvé estos ids”."
+
+elo_api:
+- method: checkoutUsers
+  rpc: POST /rest/IXServicePortIF/checkoutUsers
+  doc_url: "{base}/rest/openapi.json"
+  spec: IXServicePortIF/checkoutUsers
+  notes:
+    en: 'Body { ids: [int], checkoutUsersZ: { bset: "513" } }. Returns an array of UserInfo.'
+
+    de: 'Body { ids: [int], checkoutUsersZ: { bset: "513" } }. Liefert ein Array von UserInfo.'
+    es: 'Cuerpo { ids: [int], checkoutUsersZ: { bset: "513" } }. Devuelve un array de UserInfo.'
+result_shape: |
+  [ { "id": 0, "name": "Administrator", "flags": 2013265919,
+      "groupList": [9998, 9999], "lastLoginIso": "20260901" } ]
+
+snippets:
+  python: |
+    from elo_playground import connect
+
+    elo = connect()
+
+    res = elo.call("checkoutUsers", {
+        "ids": [0, 12],                       # Administrator + Max Muster
+        "checkoutUsersZ": {"bset": "513"},    # CHECKOUT_USERS.BY_IDS
+    })
+    users = res if isinstance(res, list) else res.get("users", [])
+
+    for u in users:
+        print(f"{u['name']}:")
+        print(f"    groups     : {u.get('groupList')}")
+        print(f"    last login : {u.get('lastLoginIso', '-')}")
+        print(f"    flags      : {u.get('flags')}")
+
+  node: |
+    import { connect } from "elo-playground";
+
+    const elo = await connect();
+
+    const res = await elo.call("checkoutUsers", {
+      ids: [0, 12],                        // Administrator + Max Muster
+      checkoutUsersZ: { bset: "513" },     // CHECKOUT_USERS.BY_IDS
+    });
+    const users = Array.isArray(res) ? res : res.users || [];
+
+    for (const u of users) {
+      console.log(`${u.name}:`);
+      console.log(`    groups     : ${JSON.stringify(u.groupList)}`);
+      console.log(`    last login : ${u.lastLoginIso || "-"}`);
+      console.log(`    flags      : ${u.flags}`);
+    }
+
+  browser: |
+    const elo = await connect();
+
+    const res = await elo.call("checkoutUsers", {
+      ids: [0, 12],
+      checkoutUsersZ: { bset: "513" },
+    });
+    const users = Array.isArray(res) ? res : res.users || [];
+    users.forEach((u) => console.log(`${u.name}: groups ${JSON.stringify(u.groupList)}`));
+
+mock:
+  checkoutUsers:
+  - {id: 0, name: "Administrator", flags: 2013265919, groupList: [9998, 9999], lastLoginIso: "20260901"}
+  - {id: 12, name: "m.muster", flags: 536870912, groupList: [9999, 100], lastLoginIso: "20260830"}

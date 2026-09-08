@@ -1,0 +1,112 @@
+id: repository.rename
+order: 6
+category:
+  en: Repository & objects
+  de: Archiv & Objekte
+  es: Repositorio y objetos
+title:
+  en: Rename an object (write)
+  de: Ein Objekt umbenennen (schreibend)
+  es: Renombrar un objeto (escritura)
+summary:
+  en: >
+    There is no `renameSord` - renaming is the read/modify/write cycle: check
+    the Sord out, change `sord.name`, check it back in with a write mask. The
+    same pattern moves an object (change `sord.parentId`) or edits any field.
+    This WRITES. (Verified live on a scratch folder.)
+  de: "Ein `renameSord` gibt es nicht - Umbenennen ist der Lesen/Ändern/Schreiben-Zyklus: das Sord auschecken, `sord.name` ändern, mit Schreibmaske wieder einchecken. Dasselbe Muster verschiebt ein Objekt (`sord.parentId` ändern) oder ändert ein beliebiges Feld. Das SCHREIBT. (Live bestätigt an einem Wegwerf-Ordner.)"
+  es: "No existe `renameSord` - renombrar es el ciclo leer/modificar/escribir: hacé checkout del Sord, cambiá `sord.name`, hacé checkin con una máscara de escritura. El mismo patrón mueve un objeto (cambiando `sord.parentId`) o edita cualquier campo. Esto ESCRIBE. (Verificado en vivo sobre una carpeta desechable.)"
+
+elo_api:
+  - method: checkoutSord
+    rpc: POST /rest/IXServicePortIF/checkoutSord
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/checkoutSord
+    notes:
+      en: 'Add lockZ {bset:"1"} inside editInfoZ to lock the object while you edit it.'
+      de: 'lockZ {bset:"1"} in editInfoZ ergänzen, um das Objekt während der Bearbeitung zu sperren.'
+      es: 'Agregá lockZ {bset:"1"} dentro de editInfoZ para bloquear el objeto mientras lo editás.'
+  - method: checkinSord
+    rpc: POST /rest/IXServicePortIF/checkinSord
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/checkinSord
+    notes:
+      en: 'sordZ = full write bitset; unlockZ {bset:"1"} releases the lock.'
+      de: 'sordZ = volles Schreib-Bitset; unlockZ {bset:"1"} gibt die Sperre frei.'
+      es: 'sordZ = bitset de escritura completo; unlockZ {bset:"1"} libera el bloqueo.'
+
+result_shape: |
+  before: playground old name
+  after:  playground new name
+
+snippets:
+  python: |
+    from elo_playground import connect
+
+    elo = connect()
+    ALL = "449304431574384639"
+
+    obj_id = 5390        # a throwaway object's id
+
+    # 1) check it out (with a lock)
+    sord = elo.call("checkoutSord", {
+        "objId": obj_id,
+        "editInfoZ": {"bset": "1", "sordZ": {"bset": ALL}, "lockZ": {"bset": "1"}},
+    })["sord"]
+    print("before:", sord["name"])
+
+    # 2) change the name
+    sord["name"] = "playground new name"
+
+    # 3) check it back in and release the lock
+    elo.call("checkinSord", {"sord": sord, "sordZ": {"bset": ALL}, "unlockZ": {"bset": "1"}})
+
+    after = elo.call("checkoutSord", {
+        "objId": obj_id, "editInfoZ": {"bset": "1", "sordZ": {"bset": ALL}},
+    })["sord"]
+    print("after: ", after["name"])
+
+  node: |
+    import { connect } from "elo-playground";
+
+    const elo = await connect();
+    const ALL = "449304431574384639";
+
+    const objId = 5390; // a throwaway object's id
+
+    // 1) check it out (with a lock)
+    const sord = (await elo.call("checkoutSord", {
+      objId,
+      editInfoZ: { bset: "1", sordZ: { bset: ALL }, lockZ: { bset: "1" } },
+    })).sord;
+    console.log("before:", sord.name);
+
+    // 2) change the name
+    sord.name = "playground new name";
+
+    // 3) check it back in and release the lock
+    await elo.call("checkinSord", { sord, sordZ: { bset: ALL }, unlockZ: { bset: "1" } });
+
+    const after = (await elo.call("checkoutSord", {
+      objId, editInfoZ: { bset: "1", sordZ: { bset: ALL } },
+    })).sord;
+    console.log("after: ", after.name);
+
+  browser: |
+    const elo = await connect();
+    const ALL = "449304431574384639";
+    const objId = 5390;
+
+    const sord = (await elo.call("checkoutSord", {
+      objId, editInfoZ: { bset: "1", sordZ: { bset: ALL }, lockZ: { bset: "1" } },
+    })).sord;
+    console.log("before:", sord.name);
+    sord.name = "playground new name";
+    await elo.call("checkinSord", { sord, sordZ: { bset: ALL }, unlockZ: { bset: "1" } });
+    console.log("renamed");
+
+mock:
+  checkoutSord:
+    - sord: { id: 5390, name: "playground old name", parentId: 1, maskName: "Ordner" }
+    - sord: { id: 5390, name: "playground new name", parentId: 1, maskName: "Ordner" }
+  checkinSord: 5390

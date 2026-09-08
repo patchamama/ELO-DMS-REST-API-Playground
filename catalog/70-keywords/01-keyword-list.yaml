@@ -1,0 +1,95 @@
+id: keywords.list
+order: 1
+category:
+  en: Keyword lists
+  de: Stichwortlisten
+  es: Listas de palabras clave
+title:
+  en: Read a keyword list
+  de: Eine Stichwortliste lesen
+  es: Leer una lista de palabras clave
+summary:
+  en: >
+    Keyword lists power the drop-downs on index fields. `checkoutKeywordList`
+    takes a list id (`kwid` - e.g. `ELOSTDSWL` for the standard selection list)
+    and returns its entries as a tree under `children`; each node's label is in
+    `text`, and nodes can nest.
+  de: "Stichwortlisten befüllen die Auswahlfelder von Indexfeldern. `checkoutKeywordList` nimmt eine Listen-ID (`kwid` – z. B. `ELOSTDSWL` für die Standardauswahlliste) und liefert deren Einträge als Baum unter `children`; die Beschriftung eines Knotens steht in `text`, Knoten können verschachtelt sein."
+  es: "Las listas de palabras clave alimentan los desplegables de los campos de índice. `checkoutKeywordList` toma un id de lista (`kwid` – p. ej. `ELOSTDSWL` para la lista de selección estándar) y devuelve sus entradas como un árbol bajo `children`; la etiqueta de cada nodo está en `text`, y los nodos pueden anidarse."
+
+elo_api:
+  - method: checkoutKeywordList
+    rpc: POST /rest/IXServicePortIF/checkoutKeywordList
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/checkoutKeywordList
+    notes:
+      en: >
+        Body { kwid, max, keywordZ: { bset: "7" } }. Each entry's display value
+        is `text` (not `key` / `names`); `id` is "<kwid>PIL<code>". Built-in ids
+        include ELOSTDSWL, ELOSTDWFW, ELO.CONFIDENTIALITY.
+      de: 'Body { kwid, max, keywordZ: { bset: "7" } }. Der Anzeigewert jedes Eintrags steht in `text` (nicht `key` / `names`); `id` ist "<kwid>PIL<Code>". Eingebaute IDs sind u. a. ELOSTDSWL, ELOSTDWFW, ELO.CONFIDENTIALITY.'
+      es: 'Cuerpo { kwid, max, keywordZ: { bset: "7" } }. El valor visible de cada entrada está en `text` (no `key` / `names`); `id` es "<kwid>PIL<código>". Entre los ids integrados están ELOSTDSWL, ELOSTDWFW, ELO.CONFIDENTIALITY.'
+
+result_shape: |
+  ELOSTDSWL: 12 top-level entries
+    - Invoice Flatrate Internet from Month XXXX, Year XXXX
+    - Invoice Mobile Phone from Month XXXX, Year XXXX
+    ...
+
+snippets:
+  python: |
+    from elo_playground import connect
+
+    elo = connect()
+
+    res = elo.call("checkoutKeywordList", {
+        "kwid": "ELOSTDSWL",
+        "max": 500,
+        "keywordZ": {"bset": "7"},
+    })
+
+    def walk(nodes, depth=0):
+        for n in nodes or []:
+            print("  " * (depth + 1) + "- " + (n.get("text") or "(no text)"))
+            walk(n.get("children"), depth + 1)
+
+    top = res.get("children") or []
+    print(f"{res.get('id')}: {len(top)} top-level entries")
+    walk(top[:8])                       # first few, with any nesting
+
+  node: |
+    import { connect } from "elo-playground";
+
+    const elo = await connect();
+
+    const res = await elo.call("checkoutKeywordList", {
+      kwid: "ELOSTDSWL",
+      max: 500,
+      keywordZ: { bset: "7" },
+    });
+
+    const walk = (nodes, depth = 0) => {
+      for (const n of nodes || []) {
+        console.log("  ".repeat(depth + 1) + "- " + (n.text || "(no text)"));
+        walk(n.children, depth + 1);
+      }
+    };
+
+    const top = res.children || [];
+    console.log(`${res.id}: ${top.length} top-level entries`);
+    walk(top.slice(0, 8));
+
+  browser: |
+    const elo = await connect();
+    const res = await elo.call("checkoutKeywordList", { kwid: "ELOSTDSWL", max: 500, keywordZ: { bset: "7" } });
+    const top = res.children || [];
+    console.log(`${res.id}: ${top.length} top-level entries`);
+    top.slice(0, 8).forEach((n) => console.log("  - " + (n.text || "(no text)")));
+
+mock:
+  checkoutKeywordList:
+    id: ELOSTDSWL
+    children:
+      - { text: "Important", children: [] }
+      - { text: "Urgent", children: [] }
+      - { text: "Archived", children: [] }

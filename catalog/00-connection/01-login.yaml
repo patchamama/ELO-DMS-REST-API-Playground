@@ -1,0 +1,88 @@
+id: connection.login
+order: 1
+category:
+  en: Connection & session
+  de: Verbindung & Sitzung
+  es: Conexión y sesión
+title:
+  en: Log in and open a session
+  de: Anmelden und Sitzung öffnen
+  es: Iniciar sesión y abrir una sesión
+summary:
+  en: >
+    Every IX call needs HTTP Basic auth, but you still start with `login`: it
+    allocates the server-side session (licence slot, session options, the
+    search-id space used by every `findFirst*`). The shared client keeps one
+    connection alive so the session cookie rides along afterwards.
+
+  de: "Jeder IX-Aufruf braucht HTTP-Basic-Auth, trotzdem beginnt man mit `login`: das reserviert die serverseitige Sitzung (Lizenzplatz, Sitzungsoptionen, den von jedem `findFirst*` genutzten Such-ID-Bereich). Der gemeinsame Client hält eine Verbindung offen, damit das Sitzungscookie danach mitgeschickt wird."
+  es: "Cada llamada a IX necesita autenticación HTTP Basic, pero igual se empieza por `login`: reserva la sesión del lado del servidor (plaza de licencia, opciones de sesión, el espacio de ids de búsqueda que usa cada `findFirst*`). El cliente compartido mantiene una conexión viva para que la cookie de sesión viaje después."
+
+elo_api:
+- method: login
+  rpc: POST /rest/IXServicePortIF/login
+  doc_url: "{base}/rest/openapi.json"
+  spec: IXServicePortIF/login
+  notes:
+    en: >
+      Body carries userName / userPwd / clientComputer / ci (locale). HTTP
+      Basic must ALSO be present on this and every later request.
+
+    de: Der Body enthält userName / userPwd / clientComputer / ci (Locale). HTTP Basic muss ZUSÄTZLICH bei diesem und jedem weiteren Request gesetzt sein.
+    es: El cuerpo lleva userName / userPwd / clientComputer / ci (configuración regional). La autenticación HTTP Basic debe estar ADEMÁS presente en esta y en todas las peticiones siguientes.
+result_shape: |
+  {
+    "user": {
+      "id": 0,
+      "name": "Administrator",
+      "type": 1,
+      "guid": "(E10E1000-E100-E100-E100-E10E10E10E40)",
+      "groupList": [9998, 9999]
+    }
+  }
+
+snippets:
+  python: |
+    from elo_playground import connect
+
+    # connect(login=False) builds the client from ELOPG_* env vars but does
+    # NOT log in yet - so we can call login() ourselves and read the result.
+    elo = connect(login=False)
+
+    user = elo.login()                 # -> POST /rest/IXServicePortIF/login
+    print("logged in as:", user["name"], "(id " + str(user["id"]) + ")")
+    print("member of groups:", user.get("groupList"))
+
+    elo.close()                        # release the connection pool
+
+  node: |
+    import { connect } from "elo-playground";
+
+    // connect({login:false}) builds the client from ELOPG_* env vars but does
+    // NOT log in yet - so we can call login() ourselves and read the result.
+    const elo = await connect({ login: false });
+
+    const user = await elo.login();    // -> POST /rest/IXServicePortIF/login
+    console.log("logged in as:", user.name, `(id ${user.id})`);
+    console.log("member of groups:", user.groupList);
+
+    elo.close();
+
+  browser: |
+    // connect() is preloaded by the playground. In the browser the call goes
+    // to the playground backend, which holds the real ELO connection and
+    // forwards the RPC (or answers from mock data).
+    const elo = await connect({ login: false });
+
+    const user = await elo.login();    // -> POST /api/elo/proxy -> IX login
+    console.log("logged in as:", user.name, `(id ${user.id})`);
+    console.log("member of groups:", user.groupList);
+
+mock:
+  login:
+    user:
+      id: 0
+      name: Administrator
+      type: 1
+      guid: "(E10E1000-E100-E100-E100-E10E10E10E40)"
+      groupList: [9998, 9999]

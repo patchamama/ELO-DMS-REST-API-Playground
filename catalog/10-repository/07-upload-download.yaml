@@ -1,0 +1,149 @@
+id: repository.upload-download
+order: 7
+category:
+  en: Repository & objects
+  de: Archiv & Objekte
+  es: Repositorio y objetos
+title:
+  en: Upload and download a document (write)
+  de: Ein Dokument hochladen und herunterladen (schreibend)
+  es: Subir y descargar un documento (escritura)
+summary:
+  en: >
+    Uploading a document is four calls: `createDoc` (a Sord template) ->
+    `checkinDocBegin` (get an upload URL) -> POST the bytes to that URL ->
+    `checkinDocEnd`. Download is the reverse: `checkoutDoc` gives a URL, GET it.
+    The shared client wraps the two blob transfers as `upload()` / `download()`.
+    This WRITES. (Verified live - the test document was deleted.)
+  de: "Ein Dokument hochzuladen sind vier Aufrufe: `createDoc` (eine Sord-Vorlage) -> `checkinDocBegin` (Upload-URL holen) -> die Bytes per POST an diese URL -> `checkinDocEnd`. Herunterladen ist umgekehrt: `checkoutDoc` liefert eine URL, per GET holen. Der gemeinsame Client kapselt die beiden Blob-Transfers als `upload()` / `download()`. Das SCHREIBT. (Live bestätigt - das Testdokument wurde gelöscht.)"
+  es: "Subir un documento son cuatro llamadas: `createDoc` (una plantilla de Sord) -> `checkinDocBegin` (obtener una URL de subida) -> POST de los bytes a esa URL -> `checkinDocEnd`. Descargar es al revés: `checkoutDoc` da una URL, se hace GET. El cliente compartido envuelve las dos transferencias como `upload()` / `download()`. Esto ESCRIBE. (Verificado en vivo - el documento de prueba se borró.)"
+
+elo_api:
+  - method: createDoc
+    rpc: POST /rest/IXServicePortIF/createDoc
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/createDoc
+    notes:
+      en: 'Body { parentId, maskId, editInfoZ }. maskId 0 is the generic document mask. Returns { sord }.'
+      de: 'Body { parentId, maskId, editInfoZ }. maskId 0 ist die generische Dokumentmaske. Liefert { sord }.'
+      es: 'Cuerpo { parentId, maskId, editInfoZ }. maskId 0 es la máscara genérica de documento. Devuelve { sord }.'
+  - method: checkinDocBegin
+    rpc: POST /rest/IXServicePortIF/checkinDocBegin
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/checkinDocBegin
+    notes:
+      en: >
+        Body { sord, document: { docs: [{ ext }] } }. Returns the document with
+        docs[0].url = a "writedoc" upload URL on ELO's document connector (:9093).
+      de: 'Body { sord, document: { docs: [{ ext }] } }. Liefert das document mit docs[0].url = eine "writedoc"-Upload-URL am Dokument-Connector (:9093).'
+      es: 'Cuerpo { sord, document: { docs: [{ ext }] } }. Devuelve el document con docs[0].url = una URL "writedoc" de subida en el conector de documentos (:9093).'
+  - method: checkinDocEnd
+    rpc: POST /rest/IXServicePortIF/checkinDocEnd
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/checkinDocEnd
+    notes:
+      en: 'Body { sord, document (with docs[0].uploadResult set), sordZ, unlockZ }. Returns { docs, objId }.'
+      de: 'Body { sord, document (mit gesetztem docs[0].uploadResult), sordZ, unlockZ }. Liefert { docs, objId }.'
+      es: 'Cuerpo { sord, document (con docs[0].uploadResult puesto), sordZ, unlockZ }. Devuelve { docs, objId }.'
+  - method: checkoutDoc
+    rpc: POST /rest/IXServicePortIF/checkoutDoc
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/checkoutDoc
+    notes:
+      en: 'editInfoZ {bset:"320"} -> result.document.docs[0].url = the download link.'
+      de: 'editInfoZ {bset:"320"} -> result.document.docs[0].url = der Download-Link.'
+      es: 'editInfoZ {bset:"320"} -> result.document.docs[0].url = el enlace de descarga.'
+
+result_shape: |
+  uploaded doc id: 5392
+  round-trip content: hello from the playground
+
+snippets:
+  python: |
+    from elo_playground import connect
+
+    elo = connect()
+    ALL = "449304431574384639"
+
+    parent_id = 1                 # a folder to file the document under
+    payload = b"hello from the playground\n"
+
+    # 1) a Sord template for the new document
+    sord = elo.call("createDoc", {"parentId": parent_id, "maskId": 0,
+                                  "editInfoZ": {"bset": "1", "sordZ": {"bset": ALL}}})["sord"]
+    sord["name"] = "pg-hello.txt"
+
+    # 2) ask for an upload URL
+    doc = elo.call("checkinDocBegin", {"sord": sord, "document": {"docs": [{"ext": "txt"}]}})
+
+    # 3) POST the bytes and record the server's upload token
+    doc["docs"][0]["uploadResult"] = elo.upload(doc["docs"][0]["url"], payload)
+
+    # 4) commit
+    res = elo.call("checkinDocEnd", {"sord": sord, "document": doc,
+                                     "sordZ": {"bset": ALL}, "unlockZ": {"bset": "1"}})
+    doc_id = int(res["objId"])
+    print("uploaded doc id:", doc_id)
+
+    # --- read it back ---
+    info = elo.call("checkoutDoc", {"objId": str(doc_id),
+                                    "editInfoZ": {"bset": "320", "sordZ": {"bset": "0"}}})
+    url = info["document"]["docs"][0]["url"]
+    print("round-trip content:", elo.download(url).decode().strip())
+
+  node: |
+    import { connect } from "elo-playground";
+
+    const elo = await connect();
+    const ALL = "449304431574384639";
+
+    const parentId = 1;
+    const payload = Buffer.from("hello from the playground\n");
+
+    // 1) a Sord template for the new document
+    const sord = (await elo.call("createDoc", {
+      parentId, maskId: 0, editInfoZ: { bset: "1", sordZ: { bset: ALL } },
+    })).sord;
+    sord.name = "pg-hello.txt";
+
+    // 2) ask for an upload URL
+    const doc = await elo.call("checkinDocBegin", { sord, document: { docs: [{ ext: "txt" }] } });
+
+    // 3) POST the bytes and record the server's upload token
+    doc.docs[0].uploadResult = await elo.upload(doc.docs[0].url, payload);
+
+    // 4) commit
+    const res = await elo.call("checkinDocEnd", {
+      sord, document: doc, sordZ: { bset: ALL }, unlockZ: { bset: "1" },
+    });
+    const docId = Number(res.objId);
+    console.log("uploaded doc id:", docId);
+
+    // --- read it back ---
+    const info = await elo.call("checkoutDoc", {
+      objId: String(docId), editInfoZ: { bset: "320", sordZ: { bset: "0" } },
+    });
+    console.log("round-trip content:", (await elo.download(info.document.docs[0].url)).trim());
+
+  browser: |
+    // Uploading and downloading document bytes talks to ELO's document
+    // connector (:9093), which the browser cannot reach. Run this from the
+    // Python or Node example.
+    console.log("upload / download run from the Python or Node tab");
+
+mock:
+  createDoc:
+    sord: { id: -1, parentId: 1, maskName: "Free entry", type: 254, name: null }
+  checkinDocBegin:
+    docs:
+      - { ext: "txt", url: "https://elo.example.local:9093/ix-Repository1/ix?cmd=writedoc&id=0" }
+  _upload: "MOCK-UPLOAD-TOKEN"
+  checkinDocEnd:
+    objId: "5392"
+    docs:
+      - { id: 4130, ext: "txt", size: "26" }
+  checkoutDoc:
+    document:
+      docs:
+        - { url: "https://elo.example.local:9093/ix-Repository1/download/pg-hello.txt" }
+  _download: "hello from the playground\n"

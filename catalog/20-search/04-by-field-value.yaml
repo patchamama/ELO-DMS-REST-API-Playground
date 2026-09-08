@@ -1,0 +1,97 @@
+id: search.by-field-value
+order: 4
+category:
+  en: Search
+  de: Suche
+  es: Búsqueda
+title:
+  en: Search by an index-field value
+  de: Nach einem Indexfeld-Wert suchen
+  es: Buscar por el valor de un campo de índice
+summary:
+  en: >
+    `findByIndex.objKeys` matches on the *value* of a metadata field, not the
+    object name. Each entry is `{ name: <field key>, data: [<value>] }`; a value
+    may contain `*` wildcards. This is the "search by metadata" the ELO client's
+    extended search does. (Verified live.)
+  de: "`findByIndex.objKeys` matcht auf den *Wert* eines Metadatenfelds, nicht auf den Objektnamen. Jeder Eintrag ist `{ name: <Feldschlüssel>, data: [<Wert>] }`; ein Wert darf `*`-Platzhalter enthalten. Das ist die \"Suche nach Metadaten\" der erweiterten Suche im ELO-Client. (Live bestätigt.)"
+  es: "`findByIndex.objKeys` compara el *valor* de un campo de metadatos, no el nombre del objeto. Cada entrada es `{ name: <clave del campo>, data: [<valor>] }`; el valor puede llevar comodines `*`. Es la \"búsqueda por metadatos\" de la búsqueda avanzada del cliente de ELO. (Verificado en vivo.)"
+
+elo_api:
+  - method: findFirstSords
+    rpc: POST /rest/IXServicePortIF/findFirstSords
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/findFirstSords
+    notes:
+      en: >
+        findInfo.findByIndex.objKeys = [{ name, data: [value] }]. The field key
+        is the mask line's "Group" name (e.g. ELO_FNAME, SUPPLIER). Combine with
+        maskId / name in the same findByIndex to narrow further.
+      de: 'findInfo.findByIndex.objKeys = [{ name, data: [Wert] }]. Der Feldschlüssel ist der "Gruppen"-Name der Maskenzeile (z. B. ELO_FNAME, SUPPLIER). Im selben findByIndex mit maskId / name kombinierbar.'
+      es: 'findInfo.findByIndex.objKeys = [{ name, data: [valor] }]. La clave del campo es el nombre de "Grupo" de la línea de máscara (p. ej. ELO_FNAME, SUPPLIER). Combinable con maskId / name en el mismo findByIndex.'
+
+result_shape: |
+  504 objects where ELO_FNAME matches "*.js"
+    - clips.min
+    - configDropdownFieldInformation
+    - configDropdownMasksInformation
+    ...
+
+snippets:
+  python: |
+    from elo_playground import connect
+
+    elo = connect()
+
+    field = "ELO_FNAME"        # a metadata field key (mask line "Group" name)
+    value = "*.js"             # wildcards allowed
+
+    rows = elo.find_all(
+        "findFirstSords", "findNextSords", "sords",
+        {
+            "findInfo": {"findByIndex": {"objKeys": [{"name": field, "data": [value]}]}},
+            "max": 50,
+            "sordZ": {"bset": "449304431574384639"},
+        },
+    )
+
+    print(f"{len(rows)} objects where {field} matches {value!r}")
+    for s in rows[:10]:
+        print(f"  - {s['name']}")
+
+  node: |
+    import { connect } from "elo-playground";
+
+    const elo = await connect();
+
+    const field = "ELO_FNAME";  // a metadata field key
+    const value = "*.js";       // wildcards allowed
+
+    const rows = await elo.findAll("findFirstSords", "findNextSords", "sords", {
+      findInfo: { findByIndex: { objKeys: [{ name: field, data: [value] }] } },
+      max: 50,
+      sordZ: { bset: "449304431574384639" },
+    });
+
+    console.log(`${rows.length} objects where ${field} matches ${JSON.stringify(value)}`);
+    rows.slice(0, 10).forEach((s) => console.log(`  - ${s.name}`));
+
+  browser: |
+    const elo = await connect();
+
+    const rows = await elo.findAll("findFirstSords", "findNextSords", "sords", {
+      findInfo: { findByIndex: { objKeys: [{ name: "ELO_FNAME", data: ["*.js"] }] } },
+      max: 50,
+      sordZ: { bset: "449304431574384639" },
+    });
+    console.log(`${rows.length} objects`);
+    rows.slice(0, 10).forEach((s) => console.log(`  - ${s.name}`));
+
+mock:
+  findFirstSords:
+    moreResults: false
+    searchId: "(MOCK-OBJKEYS)"
+    sords:
+      - { id: 701, name: "clips.min", type: 254 }
+      - { id: 702, name: "configDropdownFieldInformation", type: 254 }
+      - { id: 703, name: "configDropdownMasksInformation", type: 254 }

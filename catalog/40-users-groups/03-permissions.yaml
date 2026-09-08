@@ -1,0 +1,94 @@
+id: users.permissions
+order: 3
+category:
+  en: Users & groups
+  de: Benutzer & Gruppen
+  es: Usuarios y grupos
+title:
+  en: Decode a user's rights bitset
+  de: Das Rechte-Bitset eines Benutzers auswerten
+  es: Descifrar el conjunto de bits de permisos de un usuario
+summary:
+  en: >
+    `UserInfo.flags` is a bitset of global rights (`AccessC` constants). Bit 1
+    is "main administrator" (all rights); the rest are individual permissions.
+    This snippet turns the number into a readable list - the same mapping ELO's
+    own admin console shows.
+
+  de: "`UserInfo.flags` ist ein Bitset globaler Rechte (`AccessC`-Konstanten). Bit 1 ist „Hauptadministrator“ (alle Rechte); der Rest sind Einzelberechtigungen. Dieses Snippet macht aus der Zahl eine lesbare Liste – dieselbe Zuordnung wie in der ELO-Admin-Konsole."
+  es: "`UserInfo.flags` es un conjunto de bits de derechos globales (constantes `AccessC`). El bit 1 es “administrador principal” (todos los derechos); el resto son permisos individuales. Este fragmento convierte el número en una lista legible – el mismo mapeo que muestra la consola de administración de ELO."
+
+elo_api:
+- method: checkoutUsers
+  rpc: POST /rest/IXServicePortIF/checkoutUsers
+  doc_url: "{base}/rest/openapi.json"
+  spec: IXServicePortIF/checkoutUsers
+  notes:
+    en: 'Body { ids, checkoutUsersZ: { bset: "513" } }. The rights live in UserInfo.flags.'
+
+    de: 'Body { ids, checkoutUsersZ: { bset: "513" } }. Die Rechte stehen in UserInfo.flags.'
+    es: 'Cuerpo { ids, checkoutUsersZ: { bset: "513" } }. Los permisos están en UserInfo.flags.'
+result_shape: |
+  Administrator: main administrator (all rights)
+  ELO Service: author
+
+snippets:
+  python: |
+    from elo_playground import connect
+
+    elo = connect()
+
+    # AccessC right bits (ELO 25) -> readable label
+    ACCESS = [
+        (1, "main administrator (all rights)"), (2, "edit configuration"),
+        (4, "edit structure"), (8, "edit documents"), (16, "change password"),
+        (128, "edit workflows"), (256, "start workflows"), (512, "delete documents"),
+        (8192, "import"), (16384, "export"), (32768, "edit masks"),
+        (65536, "edit scripts"), (2097152, "edit ACL"), (536870912, "author"),
+    ]
+
+    def rights(flags):
+        flags = flags or 0
+        if flags & 1:
+            return ["main administrator (all rights)"]
+        return [label for bit, label in ACCESS if flags & bit]
+
+    users = elo.call("checkoutUsers", {"ids": [0, 1], "checkoutUsersZ": {"bset": "513"}})
+    for u in users:
+        print(f"{u['name']}: {', '.join(rights(u.get('flags'))) or '(none)'}")
+
+  node: |
+    import { connect } from "elo-playground";
+
+    const elo = await connect();
+
+    // AccessC right bits (ELO 25) -> readable label
+    const ACCESS = [
+      [1, "main administrator (all rights)"], [2, "edit configuration"],
+      [4, "edit structure"], [8, "edit documents"], [16, "change password"],
+      [128, "edit workflows"], [256, "start workflows"], [512, "delete documents"],
+      [8192, "import"], [16384, "export"], [32768, "edit masks"],
+      [65536, "edit scripts"], [2097152, "edit ACL"], [536870912, "author"],
+    ];
+    const rights = (flags = 0) =>
+      flags & 1 ? ["main administrator (all rights)"] : ACCESS.filter(([b]) => flags & b).map(([, l]) => l);
+
+    const users = await elo.call("checkoutUsers", { ids: [0, 1], checkoutUsersZ: { bset: "513" } });
+    for (const u of users) {
+      console.log(`${u.name}: ${rights(u.flags).join(", ") || "(none)"}`);
+    }
+
+  browser: |
+    const elo = await connect();
+    const ACCESS = [
+      [1, "main administrator (all rights)"], [8, "edit documents"],
+      [256, "start workflows"], [536870912, "author"],
+    ];
+    const rights = (f = 0) => (f & 1 ? ["main administrator (all rights)"] : ACCESS.filter(([b]) => f & b).map(([, l]) => l));
+    const users = await elo.call("checkoutUsers", { ids: [0, 1], checkoutUsersZ: { bset: "513" } });
+    users.forEach((u) => console.log(`${u.name}: ${rights(u.flags).join(", ") || "(none)"}`));
+
+mock:
+  checkoutUsers:
+  - {id: 0, name: "Administrator", flags: 1}
+  - {id: 1, name: "ELO Service", flags: 536870912}

@@ -1,0 +1,146 @@
+id: search.pagination
+order: 2
+category:
+  en: Search
+  de: Suche
+  es: Búsqueda
+title:
+  en: Page through a large result set by hand
+  de: Ein großes Ergebnis manuell durchblättern
+  es: Paginar un resultado grande a mano
+summary:
+  en: >
+    The shared client's find_all() hides the loop, but it is worth doing once
+    yourself: findFirst returns a `searchId` and `moreResults`; you call
+    findNext with that `searchId` and an `idx` offset until `moreResults` is
+    false; then findClose releases the server-side search.
+
+  de: "Das `find_all()` des gemeinsamen Clients verbirgt die Schleife, aber einmal sollte man es selbst machen: `findFirst` liefert eine `searchId` und `moreResults`; man ruft `findNext` mit dieser `searchId` und einem `idx`-Offset auf, bis `moreResults` false ist; dann gibt `findClose` die serverseitige Suche frei."
+  es: "El `find_all()` del cliente compartido oculta el bucle, pero conviene hacerlo una vez a mano: `findFirst` devuelve un `searchId` y `moreResults`; se llama a `findNext` con ese `searchId` y un desplazamiento `idx` hasta que `moreResults` sea false; después `findClose` libera la búsqueda del lado del servidor."
+
+elo_api:
+- method: findFirstSords
+  rpc: POST /rest/IXServicePortIF/findFirstSords
+  doc_url: "{base}/rest/openapi.json"
+  spec: IXServicePortIF/findFirstSords
+  notes:
+    en: Returns the first page + searchId + moreResults.
+    de: Liefert die erste Seite + searchId + moreResults.
+    es: Devuelve la primera página + searchId + moreResults.
+- method: findNextSords
+  rpc: POST /rest/IXServicePortIF/findNextSords
+  doc_url: "{base}/rest/openapi.json"
+  spec: IXServicePortIF/findNextSords
+  notes:
+    en: "Body: { searchId, idx, max }. idx is the number of rows already seen."
+    de: 'Body: { searchId, idx, max }. idx ist die Anzahl der bereits gesehenen Zeilen.'
+    es: 'Cuerpo: { searchId, idx, max }. idx es la cantidad de filas ya vistas.'
+- method: findClose
+  rpc: POST /rest/IXServicePortIF/findClose
+  doc_url: "{base}/rest/openapi.json"
+  spec: IXServicePortIF/findClose
+  notes:
+    en: Always call it (or the search lingers until it times out server-side).
+
+    de: Immer aufrufen (sonst bleibt die Suche, bis sie serverseitig abläuft).
+    es: Llamalo siempre (si no, la búsqueda queda abierta hasta que expira en el servidor).
+result_shape: |
+  page 1: 2 rows, moreResults=true
+  page 2: 2 rows, moreResults=true
+  page 3: 2 rows, moreResults=true
+  -> 6 rows so far (more available: true)
+
+snippets:
+  python: |
+    from elo_playground import connect
+
+    elo = connect()
+
+    body = {
+        "findInfo": {"findByIndex": {"name": "Invoice *"}},
+        "max": 2,                                   # tiny page size to force paging
+        "sordZ": {"bset": "449304431574384639"},
+    }
+    res = elo.call("findFirstSords", body)
+    search_id = res["searchId"]
+    rows = list(res.get("sords", []))
+    print(f"page 1: {len(rows)} rows, moreResults={res.get('moreResults')}")
+
+    page = 1
+    while res.get("moreResults") and page < 3:        # stop after a few pages for the demo
+        page += 1
+        res = elo.call("findNextSords", {
+            "searchId": search_id, "idx": len(rows), "max": 2,
+            "sordZ": body["sordZ"],          # IX needs the selector on every page
+        })
+        rows.extend(res.get("sords", []))
+        print(f"page {page}: {len(res.get('sords', []))} rows, moreResults={res.get('moreResults')}")
+
+    elo.call("findClose", {"searchId": search_id})   # release the search
+    print(f"-> {len(rows)} rows so far (more available: {bool(res.get('moreResults'))})")
+
+  node: |
+    import { connect } from "elo-playground";
+
+    const elo = await connect();
+
+    const body = {
+      findInfo: { findByIndex: { name: "Invoice *" } },
+      max: 2,                                        // tiny page size to force paging
+      sordZ: { bset: "449304431574384639" },
+    };
+    let res = await elo.call("findFirstSords", body);
+    const searchId = res.searchId;
+    let rows = [...(res.sords || [])];
+    console.log(`page 1: ${rows.length} rows, moreResults=${res.moreResults}`);
+
+    let page = 1;
+    while (res.moreResults && page < 3) {              // stop after a few pages for the demo
+      page += 1;
+      res = await elo.call("findNextSords", {
+        searchId, idx: rows.length, max: 2,
+        sordZ: body.sordZ,               // IX needs the selector on every page
+      });
+      rows = rows.concat(res.sords || []);
+      console.log(`page ${page}: ${(res.sords || []).length} rows, moreResults=${res.moreResults}`);
+    }
+
+    await elo.call("findClose", { searchId });        // release the search
+    console.log(`-> ${rows.length} rows so far (more available: ${!!res.moreResults})`);
+
+  browser: |
+    const elo = await connect();
+
+    let res = await elo.call("findFirstSords", {
+      findInfo: { findByIndex: { name: "Invoice *" } },
+      max: 2,
+      sordZ: { bset: "449304431574384639" },
+    });
+    const searchId = res.searchId;
+    let rows = [...(res.sords || [])];
+    console.log(`page 1: ${rows.length} rows`);
+    const sordZ = { bset: "449304431574384639" };
+    let page = 1;
+    while (res.moreResults && page++ < 3) {
+      res = await elo.call("findNextSords", { searchId, idx: rows.length, max: 2, sordZ });
+      rows = rows.concat(res.sords || []);
+      console.log(`+ ${(res.sords || []).length} rows`);
+    }
+    await elo.call("findClose", { searchId });
+    console.log(`-> ${rows.length} rows so far (more available: ${!!res.moreResults})`);
+
+mock:
+  findFirstSords:
+    moreResults: true
+    searchId: "(MOCK-PAGED)"
+    sords:
+    - {id: 5001, name: "Invoice 2026-001.pdf", type: 254}
+    - {id: 5002, name: "Invoice 2026-002.pdf", type: 254}
+  findNextSords:
+  - moreResults: true
+    sords:
+    - {id: 5003, name: "Invoice 2026-003.pdf", type: 254}
+    - {id: 5004, name: "Invoice 2026-004.pdf", type: 254}
+  - moreResults: false
+    sords:
+    - {id: 5005, name: "Invoice 2026-005.pdf", type: 254}

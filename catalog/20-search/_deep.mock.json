@@ -1,0 +1,14 @@
+{
+  "_comment": "Mock responses for the runnable blocks in _deep.md (topic_id = category id '20-search').",
+  "findFirstSords": {
+    "moreResults": false,
+    "searchId": "(MOCK-DEEP-SEARCH)",
+    "countInfo": { "count": 7, "estimate": true },
+    "sords": [
+      { "id": 5001, "name": "Invoice 2026-001.pdf", "type": 254, "maskName": "Invoice" },
+      { "id": 5002, "name": "Invoice 2026-002.pdf", "type": 254, "maskName": "Invoice" },
+      { "id": 5003, "name": "Invoice 2026-003.pdf", "type": 254, "maskName": "Invoice" }
+    ]
+  },
+  "findNextSords": { "moreResults": false, "sords": [] }
+}

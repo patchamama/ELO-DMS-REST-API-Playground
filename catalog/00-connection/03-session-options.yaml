@@ -1,0 +1,73 @@
+id: connection.session-options
+order: 3
+category:
+  en: Connection & session
+  de: Verbindung & Sitzung
+  es: Conexión y sesión
+title:
+  en: List session options
+  de: Sitzungsoptionen auflisten
+  es: Listar opciones de sesión
+summary:
+  en: >
+    `getSessionOptions` returns the key/value options that apply to the current
+    session (client build defaults, feature switches, path settings). Handy for
+    discovering what a given ELO install has configured.
+
+  de: "`getSessionOptions` liefert die Schlüssel/Wert-Optionen der aktuellen Sitzung (Client-Build-Voreinstellungen, Feature-Schalter, Pfadeinstellungen). Praktisch, um herauszufinden, was eine bestimmte ELO-Installation konfiguriert hat."
+  es: "`getSessionOptions` devuelve las opciones clave/valor que aplican a la sesión actual (valores por defecto del build del cliente, interruptores de funciones, rutas). Útil para descubrir qué tiene configurado una instalación de ELO concreta."
+
+elo_api:
+- method: getSessionOptions
+  rpc: POST /rest/IXServicePortIF/getSessionOptions
+  doc_url: "{base}/rest/openapi.json"
+  spec: IXServicePortIF/getSessionOptions
+  notes:
+    en: No parameters. Returns an array of { key, value } pairs.
+
+    de: Keine Parameter. Liefert ein Array aus { key, value }-Paaren.
+    es: Sin parámetros. Devuelve un array de pares { key, value }.
+result_shape: |
+  { "options": [ { "key": "CLIENT.OPTION.SOMETHING", "value": "1" }, ... ] }
+
+snippets:
+  python: |
+    from elo_playground import connect
+
+    elo = connect()
+
+    res = elo.call("getSessionOptions", {})
+    options = res.get("options", res if isinstance(res, list) else [])
+
+    print(f"{len(options)} session options")
+    for opt in options[:10]:                       # just the first few
+        print(f"  {opt['key']} = {opt['value']}")
+
+  node: |
+    import { connect } from "elo-playground";
+
+    const elo = await connect();
+
+    const res = await elo.call("getSessionOptions", {});
+    const options = res.options || (Array.isArray(res) ? res : []);
+
+    console.log(`${options.length} session options`);
+    for (const opt of options.slice(0, 10)) {
+      console.log(`  ${opt.key} = ${opt.value}`);
+    }
+
+  browser: |
+    const elo = await connect();
+
+    const res = await elo.call("getSessionOptions", {});
+    const options = res.options || (Array.isArray(res) ? res : []);
+    console.log(`${options.length} session options`);
+    options.slice(0, 10).forEach((o) => console.log(`  ${o.key} = ${o.value}`));
+
+mock:
+  getSessionOptions:
+    options:
+    - {key: "CLIENT.LANGUAGE", value: "de"}
+    - {key: "CLIENT.OPTION.SHOW.MEMOS", value: "1"}
+    - {key: "IX.FEATURE.FULLTEXT", value: "enabled"}
+    - {key: "IX.PATH.TEMP", value: "C:\\ELO\\temp"}
