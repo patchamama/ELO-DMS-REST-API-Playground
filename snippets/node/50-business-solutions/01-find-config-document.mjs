@@ -1,0 +1,28 @@
+// import the shared client:  import { connect } from "elo-playground";
+// topic:    Find a Business Solution config document
+// category: Business Solutions
+// id:       business-solutions.find-config
+
+import { connect } from "elo-playground";
+
+const elo = await connect();
+
+// 1) find "*.config.json" documents (type >= 254 is a document)
+const hits = await elo.findAll("findFirstSords", "findNextSords", "sords", {
+  findInfo: { findByIndex: { name: "*.config.json" } },
+  max: 50,
+  sordZ: { bset: "449304431574384639" },
+});
+const doc = hits.find((s) => Number(s.type || 0) >= 254);
+console.log("config document:", doc.name, "id", doc.id);
+
+// 2) check it out for an authenticated download URL
+const info = await elo.call("checkoutDoc", {
+  objId: String(doc.id),
+  editInfoZ: { bset: "320", sordZ: { bset: "0" } },
+});
+const url = (info.document?.docs || [{}])[0].url;
+
+// 3) download and parse
+const cfg = JSON.parse(await elo.download(url, { maxBytes: 100000 }));
+console.log("top-level keys:", Object.keys(cfg).slice(0, 10));

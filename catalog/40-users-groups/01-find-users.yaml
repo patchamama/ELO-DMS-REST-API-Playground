@@ -1,0 +1,91 @@
+id: users.find-users
+order: 1
+category:
+  en: Users & groups
+  de: Benutzer & Gruppen
+  es: Usuarios y grupos
+title:
+  en: List users (and groups)
+  de: Benutzer (und Gruppen) auflisten
+  es: Listar usuarios (y grupos)
+summary:
+  en: >
+    `findFirstUsers` enumerates principals. The `findUserInfo` selector filters:
+    `onlyUsers` for people, `onlyGroups` for groups. Rows come back under
+    `sortedResult`. type 0 is a group, non-zero is a user.
+
+  de: "`findFirstUsers` zählt Principals auf. Der `findUserInfo`-Selektor filtert: `onlyUsers` für Personen, `onlyGroups` für Gruppen. Die Zeilen stehen unter `sortedResult`. Typ 0 ist eine Gruppe, alles andere ein Benutzer."
+  es: "`findFirstUsers` enumera los principales. El selector `findUserInfo` filtra: `onlyUsers` para personas, `onlyGroups` para grupos. Las filas llegan bajo `sortedResult`. El tipo 0 es un grupo; cualquier otro valor, un usuario."
+
+elo_api:
+- method: findFirstUsers
+  rpc: POST /rest/IXServicePortIF/findFirstUsers
+  doc_url: "{base}/rest/openapi.json"
+  spec: IXServicePortIF/findFirstUsers
+  notes:
+    en: >
+      Body { findUserInfo: { onlyUsers: true } , max }. Rows are in
+      "sortedResult", not "sords". Paginated the same findNext/findClose way.
+    de: 'Body { findUserInfo: { onlyUsers: true }, max }. Die Zeilen stehen in "sortedResult", nicht in "sords". Paginierung wie bei findNext/findClose.'
+    es: 'Cuerpo { findUserInfo: { onlyUsers: true }, max }. Las filas están en "sortedResult", no en "sords". Paginación igual que con findNext/findClose.'
+- method: findNextUsers
+  rpc: POST /rest/IXServicePortIF/findNextUsers
+  doc_url: "{base}/rest/openapi.json"
+  spec: IXServicePortIF/findNextUsers
+  notes:
+    en: Next page for the searchId from findFirstUsers.
+
+    de: Nächste Seite zur searchId aus findFirstUsers.
+    es: Página siguiente para el searchId de findFirstUsers.
+result_shape: |
+  [ { "id": 0,  "name": "Administrator", "type": 1, "displayName": "Administrator" },
+    { "id": 12, "name": "m.muster",      "type": 1, "displayName": "Max Muster" } ]
+
+snippets:
+  python: |
+    from elo_playground import connect
+
+    elo = connect()
+
+    users = elo.find_all(
+        "findFirstUsers", "findNextUsers", "sortedResult",
+        {"findUserInfo": {"onlyUsers": True}, "max": 200},
+    )
+
+    print(f"{len(users)} users")
+    for u in users:
+        print(f"  [{u['id']:>5}] {u['name']:<16} {u.get('displayName', '')}")
+
+  node: |
+    import { connect } from "elo-playground";
+
+    const elo = await connect();
+
+    const users = await elo.findAll(
+      "findFirstUsers", "findNextUsers", "sortedResult",
+      { findUserInfo: { onlyUsers: true }, max: 200 },
+    );
+
+    console.log(`${users.length} users`);
+    for (const u of users) {
+      console.log(`  [${String(u.id).padStart(5)}] ${u.name.padEnd(16)} ${u.displayName || ""}`);
+    }
+
+  browser: |
+    const elo = await connect();
+
+    const users = await elo.findAll(
+      "findFirstUsers", "findNextUsers", "sortedResult",
+      { findUserInfo: { onlyUsers: true }, max: 200 },
+    );
+    console.log(`${users.length} users`);
+    users.forEach((u) => console.log(`  [${u.id}] ${u.name}  ${u.displayName || ""}`));
+
+mock:
+  findFirstUsers:
+    moreResults: false
+    searchId: "(MOCK-USERS)"
+    sortedResult:
+    - {id: 0, name: "Administrator", type: 1, displayName: "Administrator"}
+    - {id: 1, name: "ELO Service", type: 1, displayName: "ELO Service"}
+    - {id: 12, name: "m.muster", type: 1, displayName: "Max Muster"}

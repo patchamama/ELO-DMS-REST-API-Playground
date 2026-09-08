@@ -1,0 +1,9 @@
+# --- ELO API Playground (standalone subproject) ---
+.env
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+node_modules/
+runtime/
+*.log

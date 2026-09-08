@@ -1,0 +1,128 @@
+id: business-solutions.find-config
+order: 1
+category:
+  en: Business Solutions
+  de: Business Solutions
+  es: Business Solutions
+title:
+  en: Find a Business Solution config document
+  de: Das Konfigurationsdokument einer Business Solution finden
+  es: Encontrar el documento de configuración de una Business Solution
+summary:
+  en: >
+    ELO Business Solutions (Invoice, Contract, HR, ...) store their settings as
+    ordinary JSON documents in the archive. There is no dedicated RPC: you
+    search by name with `findFirstSords`, pick the best match, then download the
+    document bytes and parse them.
+
+  de: "ELO Business Solutions (Rechnung, Vertrag, HR, …) speichern ihre Einstellungen als ganz normale JSON-Dokumente im Archiv. Es gibt keinen eigenen RPC: man sucht per Name mit `findFirstSords`, wählt den besten Treffer, lädt dann die Dokument-Bytes herunter und parst sie."
+  es: "Las ELO Business Solutions (Factura, Contrato, RR. HH., …) guardan su configuración como documentos JSON normales en el archivo. No hay un RPC específico: se busca por nombre con `findFirstSords`, se elige la mejor coincidencia y luego se descargan los bytes del documento y se parsean."
+
+elo_api:
+- method: findFirstSords
+  rpc: POST /rest/IXServicePortIF/findFirstSords
+  doc_url: "{base}/rest/openapi.json"
+  spec: IXServicePortIF/findFirstSords
+  notes:
+    en: 'findByIndex.name "<keyword>*" locates candidate config documents.'
+    de: findByIndex.name "<Stichwort>*" findet Kandidaten für Konfigurationsdokumente.
+    es: findByIndex.name "<palabra clave>*" localiza documentos de configuración candidatos.
+- method: checkoutDoc
+  rpc: POST /rest/IXServicePortIF/checkoutDoc
+  doc_url: "{base}/rest/openapi.json"
+  spec: IXServicePortIF/checkoutDoc
+  notes:
+    en: >
+      editInfoZ {bset:"320"} = EDIT_INFO.mbDocument - returns
+      result.document.docs[0].url, the authenticated download link.
+
+    de: editInfoZ {bset:"320"} = EDIT_INFO.mbDocument - liefert result.document.docs[0].url, den authentifizierten Download-Link.
+    es: editInfoZ {bset:"320"} = EDIT_INFO.mbDocument - devuelve result.document.docs[0].url, el enlace de descarga autenticado.
+result_shape: |
+  config document: contract.Dashboard.config.json id 3307
+  top-level keys: ['version', 'bookingCircles', 'ocr', ...]
+
+snippets:
+  python: |
+    import json
+    from elo_playground import connect
+
+    elo = connect()
+
+    # 1) find "*.config.json" documents (type >= 254 is a document, not a folder)
+    hits = elo.find_all(
+        "findFirstSords", "findNextSords", "sords",
+        {"findInfo": {"findByIndex": {"name": "*.config.json"}}, "max": 50,
+         "sordZ": {"bset": "449304431574384639"}},
+    )
+    docs = [s for s in hits if int(s.get("type", 0)) >= 254]
+    doc = docs[0]
+    print("config document:", doc["name"], "id", doc["id"])
+
+    # 2) check it out to get an authenticated download URL
+    info = elo.call("checkoutDoc", {"objId": str(doc["id"]),
+                                    "editInfoZ": {"bset": "320", "sordZ": {"bset": "0"}}})
+    url = ((info.get("document") or {}).get("docs") or [{}])[0].get("url")
+
+    # 3) download the bytes on the same session and parse the JSON
+    cfg = json.loads(elo.download(url, max_bytes=100_000))
+    print("top-level keys:", list(cfg)[:10])
+
+  node: |
+    import { connect } from "elo-playground";
+
+    const elo = await connect();
+
+    // 1) find "*.config.json" documents (type >= 254 is a document)
+    const hits = await elo.findAll("findFirstSords", "findNextSords", "sords", {
+      findInfo: { findByIndex: { name: "*.config.json" } },
+      max: 50,
+      sordZ: { bset: "449304431574384639" },
+    });
+    const doc = hits.find((s) => Number(s.type || 0) >= 254);
+    console.log("config document:", doc.name, "id", doc.id);
+
+    // 2) check it out for an authenticated download URL
+    const info = await elo.call("checkoutDoc", {
+      objId: String(doc.id),
+      editInfoZ: { bset: "320", sordZ: { bset: "0" } },
+    });
+    const url = (info.document?.docs || [{}])[0].url;
+
+    // 3) download and parse
+    const cfg = JSON.parse(await elo.download(url, { maxBytes: 100000 }));
+    console.log("top-level keys:", Object.keys(cfg).slice(0, 10));
+
+  browser: |
+    const elo = await connect();
+
+    const hits = await elo.findAll("findFirstSords", "findNextSords", "sords", {
+      findInfo: { findByIndex: { name: "*.config.json" } },
+      max: 50,
+      sordZ: { bset: "449304431574384639" },
+    });
+    const doc = hits.find((s) => Number(s.type || 0) >= 254);
+    console.log("config document:", doc.name, "id", doc.id);
+    const info = await elo.call("checkoutDoc", {
+      objId: String(doc.id),
+      editInfoZ: { bset: "320", sordZ: { bset: "0" } },
+    });
+    // The bytes live on ELO's document connector - fetch them from the Python
+    // or Node snippet (the browser cannot reach it, CORS).
+    console.log("download url:", (info.document?.docs || [{}])[0].url);
+
+mock:
+  findFirstSords:
+    moreResults: false
+    searchId: "(MOCK-BS)"
+    sords:
+    - {id: 8122, name: "invoice", maskName: "Folder", type: 1}
+    - {id: 8123, name: "invoice.config.json", maskName: "ELO.BS.Config", type: 254}
+  checkoutDoc:
+    document:
+      docs:
+      - url: "https://elo.example.local:9093/ix-Repository1/download/invoice.config.json?ticket=MOCK"
+  _download:
+    version: 3
+    bookingCircles: ["DE", "AT"]
+    ocr: true

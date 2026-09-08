@@ -1,0 +1,113 @@
+id: masks.list
+order: 1
+category:
+  en: Metadata masks
+  de: Verschlagwortungsmasken
+  es: Máscaras de metadatos
+title:
+  en: List metadata masks and their fields
+  de: Verschlagwortungsmasken und ihre Felder auflisten
+  es: Listar máscaras de metadatos y sus campos
+summary:
+  en: >
+    A "mask" (Verschlagwortungsmaske) is the metadata form attached to a Sord
+    type - Invoice, Contract, E-mail, ... `findFirstDocMasks` returns them all;
+    each mask carries its `lines` (the index fields) with a numeric `type` you
+    map to a readable kind.
+
+  de: "Eine „Maske“ (Verschlagwortungsmaske) ist das Metadatenformular zu einem Sord-Typ – Rechnung, Vertrag, E-Mail, … `findFirstDocMasks` liefert alle; jede Maske trägt ihre `lines` (die Indexfelder) mit einem numerischen `type`, den man auf eine lesbare Art abbildet."
+  es: "Una “máscara” (Verschlagwortungsmaske) es el formulario de metadatos asociado a un tipo de Sord – Factura, Contrato, Correo, … `findFirstDocMasks` las devuelve todas; cada máscara lleva sus `lines` (los campos de índice) con un `type` numérico que se traduce a una clase legible."
+
+elo_api:
+- method: findFirstDocMasks
+  rpc: POST /rest/IXServicePortIF/findFirstDocMasks
+  doc_url: "{base}/rest/openapi.json"
+  spec: IXServicePortIF/findFirstDocMasks
+  notes:
+    en: 'Body { findInfo: { packageGuid: "", maskIdsOrNames: [] }, max }. Result key "docMasks".'
+    de: 'Body { findInfo: { packageGuid: "", maskIdsOrNames: [] }, max }. Ergebnisschlüssel "docMasks".'
+    es: 'Cuerpo { findInfo: { packageGuid: "", maskIdsOrNames: [] }, max }. Clave de resultado "docMasks".'
+- method: findNextDocMasks
+  rpc: POST /rest/IXServicePortIF/findNextDocMasks
+  doc_url: "{base}/rest/openapi.json"
+  spec: IXServicePortIF/findNextDocMasks
+  notes:
+    en: Next page for the searchId from findFirstDocMasks.
+
+    de: Nächste Seite zur searchId aus findFirstDocMasks.
+    es: Página siguiente para el searchId de findFirstDocMasks.
+result_shape: |
+  Invoice (4 fields): Supplier [text], Invoice date [iso-date], Amount [number], Booking circle [keyword-list]
+  Contract (2 fields): Partner [text], Valid until [iso-date]
+
+snippets:
+  python: |
+    from elo_playground import connect
+
+    elo = connect()
+
+    # DocMaskLine.type -> readable kind (ELO 25 DOC_MASK_LINE constants, abridged)
+    KINDS = {3000: "text", 3001: "date", 3002: "number", 3004: "iso-date",
+             3005: "keyword-list", 3006: "user", 3013: "integer"}
+
+    masks = elo.find_all(
+        "findFirstDocMasks", "findNextDocMasks", "docMasks",
+        {"findInfo": {"packageGuid": "", "maskIdsOrNames": []}, "max": 500},
+    )
+
+    for m in masks:
+        fields = [f"{ln.get('name')} [{KINDS.get(ln.get('type'), ln.get('type'))}]"
+                  for ln in (m.get("lines") or [])]
+        print(f"{m['name']} ({len(fields)} fields): {', '.join(fields)}")
+
+  node: |
+    import { connect } from "elo-playground";
+
+    const elo = await connect();
+
+    // DocMaskLine.type -> readable kind (ELO 25 DOC_MASK_LINE constants, abridged)
+    const KINDS = { 3000: "text", 3001: "date", 3002: "number", 3004: "iso-date",
+                    3005: "keyword-list", 3006: "user", 3013: "integer" };
+
+    const masks = await elo.findAll(
+      "findFirstDocMasks", "findNextDocMasks", "docMasks",
+      { findInfo: { packageGuid: "", maskIdsOrNames: [] }, max: 500 },
+    );
+
+    for (const m of masks) {
+      const fields = (m.lines || []).map((ln) => `${ln.name} [${KINDS[ln.type] || ln.type}]`);
+      console.log(`${m.name} (${fields.length} fields): ${fields.join(", ")}`);
+    }
+
+  browser: |
+    const elo = await connect();
+    const KINDS = { 3000: "text", 3004: "iso-date", 3002: "number", 3005: "keyword-list" };
+    const masks = await elo.findAll(
+      "findFirstDocMasks", "findNextDocMasks", "docMasks",
+      { findInfo: { packageGuid: "", maskIdsOrNames: [] }, max: 500 },
+    );
+    masks.forEach((m) => {
+      const fields = (m.lines || []).map((ln) => `${ln.name} [${KINDS[ln.type] || ln.type}]`);
+      console.log(`${m.name}: ${fields.join(", ")}`);
+    });
+
+mock:
+  findFirstDocMasks:
+    moreResults: false
+    searchId: "(MOCK-MASKS)"
+    docMasks:
+    - id: 0
+      name: "Folder"
+      lines: []
+    - id: 20
+      name: "Invoice"
+      lines:
+      - {name: "Supplier", type: 3000}
+      - {name: "Invoice date", type: 3004}
+      - {name: "Amount", type: 3002}
+      - {name: "Booking circle", type: 3005}
+    - id: 21
+      name: "Contract"
+      lines:
+      - {name: "Partner", type: 3000}
+      - {name: "Valid until", type: 3004}

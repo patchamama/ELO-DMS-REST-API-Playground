@@ -1,0 +1,133 @@
+id: users.create
+order: 4
+category:
+  en: Users & groups
+  de: Benutzer & Gruppen
+  es: Usuarios y grupos
+title:
+  en: Create a user and a group, link them (write)
+  de: Einen Benutzer und eine Gruppe anlegen und verknüpfen (schreibend)
+  es: Crear un usuario y un grupo y vincularlos (escritura)
+summary:
+  en: >
+    `checkinUsers` creates and updates principals - a UserInfo with `id: -1`
+    creates a new one; `type` 1 = user, 0 = group. Group membership is just the
+    user's `groupList`: check the user out, append the group id, check it back
+    in. `deleteUsers` removes them. This WRITES. (Verified live - the
+    test user and group were deleted.)
+  de: "`checkinUsers` legt Principals an und aktualisiert sie - ein UserInfo mit `id: -1` legt einen neuen an; `type` 1 = Benutzer, 0 = Gruppe. Gruppenzugehörigkeit ist einfach die `groupList` des Benutzers: Benutzer auschecken, Gruppen-ID anhängen, wieder einchecken. `deleteUsers` entfernt sie. Das SCHREIBT. (Live bestätigt - Testbenutzer und -gruppe wurden gelöscht.)"
+  es: "`checkinUsers` crea y actualiza principales - un UserInfo con `id: -1` crea uno nuevo; `type` 1 = usuario, 0 = grupo. La pertenencia a un grupo es simplemente el `groupList` del usuario: hacé checkout del usuario, agregá el id del grupo, hacé checkin. `deleteUsers` los quita. Esto ESCRIBE. (Verificado en vivo - el usuario y el grupo de prueba se borraron.)"
+
+elo_api:
+  - method: checkinUsers
+    rpc: POST /rest/IXServicePortIF/checkinUsers
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/checkinUsers
+    notes:
+      en: >
+        Body { userInfos: [UserInfo], checkinUsersZ, unlockZ }. New principal:
+        id -1. `type` is fixed at creation. Passwords must satisfy the server
+        policy (this instance: >= 15 chars). Returns the new ids.
+      de: 'Body { userInfos: [UserInfo], checkinUsersZ, unlockZ }. Neuer Principal: id -1. `type` ist bei der Erstellung fix. Passwörter müssen der Serverrichtlinie genügen (diese Instanz: >= 15 Zeichen). Liefert die neuen IDs.'
+      es: 'Cuerpo { userInfos: [UserInfo], checkinUsersZ, unlockZ }. Nuevo principal: id -1. El `type` es fijo al crear. Las contraseñas deben cumplir la política del servidor (esta instancia: >= 15 caracteres). Devuelve los nuevos ids.'
+  - method: checkoutUsers
+    rpc: POST /rest/IXServicePortIF/checkoutUsers
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/checkoutUsers
+    notes:
+      en: 'checkoutUsersZ {bset:"513"} (BY_IDS) to read a full UserInfo for editing.'
+      de: 'checkoutUsersZ {bset:"513"} (BY_IDS), um ein vollständiges UserInfo zum Bearbeiten zu lesen.'
+      es: 'checkoutUsersZ {bset:"513"} (BY_IDS) para leer un UserInfo completo y editarlo.'
+  - method: deleteUsers
+    rpc: POST /rest/IXServicePortIF/deleteUsers
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/deleteUsers
+    notes:
+      en: 'Body { ids: [int], unlockZ }. Removing a user is immediate, no recycle bin.'
+      de: 'Body { ids: [int], unlockZ }. Einen Benutzer zu entfernen wirkt sofort, kein Papierkorb.'
+      es: 'Cuerpo { ids: [int], unlockZ }. Quitar un usuario es inmediato, sin papelera.'
+
+result_shape: |
+  created user id: 27
+  created group id: 28
+  user is now in groups: [3, 28, 9999]
+
+snippets:
+  python: |
+    from elo_playground import connect
+
+    elo = connect()
+
+    # 1) create a user (type 1) - id -1 means "new"
+    user_ids = elo.call("checkinUsers", {
+        "userInfos": [{"id": -1, "name": "pg.demo.user", "type": 1,
+                       "pwd": "PlaygroundDemoUser2026!"}],
+        "checkinUsersZ": {"bset": "1"},
+        "unlockZ": {"bset": "1"},
+    })
+    uid = user_ids[0]
+    print("created user id:", uid)
+
+    # 2) create a group (type 0)
+    group_ids = elo.call("checkinUsers", {
+        "userInfos": [{"id": -1, "name": "pg.demo.group", "type": 0}],
+        "checkinUsersZ": {"bset": "1"},
+        "unlockZ": {"bset": "1"},
+    })
+    gid = group_ids[0]
+    print("created group id:", gid)
+
+    # 3) add the user to the group (edit its groupList)
+    ui = elo.call("checkoutUsers", {"ids": [uid], "checkoutUsersZ": {"bset": "513"}})[0]
+    ui["groupList"] = sorted(set((ui.get("groupList") or []) + [gid]))
+    elo.call("checkinUsers", {"userInfos": [ui], "checkinUsersZ": {"bset": "513"},
+                              "unlockZ": {"bset": "1"}})
+
+    back = elo.call("checkoutUsers", {"ids": [uid], "checkoutUsersZ": {"bset": "513"}})[0]
+    print("user is now in groups:", back.get("groupList"))
+
+  node: |
+    import { connect } from "elo-playground";
+
+    const elo = await connect();
+
+    // 1) create a user (type 1) - id -1 means "new"
+    const [uid] = await elo.call("checkinUsers", {
+      userInfos: [{ id: -1, name: "pg.demo.user", type: 1, pwd: "PlaygroundDemoUser2026!" }],
+      checkinUsersZ: { bset: "1" },
+      unlockZ: { bset: "1" },
+    });
+    console.log("created user id:", uid);
+
+    // 2) create a group (type 0)
+    const [gid] = await elo.call("checkinUsers", {
+      userInfos: [{ id: -1, name: "pg.demo.group", type: 0 }],
+      checkinUsersZ: { bset: "1" },
+      unlockZ: { bset: "1" },
+    });
+    console.log("created group id:", gid);
+
+    // 3) add the user to the group (edit its groupList)
+    const ui = (await elo.call("checkoutUsers", { ids: [uid], checkoutUsersZ: { bset: "513" } }))[0];
+    ui.groupList = [...new Set([...(ui.groupList || []), gid])].sort((a, b) => a - b);
+    await elo.call("checkinUsers", { userInfos: [ui], checkinUsersZ: { bset: "513" }, unlockZ: { bset: "1" } });
+
+    const back = (await elo.call("checkoutUsers", { ids: [uid], checkoutUsersZ: { bset: "513" } }))[0];
+    console.log("user is now in groups:", back.groupList);
+
+  browser: |
+    const elo = await connect();
+    const [uid] = await elo.call("checkinUsers", {
+      userInfos: [{ id: -1, name: "pg.demo.user", type: 1, pwd: "PlaygroundDemoUser2026!" }],
+      checkinUsersZ: { bset: "1" }, unlockZ: { bset: "1" },
+    });
+    console.log("created user id:", uid);
+
+mock:
+  checkinUsers:
+    - [27]
+    - [28]
+    - []
+  checkoutUsers:
+    - - { id: 27, name: "pg.demo.user", type: 1, groupList: [3, 9999] }
+    - - { id: 27, name: "pg.demo.user", type: 1, groupList: [3, 28, 9999] }

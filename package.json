@@ -1,0 +1,18 @@
+{
+  "name": "elo-api-playground",
+  "version": "0.1.0",
+  "description": "Interactive learning site for the ELO IX REST API - Node side (runner service + shared client)",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node backend-node/src/server.mjs",
+    "test": "node --test backend-node/test/*.test.mjs"
+  },
+  "dependencies": {
+    "elo-playground": "file:shared/node",
+    "express": "^4.19.2"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -1,0 +1,194 @@
+"""FastAPI entrypoint: the page, the catalogue API, the snippet runner, the
+browser -> ELO proxy.
+
+Run it with::
+
+    cd backend-python
+    python -m uvicorn app.main:app --host 127.0.0.1 --port 8010
+
+or ``python -m app.main``.
+"""
+from __future__ import annotations
+
+import hashlib
+
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from starlette.requests import Request
+
+from . import catalog as catalog_mod
+from . import openapi_ref
+from .client_lib import client_lib
+from .config import get_settings
+from .elo_session import EloError, get_client, mock_client
+from .i18n import catalogue
+from .models import EloCreds, ProxyRequest, RunRequest, RunResult
+from .runner import mock_data, run
+
+settings = get_settings()
+app = FastAPI(title="ELO API Playground", version="0.1.0")
+
+# The browser run-sandbox is an <iframe srcdoc> with an opaque ("null") origin;
+# its fetch() to /api/elo/proxy is therefore cross-origin. This is a local
+# learning tool bound to localhost, so a permissive CORS policy is acceptable.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+templates = Jinja2Templates(directory=str(settings.frontend_dir / "templates"))
+
+app.mount("/static", StaticFiles(directory=str(settings.frontend_dir / "static")), name="static")
+app.mount("/vendor", StaticFiles(directory=str(settings.frontend_dir / "vendor")), name="vendor")
+# The browser client module, served straight from shared/browser/.
+app.mount("/client", StaticFiles(directory=str(settings.shared_browser)), name="client")
+
+
+def _static_version() -> str:
+    """Hash of the newest mtime under frontend/static - a cache-bust token."""
+    newest = 0.0
+    for p in (settings.frontend_dir / "static").glob("**/*"):
+        if p.is_file():
+            newest = max(newest, p.stat().st_mtime)
+    return hashlib.sha1(str(newest).encode()).hexdigest()[:8]
+
+
+# ---- page ------------------------------------------------------------- #
+@app.get("/", response_class=HTMLResponse)
+def index(request: Request):
+    return templates.TemplateResponse(
+        request,
+        "index.html",
+        {
+            "static_v": _static_version(),
+            "default_base_url": settings.elo_base_url,
+            "default_user": settings.elo_user,
+            "mock_default": settings.mock,
+        },
+    )
+
+
+# ---- catalogue ------------------------------------------------------- #
+@app.get("/api/i18n/{lang}")
+def api_i18n(lang: str):
+    return catalogue(lang)
+
+
+@app.get("/api/catalog")
+def api_catalog(lang: str = "en"):
+    return {"categories": catalog_mod.categories(lang)}
+
+
+@app.get("/api/topics/{topic_id}")
+def api_topic(topic_id: str, lang: str = "en"):
+    topic = catalog_mod.get_topic(topic_id, lang)
+    if topic is None:
+        raise HTTPException(404, f"unknown topic: {topic_id}")
+    return topic.model_dump()
+
+
+@app.get("/api/deep/{category_id}")
+def api_deep(category_id: str):
+    md = catalog_mod.deep_doc(category_id)
+    if md is None:
+        raise HTTPException(404, f"no deep-dive for category: {category_id}")
+    return {"category_id": category_id, "markdown": md}
+
+
+@app.get("/api/client-lib")
+def api_client_lib():
+    """Source of the shared elo_playground teaching client (all three runtimes)."""
+    return client_lib()
+
+
+# ---- openapi.json reference ("API reference" tab) ---------------- #
+def _spec(mock: bool, base_url: str | None):
+    return openapi_ref.load_spec(base_url or settings.elo_base_url, mock=mock)
+
+
+@app.get("/api/spec/services")
+def api_spec_services(mock: bool = True, base_url: str | None = None):
+    spec = _spec(mock, base_url)
+    return {"info": openapi_ref.spec_info(spec), "services": openapi_ref.services(spec)}
+
+
+@app.get("/api/spec/operations")
+def api_spec_operations(service: str | None = None, mock: bool = True, base_url: str | None = None):
+    return {"operations": openapi_ref.operations(_spec(mock, base_url), service)}
+
+
+@app.get("/api/spec/op/{operation_id}")
+def api_spec_op(operation_id: str, mock: bool = True, base_url: str | None = None):
+    detail = openapi_ref.operation_detail(_spec(mock, base_url), operation_id)
+    if detail is None:
+        raise HTTPException(404, f"unknown operation: {operation_id}")
+    detail["snippets"] = {lang: openapi_ref.generate(detail, lang) for lang in ("python", "node", "browser")}
+    return detail
+
+
+# ---- runner -------------------------------------------------------- #
+@app.post("/api/run", response_model=RunResult)
+def api_run(req: RunRequest):
+    return run(req)
+
+
+# ---- browser -> ELO proxy --------------------------------------- #
+@app.post("/api/elo/proxy")
+def api_proxy(req: ProxyRequest):
+    """One RPC call on behalf of a browser snippet. Never raises across the
+    boundary - returns ``{"result": ...}`` or ``{"error": "..."}``."""
+    try:
+        if req.mock:
+            client = mock_client(mock_data(req.topic_id))
+        else:
+            if not req.credentials:
+                return {"error": "mock mode is off and no credentials were provided"}
+            client = get_client(
+                req.credentials.base_url,
+                req.credentials.user,
+                req.credentials.password,
+                verify=req.credentials.tls_verify,
+            )
+        return {"result": client.call(req.method, req.body)}
+    except EloError as exc:
+        return {"error": str(exc)}
+    except Exception as exc:  # noqa: BLE001 - a browser call must not 500 the app
+        return {"error": f"{type(exc).__name__}: {exc}"}
+
+
+@app.post("/api/elo/login-check")
+def api_login_check(creds: EloCreds):
+    try:
+        client = get_client(creds.base_url, creds.user, creds.password, verify=creds.tls_verify)
+        user = client.user or {}
+        return {"ok": True, "detail": f"logged in as {user.get('name', '?')} (id {user.get('id', '?')})"}
+    except Exception as exc:  # noqa: BLE001
+        return {"ok": False, "detail": f"{type(exc).__name__}: {exc}"}
+
+
+@app.get("/health")
+def health():
+    return {"ok": True, "service": "backend-python", "node_url": settings.node_url}
+
+
+@app.get("/favicon.ico")
+def favicon():
+    icon = settings.frontend_dir / "static" / "favicon.ico"
+    if icon.exists():
+        return FileResponse(icon)
+    raise HTTPException(404)
+
+
+def main() -> None:
+    import uvicorn
+
+    uvicorn.run("app.main:app", host=settings.host, port=settings.port, reload=False)
+
+
+if __name__ == "__main__":
+    main()

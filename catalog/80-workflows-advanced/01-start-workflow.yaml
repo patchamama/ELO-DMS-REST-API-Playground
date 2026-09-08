@@ -1,0 +1,158 @@
+id: workflows.start
+order: 1
+category:
+  en: Workflows (advanced)
+  de: Workflows (fortgeschritten)
+  es: Flujos de trabajo (avanzado)
+title:
+  en: Start a workflow on an object (write)
+  de: Einen Workflow auf einem Objekt starten (schreibend)
+  es: Iniciar un flujo de trabajo sobre un objeto (escritura)
+summary:
+  en: >
+    `startWorkFlow` launches an instance of a template (`templFlowId`) on an
+    archive object (`objId`) and returns the running-workflow id. Read it back
+    with `checkoutWorkFlow`. Pick a `templFlowId` with `workflows.templates`.
+    This WRITES - use a scratch object. (Verified live on a throwaway
+    folder; the workflow and folder were removed afterwards.)
+  de: "`startWorkFlow` startet eine Instanz einer Vorlage (`templFlowId`) auf einem Archivobjekt (`objId`) und liefert die ID des laufenden Workflows. Auslesen mit `checkoutWorkFlow`. Eine `templFlowId` mit `workflows.templates` wählen. Das SCHREIBT – ein Wegwerf-Objekt verwenden. (Live bestätigt an einem Wegwerf-Ordner; Workflow und Ordner wurden danach entfernt.)"
+  es: "`startWorkFlow` lanza una instancia de una plantilla (`templFlowId`) sobre un objeto del archivo (`objId`) y devuelve el id del workflow en ejecución. Se lee con `checkoutWorkFlow`. Elegí un `templFlowId` con `workflows.templates`. Esto ESCRIBE – usá un objeto descartable. (Verificado en vivo sobre una carpeta desechable; el workflow y la carpeta se eliminaron después.)"
+
+elo_api:
+  - method: startWorkFlow
+    rpc: POST /rest/IXServicePortIF/startWorkFlow
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/startWorkFlow
+    notes:
+      en: >
+        Note the capital F. Body { templFlowId, flowName, objId } - NOT
+        { flowId, name }. Returns the id of the started instance.
+      de: 'Großes F beachten. Body { templFlowId, flowName, objId } - NICHT { flowId, name }. Liefert die ID der gestarteten Instanz.'
+      es: 'Ojo con la F mayúscula. Cuerpo { templFlowId, flowName, objId } - NO { flowId, name }. Devuelve el id de la instancia iniciada.'
+  - method: checkoutWorkFlow
+    rpc: POST /rest/IXServicePortIF/checkoutWorkFlow
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/checkoutWorkFlow
+    notes:
+      en: >
+        Body { flowId, typeZ, lockZ, workFlowDiagramZ }. typeZ {bset:"0"} reads
+        the RUNNING instance ({bset:"2"} would read it as a template - the
+        confusing part). lockZ {bset:"0"} = no lock. There is no getWorkFlowStatus.
+      de: 'Body { flowId, typeZ, lockZ, workFlowDiagramZ }. typeZ {bset:"0"} liest die LAUFENDE Instanz ({bset:"2"} würde sie als Vorlage lesen - der verwirrende Teil). lockZ {bset:"0"} = keine Sperre. Ein getWorkFlowStatus gibt es nicht.'
+      es: 'Cuerpo { flowId, typeZ, lockZ, workFlowDiagramZ }. typeZ {bset:"0"} lee la instancia EN EJECUCIÓN ({bset:"2"} la leería como plantilla - lo confuso). lockZ {bset:"0"} = sin bloqueo. No existe getWorkFlowStatus.'
+
+result_shape: |
+  using template 5 (sol.dev.deploy)
+  started workflow id: 3
+  workflow: sol.dev.deploy  nodes: ['sol.dev.deploy', 'deploy', 'Finish']
+
+snippets:
+  python: |
+    from elo_playground import connect
+
+    elo = connect()
+
+    # 1) pick a real template (ids are not guaranteed to start at 1)
+    tmpls = elo.call("findFirstWorkflows", {
+        "findInfo": {"type": {"bset": "2"}, "inclHidden": True},
+        "max": 5, "wfDiagramZ": {"bset": "0"},
+    })["workflows"]
+    tmpl = tmpls[0]
+    print(f"using template {tmpl['id']} ({tmpl['name']})")
+
+    # 2) start it on an object. objId must be a real archive object - use a
+    #    throwaway folder; this starts a REAL workflow instance.
+    obj_id = 1        # replace with a throwaway object's id
+
+    flow_id = elo.call("startWorkFlow", {
+        "templFlowId": tmpl["id"],
+        "flowName": "playground test workflow",
+        "objId": str(obj_id),
+    })
+    print("started workflow id:", flow_id)
+
+    # 3) read the running instance back (there is no getWorkFlowStatus)
+    res = elo.call("checkoutWorkFlow", {
+        "flowId": flow_id,
+        "typeZ": {"bset": "0"},                 # 0 = running instance (2 would read it as a template)
+        "lockZ": {"bset": "0"},                 # no lock
+        "workFlowDiagramZ": {"bset": "1073741823"},
+    })
+    wf = res.get("workflow", res)
+    nodes = [n.get("nodeName") or n.get("name") for n in wf.get("nodes", [])]
+    print("workflow:", wf.get("name"), " nodes:", [n for n in nodes if n][:8])
+
+  node: |
+    import { connect } from "elo-playground";
+
+    const elo = await connect();
+
+    // 1) pick a real template (ids are not guaranteed to start at 1)
+    const tmpls = (await elo.call("findFirstWorkflows", {
+      findInfo: { type: { bset: "2" }, inclHidden: true },
+      max: 5, wfDiagramZ: { bset: "0" },
+    })).workflows;
+    const tmpl = tmpls[0];
+    console.log(`using template ${tmpl.id} (${tmpl.name})`);
+
+    // 2) start it on an object - use a throwaway folder for objId
+    const objId = 1; // replace with a throwaway object's id
+
+    const flowId = await elo.call("startWorkFlow", {
+      templFlowId: tmpl.id,
+      flowName: "playground test workflow",
+      objId: String(objId),
+    });
+    console.log("started workflow id:", flowId);
+
+    // 3) read the running instance back (there is no getWorkFlowStatus)
+    const res = await elo.call("checkoutWorkFlow", {
+      flowId,
+      typeZ: { bset: "0" },                  // 0 = running instance (2 = template)
+      lockZ: { bset: "0" },                  // no lock
+      workFlowDiagramZ: { bset: "1073741823" },
+    });
+    const wf = res.workflow || res;
+    const nodes = (wf.nodes || []).map((n) => n.nodeName || n.name).filter(Boolean);
+    console.log("workflow:", wf.name, " nodes:", nodes.slice(0, 8));
+
+  browser: |
+    const elo = await connect();
+
+    const tmpls = (await elo.call("findFirstWorkflows", {
+      findInfo: { type: { bset: "2" }, inclHidden: true },
+      max: 5, wfDiagramZ: { bset: "0" },
+    })).workflows;
+    const tmpl = tmpls[0];
+    console.log(`using template ${tmpl.id} (${tmpl.name})`);
+
+    const flowId = await elo.call("startWorkFlow", {
+      templFlowId: tmpl.id,
+      flowName: "playground test workflow",
+      objId: "1",
+    });
+    console.log("started workflow id:", flowId);
+    const res = await elo.call("checkoutWorkFlow", {
+      flowId,
+      typeZ: { bset: "0" },
+      lockZ: { bset: "0" },
+      workFlowDiagramZ: { bset: "1073741823" },
+    });
+    const wf = res.workflow || res;
+    console.log("workflow:", wf.name, (wf.nodes || []).map((n) => n.nodeName || n.name).filter(Boolean).slice(0, 8));
+
+mock:
+  findFirstWorkflows:
+    searchId: "(MOCK-WFT)"
+    moreResults: false
+    workflows:
+      - { id: 5, name: "sol.dev.deploy" }
+  startWorkFlow: 3
+  checkoutWorkFlow:
+    workflow:
+      id: 3
+      name: "sol.dev.deploy"
+      nodes:
+        - { nodeName: "sol.dev.deploy" }
+        - { nodeName: "deploy" }
+        - { nodeName: "Finish" }

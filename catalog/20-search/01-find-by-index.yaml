@@ -1,0 +1,91 @@
+id: search.find-by-index
+order: 1
+category:
+  en: Search
+  de: Suche
+  es: Búsqueda
+title:
+  en: Find objects by index field
+  de: Objekte über Indexfelder finden
+  es: Buscar objetos por campo de índice
+summary:
+  en: >
+    `findFirstSords` with a `findByIndex` selector is ELO's structured search:
+    match on name, on a mask, or on a metadata field value. This is how you
+    locate "all invoices", "the folder called Forms", "documents from 2026".
+
+  de: "`findFirstSords` mit einem `findByIndex`-Selektor ist die strukturierte Suche von ELO: nach Name, nach Maske oder nach dem Wert eines Metadatenfelds. So findet man „alle Rechnungen“, „den Ordner Formulare“ oder „Dokumente aus 2026“."
+  es: "`findFirstSords` con un selector `findByIndex` es la búsqueda estructurada de ELO: por nombre, por máscara o por el valor de un campo de metadatos. Así se localizan “todas las facturas”, “la carpeta llamada Formularios” o “documentos de 2026”."
+
+elo_api:
+- method: findFirstSords
+  rpc: POST /rest/IXServicePortIF/findFirstSords
+  doc_url: "{base}/rest/openapi.json"
+  spec: IXServicePortIF/findFirstSords
+  notes:
+    en: >
+      findInfo.findByIndex { name, exactName, maskId, ... }. A trailing "*"
+      in name is a wildcard; exactName:true disables it. Combine with
+      findByType to restrict to folders or documents.
+
+    de: findInfo.findByIndex { name, exactName, maskId, ... }. Ein abschließendes "*" im Namen ist ein Platzhalter; exactName:true schaltet ihn ab. Mit findByType auf Ordner oder Dokumente einschränken.
+    es: findInfo.findByIndex { name, exactName, maskId, ... }. Un "*" al final del nombre es un comodín; exactName:true lo desactiva. Combiná con findByType para restringir a carpetas o documentos.
+result_shape: |
+  [ { "id": 5001, "name": "Invoice 2026-001.pdf", "maskName": "Invoice" },
+    { "id": 5002, "name": "Invoice 2026-002.pdf", "maskName": "Invoice" }, ... ]
+
+snippets:
+  python: |
+    from elo_playground import connect
+
+    elo = connect()
+
+    rows = elo.find_all(
+        "findFirstSords", "findNextSords", "sords",
+        {
+            "findInfo": {"findByIndex": {
+                "name": "Invoice *",        # wildcard match on the object name
+                "exactName": False,
+            }},
+            "max": 50,
+            "sordZ": {"bset": "449304431574384639"},
+        },
+    )
+
+    print(f"{len(rows)} matches")
+    for s in rows:
+        print(f"  {s['name']}  (mask: {s.get('maskName')})")
+
+  node: |
+    import { connect } from "elo-playground";
+
+    const elo = await connect();
+
+    const rows = await elo.findAll("findFirstSords", "findNextSords", "sords", {
+      findInfo: { findByIndex: { name: "Invoice *", exactName: false } },
+      max: 50,
+      sordZ: { bset: "449304431574384639" },
+    });
+
+    console.log(`${rows.length} matches`);
+    for (const s of rows) console.log(`  ${s.name}  (mask: ${s.maskName})`);
+
+  browser: |
+    const elo = await connect();
+
+    const rows = await elo.findAll("findFirstSords", "findNextSords", "sords", {
+      findInfo: { findByIndex: { name: "Invoice *", exactName: false } },
+      max: 50,
+      sordZ: { bset: "449304431574384639" },
+    });
+    console.log(`${rows.length} matches`);
+    rows.forEach((s) => console.log(`  ${s.name} (mask: ${s.maskName})`));
+
+mock:
+  findFirstSords:
+    moreResults: false
+    searchId: "(MOCK-FIND)"
+    sords:
+    - {id: 5001, name: "Invoice 2026-001.pdf", maskName: "Invoice", type: 254}
+    - {id: 5002, name: "Invoice 2026-002.pdf", maskName: "Invoice", type: 254}
+    - {id: 5003, name: "Invoice 2026-003.pdf", maskName: "Invoice", type: 254}

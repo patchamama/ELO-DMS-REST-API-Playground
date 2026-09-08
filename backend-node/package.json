@@ -1,0 +1,7 @@
+{
+  "name": "elo-api-playground-node",
+  "version": "0.1.0",
+  "description": "Node runner service (started from the project root). Dependencies live in ../package.json.",
+  "private": true,
+  "type": "module"
+}

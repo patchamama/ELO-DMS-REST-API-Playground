@@ -1,0 +1,138 @@
+id: masks.read-write-fields
+order: 2
+category:
+  en: Metadata masks
+  de: Verschlagwortungsmasken
+  es: Máscaras de metadatos
+title:
+  en: Read and write a Sord's index fields (write)
+  de: Indexfelder eines Sords lesen und schreiben (schreibend)
+  es: Leer y escribir los campos de índice de un Sord (escritura)
+summary:
+  en: >
+    An object's metadata values live in `sord.objKeys` - a list of
+    `{ name: <field key>, data: [<value>] }`. To READ them, check the Sord out.
+    To WRITE, change `data` and check the Sord back in with a full write mask.
+    This WRITES. (Verified live on a scratch object.)
+  de: "Die Metadatenwerte eines Objekts stehen in `sord.objKeys` - eine Liste `{ name: <Feldschlüssel>, data: [<Wert>] }`. Zum LESEN das Sord auschecken. Zum SCHREIBEN `data` ändern und das Sord mit voller Schreibmaske wieder einchecken. Das SCHREIBT. (Live bestätigt an einem Wegwerf-Objekt.)"
+  es: "Los valores de metadatos de un objeto están en `sord.objKeys` - una lista `{ name: <clave del campo>, data: [<valor>] }`. Para LEER, hacé checkout del Sord. Para ESCRIBIR, cambiá `data` y hacé checkin con una máscara de escritura completa. Esto ESCRIBE. (Verificado en vivo sobre un objeto desechable.)"
+
+elo_api:
+  - method: checkoutSord
+    rpc: POST /rest/IXServicePortIF/checkoutSord
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/checkoutSord
+    notes:
+      en: 'Read: sordZ inside editInfoZ (bset "1"). result.sord.objKeys holds the field values.'
+      de: 'Lesen: sordZ in editInfoZ (bset "1"). result.sord.objKeys enthält die Feldwerte.'
+      es: 'Lectura: sordZ dentro de editInfoZ (bset "1"). result.sord.objKeys tiene los valores.'
+  - method: checkinSord
+    rpc: POST /rest/IXServicePortIF/checkinSord
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/checkinSord
+    notes:
+      en: >
+        Write: send the whole sord back with sordZ = full bitset. Only fields
+        present in the mask are kept; `data` is always a list (even for one value).
+      de: 'Schreiben: das ganze Sord mit sordZ = volles Bitset zurücksenden. Nur in der Maske vorhandene Felder bleiben; `data` ist immer eine Liste (auch bei einem Wert).'
+      es: 'Escritura: enviar el sord entero con sordZ = bitset completo. Solo se guardan los campos de la máscara; `data` es siempre una lista (aun con un valor).'
+
+result_shape: |
+  before: {'SOL_TYPE': ['CONFIGURATION_TEMPLATE']}
+  after:  {'BS_CONFIG_NAME': ['playground-value'], 'BS_CONFIG_VERSION': ['1.0'], 'SOL_TYPE': ['CONFIGURATION_TEMPLATE']}
+
+snippets:
+  python: |
+    from elo_playground import connect
+
+    elo = connect()
+    ALL = "449304431574384639"
+
+    # a scratch object with a fielded mask (34 = "ELO Business Solution Configuration")
+    tmpl = elo.call("createSord", {"parentId": 1, "maskId": 34,
+                                   "editInfoZ": {"bset": "1", "sordZ": {"bset": ALL}}})
+    sord = tmpl["sord"]
+    sord["name"] = "playground fields demo"
+
+    def fields(s):
+        return {k["name"]: k["data"] for k in (s.get("objKeys") or []) if k.get("data")}
+
+    print("before:", fields(sord))
+
+    # write two field values into objKeys
+    wanted = {"BS_CONFIG_NAME": ["playground-value"], "BS_CONFIG_VERSION": ["1.0"]}
+    for key in sord["objKeys"]:
+        if key["name"] in wanted:
+            key["data"] = wanted[key["name"]]
+
+    new_id = elo.call("checkinSord", {"sord": sord, "sordZ": {"bset": ALL},
+                                      "unlockZ": {"bset": "1"}})
+
+    # read it back
+    check = elo.call("checkoutSord", {"objId": new_id,
+                                      "editInfoZ": {"bset": "1", "sordZ": {"bset": ALL}}})["sord"]
+    print("after: ", fields(check))
+
+  node: |
+    import { connect } from "elo-playground";
+
+    const elo = await connect();
+    const ALL = "449304431574384639";
+
+    const tmpl = await elo.call("createSord", {
+      parentId: 1, maskId: 34,
+      editInfoZ: { bset: "1", sordZ: { bset: ALL } },
+    });
+    const sord = tmpl.sord;
+    sord.name = "playground fields demo";
+
+    const fields = (s) =>
+      Object.fromEntries((s.objKeys || []).filter((k) => k.data && k.data.length).map((k) => [k.name, k.data]));
+
+    console.log("before:", fields(sord));
+
+    const wanted = { BS_CONFIG_NAME: ["playground-value"], BS_CONFIG_VERSION: ["1.0"] };
+    for (const key of sord.objKeys) if (wanted[key.name]) key.data = wanted[key.name];
+
+    const newId = await elo.call("checkinSord", { sord, sordZ: { bset: ALL }, unlockZ: { bset: "1" } });
+
+    const check = (await elo.call("checkoutSord", {
+      objId: newId, editInfoZ: { bset: "1", sordZ: { bset: ALL } },
+    })).sord;
+    console.log("after: ", fields(check));
+
+  browser: |
+    const elo = await connect();
+    const ALL = "449304431574384639";
+
+    const tmpl = await elo.call("createSord", {
+      parentId: 1, maskId: 34, editInfoZ: { bset: "1", sordZ: { bset: ALL } },
+    });
+    const sord = tmpl.sord;
+    sord.name = "playground fields demo";
+    for (const key of sord.objKeys) if (key.name === "BS_CONFIG_NAME") key.data = ["playground-value"];
+    const newId = await elo.call("checkinSord", { sord, sordZ: { bset: ALL }, unlockZ: { bset: "1" } });
+    const check = (await elo.call("checkoutSord", { objId: newId, editInfoZ: { bset: "1", sordZ: { bset: ALL } } })).sord;
+    console.log((check.objKeys || []).filter((k) => k.data && k.data.length).map((k) => `${k.name}=${k.data}`));
+
+mock:
+  createSord:
+    sord:
+      id: -1
+      parentId: 1
+      maskName: "ELO Business Solution Configuration"
+      type: 1
+      name: null
+      objKeys:
+        - { id: 0, name: "BS_CONFIG_NAME", data: [] }
+        - { id: 1, name: "BS_CONFIG_VERSION", data: [] }
+        - { id: 2, name: "BS_CONFIG_TYPE", data: [] }
+  checkinSord: 5399
+  checkoutSord:
+    sord:
+      id: 5399
+      name: "playground fields demo"
+      objKeys:
+        - { id: 0, name: "BS_CONFIG_NAME", data: ["playground-value"] }
+        - { id: 1, name: "BS_CONFIG_VERSION", data: ["1.0"] }
+        - { id: 2, name: "BS_CONFIG_TYPE", data: [] }

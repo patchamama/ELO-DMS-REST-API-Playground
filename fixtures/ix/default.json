@@ -1,0 +1,29 @@
+{
+  "_comment": "Baseline mock responses merged under every topic's own mock: block. Keep this free of real credentials, tickets and customer data.",
+  "login": {
+    "user": {
+      "id": 0,
+      "name": "Administrator",
+      "type": 1,
+      "guid": "(E10E1000-E100-E100-E100-E10E10E10E40)",
+      "flags": 2013265919,
+      "groupList": [9998, 9999]
+    }
+  },
+  "logout": {},
+  "findClose": {},
+  "getServerInfo": {
+    "version": "25.00.001.003",
+    "instanceName": "ELO-BASIS",
+    "databaseEngine": "MS SQL Server",
+    "indexServers": [{ "arcName": "Repository1", "url": "http://elo.example.local:9090/ix-Repository1/ix" }],
+    "license": { "serno": "0000-0000-0000-0000", "licenseOptions": { "product": "ELO ECM Suite", "usercount1": "50" } }
+  },
+  "getSessionOptions": {
+    "options": [
+      { "key": "CLIENT.LANGUAGE", "value": "de" },
+      { "key": "IX.FEATURE.FULLTEXT", "value": "enabled" }
+    ]
+  },
+  "getUserData": { "id": 0, "name": "Administrator", "type": 1, "guid": "(E10E1000-E100-E100-E100-E10E10E10E40)" }
+}

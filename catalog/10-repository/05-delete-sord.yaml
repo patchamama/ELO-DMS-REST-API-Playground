@@ -1,0 +1,102 @@
+id: repository.delete-sord
+order: 5
+category:
+  en: Repository & objects
+  de: Archiv & Objekte
+  es: Repositorio y objetos
+title:
+  en: Delete an object (write, two steps)
+  de: Ein Objekt löschen (schreibend, zwei Schritte)
+  es: Borrar un objeto (escritura, dos pasos)
+summary:
+  en: >
+    `deleteSord` is a TWO-step call: the first marks the object deleted (it moves
+    to the recycle bin), the second - with `deleteOptions.deleteFinally` - purges
+    it for good. A single `deleteFinally` call on a live object does not remove
+    it. This WRITES. (Verified live.)
+  de: "`deleteSord` ist ein Aufruf in ZWEI Schritten: der erste markiert das Objekt als gelöscht (es wandert in den Papierkorb), der zweite - mit `deleteOptions.deleteFinally` - entfernt es endgültig. Ein einzelner `deleteFinally`-Aufruf auf ein aktives Objekt entfernt es nicht. Das SCHREIBT. (Live bestätigt.)"
+  es: "`deleteSord` es una llamada de DOS pasos: la primera marca el objeto como borrado (va a la papelera), la segunda - con `deleteOptions.deleteFinally` - lo purga definitivamente. Una sola llamada con `deleteFinally` sobre un objeto vivo no lo elimina. Esto ESCRIBE. (Verificado en vivo.)"
+
+elo_api:
+  - method: deleteSord
+    rpc: POST /rest/IXServicePortIF/deleteSord
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/deleteSord
+    notes:
+      en: >
+        Body { objId, parentId, deleteOptions, unlockZ }. Call it once with
+        deleteFinally:false (-> recycle bin), then again with deleteFinally:true
+        (-> purged). deleteOptions also has folderMustBeEmpty, deleteResidueFree, ...
+      de: 'Body { objId, parentId, deleteOptions, unlockZ }. Einmal mit deleteFinally:false aufrufen (-> Papierkorb), dann erneut mit deleteFinally:true (-> endgültig). deleteOptions kennt u. a. folderMustBeEmpty, deleteResidueFree.'
+      es: 'Cuerpo { objId, parentId, deleteOptions, unlockZ }. Llamalo una vez con deleteFinally:false (-> papelera) y otra con deleteFinally:true (-> purgado). deleteOptions tiene además folderMustBeEmpty, deleteResidueFree, ...'
+
+result_shape: |
+  step 1 (to recycle bin): ok
+  step 2 (purge):          ok
+  gone: True
+
+snippets:
+  python: |
+    from elo_playground import connect, EloError
+
+    elo = connect()
+
+    obj_id = "5361"   # a throwaway object's id (e.g. one from repository.create-folder)
+
+    # step 1 - move it to the recycle bin
+    elo.call("deleteSord", {
+        "objId": obj_id, "parentId": "1",
+        "deleteOptions": {"deleteFinally": False},
+    })
+    print("step 1 (to recycle bin): ok")
+
+    # step 2 - purge it for good
+    elo.call("deleteSord", {
+        "objId": obj_id, "parentId": "1",
+        "deleteOptions": {"deleteFinally": True},
+    })
+    print("step 2 (purge):          ok")
+
+    # confirm it is gone
+    try:
+        elo.call("checkoutSord", {"objId": obj_id, "editInfoZ": {"bset": "1", "sordZ": {"bset": "0"}}})
+        print("gone: False")
+    except EloError:
+        print("gone: True")
+
+  node: |
+    import { connect, EloError } from "elo-playground";
+
+    const elo = await connect();
+
+    const objId = "5361"; // a throwaway object's id
+
+    // step 1 - move it to the recycle bin
+    await elo.call("deleteSord", { objId, parentId: "1", deleteOptions: { deleteFinally: false } });
+    console.log("step 1 (to recycle bin): ok");
+
+    // step 2 - purge it for good
+    await elo.call("deleteSord", { objId, parentId: "1", deleteOptions: { deleteFinally: true } });
+    console.log("step 2 (purge):          ok");
+
+    // confirm it is gone
+    try {
+      await elo.call("checkoutSord", { objId, editInfoZ: { bset: "1", sordZ: { bset: "0" } } });
+      console.log("gone: false");
+    } catch (e) {
+      console.log("gone: true");
+    }
+
+  browser: |
+    const elo = await connect();
+    const objId = "5361";
+
+    await elo.call("deleteSord", { objId, parentId: "1", deleteOptions: { deleteFinally: false } });
+    console.log("step 1 (to recycle bin): ok");
+    await elo.call("deleteSord", { objId, parentId: "1", deleteOptions: { deleteFinally: true } });
+    console.log("step 2 (purge): ok");
+
+mock:
+  deleteSord: {}
+  checkoutSord:
+    exception: "objectNotFound: 5361"
