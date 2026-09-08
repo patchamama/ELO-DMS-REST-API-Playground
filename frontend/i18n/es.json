@@ -52,5 +52,8 @@
   "deep.open": "En profundidad",
   "scratch.language": "Lenguaje",
   "scratch.hint": "Importá el cliente compartido con:  Python  from elo_playground import connect   ·   Node  import { connect } from \"elo-playground\"   ·   Navegador  connect() ya está precargado",
-  "warn.localOnly": "\"Ejecutar\" corre código en ESTA máquina con tus credenciales de ELO. Solo para desarrollo local."
+  "warn.localOnly": "\"Ejecutar\" corre código en ESTA máquina con tus credenciales de ELO. Solo para desarrollo local.",
+  "static.badge": "demo estática · datos mock",
+  "static.noRun": "Esta salida no está precalculada. Cloná el repo y corré la app local para ejecutarla.",
+  "static.precomputed": "precalculada"
 }
