@@ -210,15 +210,34 @@
     codeEl.className = preferJson || looksJson(text) ? "language-json" : "language-plaintext";
     if (window.hljs) window.hljs.highlightElement(codeEl);
   }
-  // if `text` is a single JSON value, return it pretty-printed + hl'd HTML, else null
-  function jsonHighlightHtml(text) {
+  // if the WHOLE output is one JSON value, return it pretty-printed, else null
+  function jsonPrettyStrict(text) {
     const t = (text || "").trim();
-    if (!looksJson(t) || !window.hljs) return null;
+    if (!looksJson(t)) return null;
     try {
-      const pretty = JSON.stringify(JSON.parse(t), null, 2);
-      return window.hljs.highlight(pretty, { language: "json" }).value;
+      return JSON.stringify(JSON.parse(t), null, 2);
     } catch (e) {
       return null;
+    }
+  }
+
+  // put `code` into `outputEl` as a highlighted <code> block. Version-agnostic:
+  // highlight.js 10.7+ has highlightElement, older builds have highlightBlock.
+  function renderHighlighted(outputEl, code, lang) {
+    outputEl.textContent = "";
+    const c = document.createElement("code");
+    c.className = "language-" + lang;
+    c.textContent = code; // textContent, so hljs escapes and tokenises it
+    outputEl.appendChild(c);
+    outputEl.classList.add("hljs");
+    outputEl.classList.remove("err");
+    const hl = window.hljs && (window.hljs.highlightElement || window.hljs.highlightBlock);
+    if (hl) {
+      try {
+        hl.call(window.hljs, c);
+      } catch (e) {
+        /* leave it as plain text */
+      }
     }
   }
 
@@ -302,11 +321,7 @@
           setTimeout(() => (b.textContent = label), 800);
           return;
         }
-        outputEl.innerHTML = window.hljs
-          ? `<code class="language-${lang}">${window.hljs.highlight(pretty, { language: lang }).value}</code>`
-          : esc(pretty);
-        outputEl.classList.add("hljs");
-        outputEl.classList.remove("err");
+        renderHighlighted(outputEl, pretty, lang);
       });
       return b;
     };
@@ -385,13 +400,13 @@
       if (res.stderr) parts.push((parts.length ? "\n--- stderr ---\n" : "") + res.stderr.replace(/\n$/, ""));
       const text = parts.join("\n") || "(no output)";
       outputEl.dataset.raw = text; // kept so the JSON / XML buttons can reformat it
-      const jsonHtml = res.ok && !res.stderr ? jsonHighlightHtml(res.stdout) : null;
-      if (jsonHtml) {
-        outputEl.innerHTML = jsonHtml;
+      const jsonPretty = res.ok && !res.stderr ? jsonPrettyStrict(res.stdout) : null;
+      if (jsonPretty != null) {
+        renderHighlighted(outputEl, jsonPretty, "json");
       } else {
         outputEl.textContent = text;
+        outputEl.classList.remove("hljs");
       }
-      outputEl.classList.toggle("hljs", !!jsonHtml);
       outputEl.classList.toggle("err", !res.ok);
     }
     if (metaEl) {
@@ -451,8 +466,8 @@
         if (!outputEl.textContent) outputEl.textContent = d.ok ? "(no output)" : "(failed)";
         outputEl.dataset.raw = outputEl.textContent; // for the JSON / XML buttons
         if (d.ok && !outputEl.classList.contains("err")) {
-          const jsonHtml = jsonHighlightHtml(outputEl.textContent);
-          if (jsonHtml) outputEl.innerHTML = jsonHtml;
+          const jsonPretty = jsonPrettyStrict(outputEl.textContent);
+          if (jsonPretty != null) renderHighlighted(outputEl, jsonPretty, "json");
         }
         cleanup();
         return;
