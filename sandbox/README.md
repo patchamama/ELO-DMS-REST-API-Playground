@@ -14,9 +14,10 @@ re-run.
 
 ## Credentials
 
-Each snippet defines them at the top (`ELO_USER` / `ELO_PASS`) and passes them
-to `connect(user=..., password=...)`. `connect()` also accepts `base_url` and
-`verify`. For each of those the order is: **explicit argument -> `ELOPG_*`
+Each snippet defines the whole connection at the top (`ELO_BASE_URL` - the port
+is part of the URL - `ELO_USER`, `ELO_PASS`) and passes it to
+`connect(base_url=..., user=..., password=...)`. `connect()` also accepts
+`verify`. For each field the order is: **explicit argument -> `ELOPG_*`
 environment variable -> built-in default** for a stock local ELO test box:
 
 | variable | default |

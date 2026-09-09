@@ -1056,20 +1056,26 @@ ${snippet}
     const samples = {
       python:
         'from elo_playground import connect\n\n' +
-        'ELO_USER = "Administrator"   # local ELO test box (or set ELOPG_* / .env)\n' +
+        '# local ELO test box (or set ELOPG_* / .env)\n' +
+        'ELO_BASE_URL = "http://localhost:9090/ix-Repository1"\n' +
+        'ELO_USER = "Administrator"\n' +
         'ELO_PASS = "elo"\n\n' +
-        'elo = connect(user=ELO_USER, password=ELO_PASS)\n' +
+        'elo = connect(base_url=ELO_BASE_URL, user=ELO_USER, password=ELO_PASS)\n' +
         'print(elo.call("getServerInfo", {}).get("version"))\n',
       node:
         'import { connect } from "elo-playground";\n\n' +
-        'const ELO_USER = "Administrator";   // local ELO test box (or set ELOPG_* / .env)\n' +
+        '// local ELO test box (or set ELOPG_* / .env)\n' +
+        'const ELO_BASE_URL = "http://localhost:9090/ix-Repository1";\n' +
+        'const ELO_USER = "Administrator";\n' +
         'const ELO_PASS = "elo";\n\n' +
-        'const elo = await connect({ user: ELO_USER, password: ELO_PASS });\n' +
+        'const elo = await connect({ baseUrl: ELO_BASE_URL, user: ELO_USER, password: ELO_PASS });\n' +
         'console.log((await elo.call("getServerInfo", {})).version);\n',
       browser:
-        'const ELO_USER = "Administrator";   // local ELO test box (or set ELOPG_* / .env)\n' +
+        '// local ELO test box (or set ELOPG_* / .env)\n' +
+        'const ELO_BASE_URL = "http://localhost:9090/ix-Repository1";\n' +
+        'const ELO_USER = "Administrator";\n' +
         'const ELO_PASS = "elo";\n\n' +
-        'const elo = await connect({ user: ELO_USER, password: ELO_PASS });\n' +
+        'const elo = await connect({ baseUrl: ELO_BASE_URL, user: ELO_USER, password: ELO_PASS });\n' +
         'console.log((await elo.call("getServerInfo", {})).version);\n',
     };
     const cmMode = (lang) => (lang === "python" ? "python" : "javascript");

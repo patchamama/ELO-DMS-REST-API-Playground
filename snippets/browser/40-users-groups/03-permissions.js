@@ -5,10 +5,11 @@
 // id:       users.permissions
 
 // --- local ELO test box (override with ELOPG_* env vars or a .env) ---
+const ELO_BASE_URL = "http://localhost:9090/ix-Repository1";
 const ELO_USER = "Administrator";
 const ELO_PASS = "elo";
 
-const elo = await connect({ user: ELO_USER, password: ELO_PASS });
+const elo = await connect({ baseUrl: ELO_BASE_URL, user: ELO_USER, password: ELO_PASS });
 const ACCESS = [
   [1, "main administrator (all rights)"], [8, "edit documents"],
   [256, "start workflows"], [536870912, "author"],

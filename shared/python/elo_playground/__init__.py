@@ -4,7 +4,7 @@ Typical use inside a snippet::
 
     from elo_playground import connect
 
-    elo = connect(user="Administrator", password="elo")   # or just connect()
+    elo = connect("http://localhost:9090/ix-Repository1", "Administrator", "elo")
     info = elo.call("getServerInfo", {})                  # one RPC call
     print(info["version"])
 
