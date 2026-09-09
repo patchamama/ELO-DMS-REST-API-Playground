@@ -315,13 +315,14 @@
       b.textContent = label;
       b.addEventListener("click", () => {
         const raw = outputEl.dataset.raw != null ? outputEl.dataset.raw : outputEl.textContent;
-        const pretty = fn(raw);
-        if (pretty == null) {
+        if (!raw || !raw.trim()) {
           b.textContent = "–";
           setTimeout(() => (b.textContent = label), 800);
           return;
         }
-        renderHighlighted(outputEl, pretty, lang);
+        // pretty-print when it parses; otherwise just highlight what is there
+        const pretty = fn(raw);
+        renderHighlighted(outputEl, pretty != null ? pretty : raw, lang);
       });
       return b;
     };
@@ -1620,10 +1621,15 @@ ${snippet}
 
   function wireConn() {
     const f = $("#conn");
-    f.addEventListener("change", saveConn);
+    f.addEventListener("change", saveConn); // covers the checkboxes
     f.base_url.addEventListener("input", updateSchemeBtn);
+    // persist + propagate on every keystroke, not just on blur ("change"), so a
+    // reload right after typing does not lose the URL / user / password
     ["base_url", "user", "password"].forEach((n) =>
-      f[n].addEventListener("input", syncOpenRunnersCreds)
+      f[n].addEventListener("input", () => {
+        saveConn();
+        syncOpenRunnersCreds();
+      })
     );
     $("#conn-check").addEventListener("click", runConnCheck);
 
