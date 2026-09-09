@@ -3,7 +3,7 @@
 # category: Repository & objects
 # id:       repository.upload-download
 
-from elo_playground import connect
+from elo_playground import connect, EloError
 
 elo = connect()
 ALL = "449304431574384639"
@@ -25,11 +25,22 @@ doc["docs"][0]["uploadResult"] = elo.upload(doc["docs"][0]["url"], payload)
 # 4) commit
 res = elo.call("checkinDocEnd", {"sord": sord, "document": doc,
                                  "sordZ": {"bset": ALL}, "unlockZ": {"bset": "1"}})
-doc_id = int(res["objId"])
+doc_id = str(res["objId"])
 print("uploaded doc id:", doc_id)
 
-# --- read it back ---
-info = elo.call("checkoutDoc", {"objId": str(doc_id),
-                                "editInfoZ": {"bset": "320", "sordZ": {"bset": "0"}}})
-url = info["document"]["docs"][0]["url"]
-print("round-trip content:", elo.download(url).decode().strip())
+try:
+    # --- read it back ---
+    info = elo.call("checkoutDoc", {"objId": doc_id,
+                                    "editInfoZ": {"bset": "320", "sordZ": {"bset": "0"}}})
+    url = info["document"]["docs"][0]["url"]
+    print("round-trip content:", elo.download(url).decode().strip())
+except EloError as exc:
+    print("download failed:", exc)
+finally:
+    for step in (False, True):
+        try:
+            elo.call("deleteSord", {"objId": doc_id, "parentId": "1",
+                                    "deleteOptions": {"deleteFinally": step}})
+        except EloError:
+            pass
+    elo.close()

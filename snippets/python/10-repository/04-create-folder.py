@@ -3,7 +3,7 @@
 # category: Repository & objects
 # id:       repository.create-folder
 
-from elo_playground import connect
+from elo_playground import connect, EloError
 
 elo = connect()
 ALL = "449304431574384639"   # SordC.mbAllIndex
@@ -19,9 +19,20 @@ sord = tmpl["sord"]
 sord["name"] = "Playground test folder"
 
 # 2) persist it - sordZ here is the WRITE mask, so use a full bitset
-new_id = elo.call("checkinSord", {
+new_id = str(elo.call("checkinSord", {
     "sord": sord,
     "sordZ": {"bset": ALL},
     "unlockZ": {"bset": "1"},
-})
+}))
 print("created folder id:", new_id)
+
+# 3) clean up so re-running this stays tidy (see repository.delete-sord)
+try:
+    for step in (False, True):
+        elo.call("deleteSord", {"objId": new_id, "parentId": "1",
+                                "deleteOptions": {"deleteFinally": step}})
+    print("removed the test folder again")
+except EloError as exc:
+    print("could not remove the test folder:", exc)
+finally:
+    elo.close()

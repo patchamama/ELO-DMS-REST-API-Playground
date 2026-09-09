@@ -9,7 +9,7 @@ session is open. Every fenced block below is runnable - press **Run** on it.
 when you want to see (or change) every one of them.
 
 ```python
-from elo_playground import EloClient
+from elo_playground import EloClient, EloError
 import os
 
 elo = EloClient(
@@ -23,6 +23,10 @@ try:
     user = elo.login()
     print("session for:", user["name"])
     print("server     :", elo.call("getServerInfo", {})["version"])
+except EloError as exc:
+    # the explicit form always talks to a REAL ELO - in Mock mode there is
+    # nothing to log into (the mock only wires up through connect()).
+    print("explicit EloClient needs a reachable ELO:", exc)
 finally:
     elo.close()
 ```

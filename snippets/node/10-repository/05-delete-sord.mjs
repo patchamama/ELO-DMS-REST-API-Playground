@@ -6,21 +6,35 @@
 import { connect, EloError } from "elo-playground";
 
 const elo = await connect();
+const ALL = "449304431574384639";
 
-const objId = "5361"; // a throwaway object's id
+// Provision a throwaway folder so this snippet is self-contained.
+const tpl = (await elo.call("createSord", {
+  parentId: "1", maskId: 0, editInfoZ: { bset: "1", sordZ: { bset: ALL } },
+})).sord;
+tpl.name = "pg-delete-me";
+const objId = String(await elo.call("checkinSord", {
+  sord: tpl, sordZ: { bset: ALL }, unlockZ: { bset: "1" },
+}));
+console.log("scratch folder:", objId);
 
-// step 1 - move it to the recycle bin
-await elo.call("deleteSord", { objId, parentId: "1", deleteOptions: { deleteFinally: false } });
-console.log("step 1 (to recycle bin): ok");
-
-// step 2 - purge it for good
-await elo.call("deleteSord", { objId, parentId: "1", deleteOptions: { deleteFinally: true } });
-console.log("step 2 (purge):          ok");
-
-// confirm it is gone
 try {
-  await elo.call("checkoutSord", { objId, editInfoZ: { bset: "1", sordZ: { bset: "0" } } });
-  console.log("gone: false");
-} catch (e) {
-  console.log("gone: true");
+  // step 1 - move it to the recycle bin
+  await elo.call("deleteSord", { objId, parentId: "1", deleteOptions: { deleteFinally: false } });
+  console.log("step 1 (to recycle bin): ok");
+
+  // step 2 - purge it for good
+  await elo.call("deleteSord", { objId, parentId: "1", deleteOptions: { deleteFinally: true } });
+  console.log("step 2 (purge):          ok");
+
+  // confirm it is gone
+  try {
+    await elo.call("checkoutSord", { objId, editInfoZ: { bset: "1", sordZ: { bset: "0" } } });
+    console.log("gone: false");
+  } catch (e) {
+    if (e instanceof EloError) console.log("gone: true");
+    else throw e;
+  }
+} finally {
+  elo.close();
 }

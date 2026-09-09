@@ -5,7 +5,16 @@
 // id:       repository.delete-sord
 
 const elo = await connect();
-const objId = "5361";
+const ALL = "449304431574384639";
+
+const tpl = (await elo.call("createSord", {
+  parentId: "1", maskId: 0, editInfoZ: { bset: "1", sordZ: { bset: ALL } },
+})).sord;
+tpl.name = "pg-delete-me";
+const objId = String(await elo.call("checkinSord", {
+  sord: tpl, sordZ: { bset: ALL }, unlockZ: { bset: "1" },
+}));
+console.log("scratch folder:", objId);
 
 await elo.call("deleteSord", { objId, parentId: "1", deleteOptions: { deleteFinally: false } });
 console.log("step 1 (to recycle bin): ok");

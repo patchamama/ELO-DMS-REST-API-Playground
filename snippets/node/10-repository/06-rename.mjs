@@ -3,27 +3,43 @@
 // category: Repository & objects
 // id:       repository.rename
 
-import { connect } from "elo-playground";
+import { connect, EloError } from "elo-playground";
 
 const elo = await connect();
 const ALL = "449304431574384639";
 
-const objId = 5390; // a throwaway object's id
-
-// 1) check it out (with a lock)
-const sord = (await elo.call("checkoutSord", {
-  objId,
-  editInfoZ: { bset: "1", sordZ: { bset: ALL }, lockZ: { bset: "1" } },
+// Provision a throwaway folder so this snippet is self-contained.
+const tpl = (await elo.call("createSord", {
+  parentId: "1", maskId: 0, editInfoZ: { bset: "1", sordZ: { bset: ALL } },
 })).sord;
-console.log("before:", sord.name);
+tpl.name = "playground old name";
+const objId = String(await elo.call("checkinSord", {
+  sord: tpl, sordZ: { bset: ALL }, unlockZ: { bset: "1" },
+}));
 
-// 2) change the name
-sord.name = "playground new name";
+try {
+  // 1) check it out (with a lock)
+  const sord = (await elo.call("checkoutSord", {
+    objId,
+    editInfoZ: { bset: "1", sordZ: { bset: ALL }, lockZ: { bset: "1" } },
+  })).sord;
+  console.log("before:", sord.name);
 
-// 3) check it back in and release the lock
-await elo.call("checkinSord", { sord, sordZ: { bset: ALL }, unlockZ: { bset: "1" } });
+  // 2) change the name, 3) check it back in and release the lock
+  sord.name = "playground new name";
+  await elo.call("checkinSord", { sord, sordZ: { bset: ALL }, unlockZ: { bset: "1" } });
 
-const after = (await elo.call("checkoutSord", {
-  objId, editInfoZ: { bset: "1", sordZ: { bset: ALL } },
-})).sord;
-console.log("after: ", after.name);
+  const after = (await elo.call("checkoutSord", {
+    objId, editInfoZ: { bset: "1", sordZ: { bset: ALL } },
+  })).sord;
+  console.log("after: ", after.name);
+} catch (exc) {
+  if (exc instanceof EloError) console.log("rename failed:", exc.message);
+  else throw exc;
+} finally {
+  try {
+    await elo.call("deleteSord", { objId, parentId: "1", deleteOptions: { deleteFinally: false } });
+    await elo.call("deleteSord", { objId, parentId: "1", deleteOptions: { deleteFinally: true } });
+  } catch (e) { /* best effort */ }
+  elo.close();
+}

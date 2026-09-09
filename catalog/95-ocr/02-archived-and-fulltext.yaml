@@ -5,52 +5,54 @@ category:
   de: OCR & Textextraktion
   es: OCR y extracción de texto
 title:
-  en: Get the text of a document already in the archive
-  de: Den Text eines bereits archivierten Dokuments holen
-  es: Obtener el texto de un documento ya archivado
+  en: Get the text of a document that is in the archive
+  de: Den Text eines archivierten Dokuments holen
+  es: Obtener el texto de un documento archivado
 summary:
   en: >
-    Two ways, no upload. (1) `processOcr` with `recognizeFile.objId` runs OCR on
-    an archived document now. (2) `checkoutDoc` returns
+    Given an object id, two ways to get its text. (1) `processOcr` with
+    `recognizeFile.objId` runs OCR on it now - the engine fetches the file
+    itself. (2) `checkoutDoc` (with `editInfoZ.bset` "320") returns
     `document.docs[0].fulltextContent` - the text the fulltext pipeline already
-    extracted at import time (read-only, no re-OCR, and only present once the
-    document has been indexed). The snippet finds the first document in the
-    archive to work on, so it runs anywhere. NOTE: (1) needs the OCR module and
-    (2) needs the iSearch / Elasticsearch fulltext index - on an install without
-    them you get an empty result or `[ELOIX:10] ... Unknown ticket`.
-  de: "Zwei Wege, ohne Upload. (1) `processOcr` mit `recognizeFile.objId` führt jetzt OCR auf einem archivierten Dokument aus. (2) `checkoutDoc` liefert `document.docs[0].fulltextContent` - den Text, den die Volltext-Pipeline beim Import bereits extrahiert hat (schreibgeschützt, kein erneutes OCR, und erst vorhanden, wenn das Dokument indexiert wurde). Das Snippet sucht das erste Dokument im Archiv, damit es überall läuft. HINWEIS: (1) benötigt das OCR-Modul und (2) den iSearch-/Elasticsearch-Volltextindex - ohne diese gibt es ein leeres Ergebnis oder `[ELOIX:10] ... Unknown ticket`."
-  es: "Dos formas, sin subir nada. (1) `processOcr` con `recognizeFile.objId` corre OCR sobre un documento archivado ahora. (2) `checkoutDoc` devuelve `document.docs[0].fulltextContent` - el texto que el pipeline de fulltext ya extrajo al importar (solo lectura, sin re-OCR, y presente solo una vez que el documento fue indexado). El snippet busca el primer documento del archivo para trabajar, así corre en cualquier lado. NOTA: (1) necesita el módulo OCR y (2) el índice de fulltext iSearch / Elasticsearch - sin ellos obtenés un resultado vacío o `[ELOIX:10] ... Unknown ticket`."
+    extracted at import time (read-only, no re-OCR, present only once the
+    document has been indexed). The snippet uploads its own throwaway text
+    document and deletes it. NOTE: (1) needs the OCR module, (2) needs the
+    iSearch / Elasticsearch index - without them you get an empty result or
+    `[ELOIX:10] ... Unknown ticket`, which the snippet catches.
+  de: "Bei gegebener Objekt-ID zwei Wege zum Text. (1) `processOcr` mit `recognizeFile.objId` führt jetzt OCR aus - die Engine holt die Datei selbst. (2) `checkoutDoc` (mit `editInfoZ.bset` „320“) liefert `document.docs[0].fulltextContent` - den beim Import bereits extrahierten Text (schreibgeschützt, kein erneutes OCR, nur vorhanden, wenn das Dokument indexiert wurde). Das Snippet lädt sein eigenes Wegwerf-Textdokument hoch und löscht es. HINWEIS: (1) benötigt das OCR-Modul, (2) den iSearch-/Elasticsearch-Index - ohne diese gibt es ein leeres Ergebnis oder `[ELOIX:10] ... Unknown ticket`, was das Snippet abfängt."
+  es: "Dado un id de objeto, dos formas de obtener su texto. (1) `processOcr` con `recognizeFile.objId` corre OCR ahora - el motor obtiene el archivo por sí mismo. (2) `checkoutDoc` (con `editInfoZ.bset` «320») devuelve `document.docs[0].fulltextContent` - el texto que el pipeline de fulltext ya extrajo al importar (solo lectura, sin re-OCR, presente solo una vez indexado el documento). El snippet sube su propio documento de texto desechable y lo borra. NOTA: (1) necesita el módulo OCR, (2) el índice iSearch / Elasticsearch - sin ellos obtenés un resultado vacío o `[ELOIX:10] ... Unknown ticket`, que el snippet captura."
 
 elo_api:
-  - method: findFirstSords
-    rpc: POST /rest/IXServicePortIF/findFirstSords
+  - method: checkinDocBegin
+    rpc: POST /rest/IXServicePortIF/checkinDocBegin
     doc_url: "{base}/rest/openapi.json"
-    spec: IXServicePortIF/findFirstSords
+    spec: IXServicePortIF/checkinDocBegin
     notes:
-      en: 'findByType { typeMin: 254, typeMax: 998 } = documents only; max 1 = just the first hit.'
-      de: 'findByType { typeMin: 254, typeMax: 998 } = nur Dokumente; max 1 = nur der erste Treffer.'
-      es: 'findByType { typeMin: 254, typeMax: 998 } = solo documentos; max 1 = solo el primer resultado.'
+      en: 'Part of the upload (see Repository -> Upload and download) that provisions the throwaway document.'
+      de: 'Teil des Uploads (siehe Archiv -> Hoch- und Herunterladen), der das Wegwerf-Dokument anlegt.'
+      es: 'Parte de la subida (ver Repositorio -> Subir y descargar) que crea el documento desechable.'
   - method: processOcr
     rpc: POST /rest/IXServicePortIF/processOcr
     doc_url: "{base}/rest/openapi.json"
     spec: IXServicePortIF/processOcr
     notes:
-      en: 'recognizeFile.objId points at an archived document; the engine fetches the file itself.'
-      de: 'recognizeFile.objId verweist auf ein archiviertes Dokument; die Engine holt die Datei selbst.'
-      es: 'recognizeFile.objId apunta a un documento archivado; el motor obtiene el archivo por sí mismo.'
+      en: 'recognizeFile.objId points at the archived document; the engine fetches the file itself.'
+      de: 'recognizeFile.objId verweist auf das archivierte Dokument; die Engine holt die Datei selbst.'
+      es: 'recognizeFile.objId apunta al documento archivado; el motor obtiene el archivo por sí mismo.'
   - method: checkoutDoc
     rpc: POST /rest/IXServicePortIF/checkoutDoc
     doc_url: "{base}/rest/openapi.json"
     spec: IXServicePortIF/checkoutDoc
     notes:
-      en: 'document.docs[0].fulltextContent holds the already-extracted text (a FileData; may carry data or a url).'
-      de: 'document.docs[0].fulltextContent enthält den bereits extrahierten Text (ein FileData; kann data oder eine url tragen).'
-      es: 'document.docs[0].fulltextContent tiene el texto ya extraído (un FileData; puede llevar data o una url).'
+      en: 'editInfoZ.bset "320" -> document.docs[0], whose fulltextContent (a FileData) carries the extracted text.'
+      de: 'editInfoZ.bset "320" -> document.docs[0], dessen fulltextContent (ein FileData) den extrahierten Text trägt.'
+      es: 'editInfoZ.bset "320" -> document.docs[0], cuyo fulltextContent (un FileData) lleva el texto extraído.'
 
 result_shape: |
-  working on document 5001  "Invoice 2026-001.pdf"
-  OCR text (first 120 chars): INVOICE 2026-001 ...
-  fulltext index text     : (not indexed on this archive)
+  uploaded doc 5001
+  OCR text (first 120): INVOICE 2026-0042 Acme GmbH Total: 1,469.13 EUR
+  fulltext index text : (not indexed on this archive)
+  cleaned up
 
 snippets:
   python: |
@@ -59,41 +61,43 @@ snippets:
     elo = connect()
     ALL = "449304431574384639"
 
+    # --- provision: upload a throwaway text document ---
+    body = b"INVOICE 2026-0042\nAcme GmbH\nTotal: 1,469.13 EUR\n"
+    sord = elo.call("createDoc", {"parentId": 1, "maskId": 0,
+                                  "editInfoZ": {"bset": "1", "sordZ": {"bset": ALL}}})["sord"]
+    sord["name"] = "pg-ocr-doc.txt"
+    doc = elo.call("checkinDocBegin", {"sord": sord, "document": {"docs": [{"ext": "txt"}]}})
+    doc["docs"][0]["uploadResult"] = elo.upload(doc["docs"][0]["url"], body)
+    obj_id = str(elo.call("checkinDocEnd", {"sord": sord, "document": doc,
+                                            "sordZ": {"bset": ALL}, "unlockZ": {"bset": "1"}})["objId"])
+    print("uploaded doc", obj_id)
+
     try:
-        # 1) find the first document in the archive to work on
-        res = elo.call("findFirstSords", {
-            "findInfo": {"findByType": {"typeMin": 254, "typeMax": 998}},
-            "max": 1, "sordZ": {"bset": ALL},
-        })
-        docs = res.get("sords") or []
-        if res.get("searchId"):
-            elo.call("findClose", {"searchId": res["searchId"]})
-        if not docs:
-            print("no documents in this archive - nothing to OCR")
-        else:
-            obj_id = str(docs[0]["id"])
-            print(f'working on document {obj_id}  "{docs[0].get("name")}"')
+        # 1) OCR it now
+        try:
+            ocr = elo.call("processOcr", {"ocrInfo": {
+                "recognizeFile": {"objId": obj_id, "outputFormat": 0, "pageNo": -1},
+            }})
+            text = " ".join(((ocr.get("recognizeFile") or {}).get("text") or "").split())
+            print("OCR text (first 120):", text[:120] or "(empty)")
+        except EloError as exc:
+            print("processOcr failed:", exc)
 
-            # 2) OCR it now
-            try:
-                ocr = elo.call("processOcr", {"ocrInfo": {
-                    "recognizeFile": {"objId": obj_id, "outputFormat": 0, "pageNo": -1},
-                }})
-                text = ((ocr.get("recognizeFile") or {}).get("text") or "").strip()
-                print("OCR text (first 120 chars):", text[:120] or "(empty)")
-            except EloError as exc:
-                print("processOcr failed:", exc)
-
-            # 3) or read the text the fulltext pipeline already extracted
-            doc = elo.call("checkoutDoc", {
-                "objId": obj_id,
-                "editInfoZ": {"bset": "1", "sordZ": {"bset": "0"}},
-            })
-            versions = ((doc.get("document") or {}).get("docs")) or []
-            ftc = versions[0].get("fulltextContent") if versions else None
-            print("fulltext index text     :",
-                  (ftc.get("data") if isinstance(ftc, dict) else None) or "(not indexed on this archive)")
+        # 2) or read the already-extracted fulltext
+        info = elo.call("checkoutDoc", {"objId": obj_id,
+                                        "editInfoZ": {"bset": "320", "sordZ": {"bset": "0"}}})
+        docs = ((info.get("document") or {}).get("docs")) or []
+        ftc = docs[0].get("fulltextContent") if docs else None
+        print("fulltext index text :",
+              (ftc.get("data") if isinstance(ftc, dict) else None) or "(not indexed on this archive)")
     finally:
+        for step in (False, True):
+            try:
+                elo.call("deleteSord", {"objId": obj_id, "parentId": "1",
+                                        "deleteOptions": {"deleteFinally": step}})
+            except EloError:
+                pass
+        print("cleaned up")
         elo.close()
 
   node: |
@@ -102,86 +106,81 @@ snippets:
     const elo = await connect();
     const ALL = "449304431574384639";
 
+    // --- provision: upload a throwaway text document ---
+    const body = Buffer.from("INVOICE 2026-0042\nAcme GmbH\nTotal: 1,469.13 EUR\n", "utf-8");
+    const sord = (await elo.call("createDoc", {
+      parentId: 1, maskId: 0, editInfoZ: { bset: "1", sordZ: { bset: ALL } },
+    })).sord;
+    sord.name = "pg-ocr-doc.txt";
+    const doc = await elo.call("checkinDocBegin", { sord, document: { docs: [{ ext: "txt" }] } });
+    doc.docs[0].uploadResult = await elo.upload(doc.docs[0].url, body);
+    const objId = String((await elo.call("checkinDocEnd", {
+      sord, document: doc, sordZ: { bset: ALL }, unlockZ: { bset: "1" },
+    })).objId);
+    console.log("uploaded doc", objId);
+
     try {
-      // 1) find the first document in the archive to work on
-      const res = await elo.call("findFirstSords", {
-        findInfo: { findByType: { typeMin: 254, typeMax: 998 } },
-        max: 1, sordZ: { bset: ALL },
-      });
-      const docs = res.sords || [];
-      if (res.searchId) await elo.call("findClose", { searchId: res.searchId });
-
-      if (!docs.length) {
-        console.log("no documents in this archive - nothing to OCR");
-      } else {
-        const objId = String(docs[0].id);
-        console.log(`working on document ${objId}  "${docs[0].name}"`);
-
-        // 2) OCR it now
-        try {
-          const ocr = await elo.call("processOcr", {
-            ocrInfo: { recognizeFile: { objId, outputFormat: 0, pageNo: -1 } },
-          });
-          const text = ((ocr.recognizeFile || {}).text || "").trim();
-          console.log("OCR text (first 120 chars):", text.slice(0, 120) || "(empty)");
-        } catch (exc) {
-          if (exc instanceof EloError) console.log("processOcr failed:", exc.message);
-          else throw exc;
-        }
-
-        // 3) or read the text the fulltext pipeline already extracted
-        const doc = await elo.call("checkoutDoc", {
-          objId, editInfoZ: { bset: "1", sordZ: { bset: "0" } },
-        });
-        const versions = ((doc.document || {}).docs) || [];
-        const ftc = versions.length ? versions[0].fulltextContent : null;
-        console.log(
-          "fulltext index text     :",
-          (ftc && typeof ftc === "object" ? ftc.data : null) || "(not indexed on this archive)"
-        );
-      }
-    } finally {
-      elo.close();
-    }
-
-  browser: |
-    const elo = await connect();
-    const ALL = "449304431574384639";
-
-    const res = await elo.call("findFirstSords", {
-      findInfo: { findByType: { typeMin: 254, typeMax: 998 } },
-      max: 1, sordZ: { bset: ALL },
-    });
-    const docs = res.sords || [];
-    if (res.searchId) await elo.call("findClose", { searchId: res.searchId });
-
-    if (!docs.length) {
-      console.log("no documents in this archive - nothing to OCR");
-    } else {
-      const objId = String(docs[0].id);
-      console.log(`working on document ${objId}  "${docs[0].name}"`);
+      // 1) OCR it now
       try {
         const ocr = await elo.call("processOcr", {
           ocrInfo: { recognizeFile: { objId, outputFormat: 0, pageNo: -1 } },
         });
-        const text = ((ocr.recognizeFile || {}).text || "").trim();
-        console.log("OCR text (first 120 chars):", text.slice(0, 120) || "(empty)");
+        const text = (((ocr.recognizeFile || {}).text) || "").split(/\s+/).join(" ").trim();
+        console.log("OCR text (first 120):", text.slice(0, 120) || "(empty)");
       } catch (exc) {
-        console.log("processOcr failed:", exc.message);
+        if (exc instanceof EloError) console.log("processOcr failed:", exc.message);
+        else throw exc;
       }
+
+      // 2) or read the already-extracted fulltext
+      const info = await elo.call("checkoutDoc", {
+        objId, editInfoZ: { bset: "320", sordZ: { bset: "0" } },
+      });
+      const docs = ((info.document || {}).docs) || [];
+      const ftc = docs.length ? docs[0].fulltextContent : null;
+      console.log(
+        "fulltext index text :",
+        (ftc && typeof ftc === "object" ? ftc.data : null) || "(not indexed on this archive)"
+      );
+    } finally {
+      for (const step of [false, true]) {
+        try {
+          await elo.call("deleteSord", { objId, parentId: "1", deleteOptions: { deleteFinally: step } });
+        } catch (e) { /* best effort */ }
+      }
+      console.log("cleaned up");
+      elo.close();
+    }
+
+  browser: |
+    // Uploading a document is not available from the browser (the connector is
+    // on another origin). Run this one from the Python or Node tab; the browser
+    // client would throw on elo.upload().
+    const elo = await connect();
+    try {
+      const ocr = await elo.call("processOcr", {
+        ocrInfo: { recognizeFile: { objId: "5001", outputFormat: 0, pageNo: -1 } },
+      });
+      const text = (((ocr.recognizeFile || {}).text) || "").split(/\s+/).join(" ").trim();
+      console.log("OCR text (first 120):", text.slice(0, 120) || "(empty)");
+    } catch (exc) {
+      console.log("processOcr failed:", exc.message);
     }
 
 mock:
-  findFirstSords:
-    searchId: "(MOCK-OCR)"
-    moreResults: false
-    sords:
-      - { id: 5001, name: "Invoice 2026-001.pdf", type: 254 }
-  findClose: {}
+  createDoc:
+    sord: { id: 0, name: "", parentId: 1 }
+  checkinDocBegin:
+    docs:
+      - { url: "mock://writedoc/1", ext: "txt" }
+  checkinDocEnd:
+    objId: 5001
+    docs: [{ url: "mock://readdoc/1" }]
   processOcr:
     recognizeFile:
-      text: "INVOICE 2026-001\nAcme GmbH\nTotal: 1,469.13 EUR\n"
+      text: "INVOICE 2026-0042\nAcme GmbH\nTotal: 1,469.13 EUR\n"
   checkoutDoc:
     document:
       docs:
         - { fulltextContent: null }
+  deleteSord: {}

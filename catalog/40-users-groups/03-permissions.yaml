@@ -90,5 +90,6 @@ snippets:
 
 mock:
   checkoutUsers:
-  - {id: 0, name: "Administrator", flags: 1}
-  - {id: 1, name: "ELO Service", flags: 536870912}
+    result:
+      - {id: 0, name: "Administrator", flags: 1}
+      - {id: 1, name: "ELO Service", flags: 536870912}

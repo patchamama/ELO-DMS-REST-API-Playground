@@ -3,25 +3,47 @@
 // category: Repository & objects
 // id:       repository.add-reference
 
-import { connect } from "elo-playground";
+import { connect, EloError } from "elo-playground";
 
 const elo = await connect();
 const ALL = "449304431574384639";
 
-const objId = 4711;      // the object to reference
-const oldParent = 1;     // a folder it is already in
-const newParent = 4712;  // the folder to also file it under
+const makeFolder = async (name) => {
+  const tpl = (await elo.call("createSord", {
+    parentId: "1", maskId: 0, editInfoZ: { bset: "1", sordZ: { bset: ALL } },
+  })).sord;
+  tpl.name = name;
+  return String(await elo.call("checkinSord", {
+    sord: tpl, sordZ: { bset: ALL }, unlockZ: { bset: "1" },
+  }));
+};
 
-await elo.call("refSord", {
-  objId: String(objId),
-  oldParentId: String(oldParent),
-  newParentId: String(newParent),
-});
-console.log("reference added");
+let objId = null;
+let target = null;
+try {
+  target = await makeFolder("pg-ref-target");
+  objId = await makeFolder("pg-ref-object");
 
-const kids = (await elo.call("findFirstSords", {
-  findInfo: { findChildren: { parentId: newParent, mainParent: false, endLevel: 1 } },
-  max: 20,
-  sordZ: { bset: ALL },
-})).sords || [];
-console.log("new parent now contains:", kids.map((k) => k.name));
+  try {
+    await elo.call("refSord", { objId, oldParentId: "1", newParentId: target });
+    console.log("reference added");
+  } catch (exc) {
+    if (exc instanceof EloError) console.log("refSord not permitted here:", exc.message);
+    else throw exc;
+  }
+
+  const kids = (await elo.call("findFirstSords", {
+    findInfo: { findChildren: { parentId: target, mainParent: false, endLevel: 1 } },
+    max: 20, sordZ: { bset: ALL },
+  })).sords || [];
+  console.log("target folder now contains:", kids.map((k) => k.name));
+} finally {
+  for (const oid of [objId, target]) {
+    if (!oid) continue;
+    try {
+      await elo.call("deleteSord", { objId: oid, parentId: "1", deleteOptions: { deleteFinally: false } });
+      await elo.call("deleteSord", { objId: oid, parentId: "1", deleteOptions: { deleteFinally: true } });
+    } catch (e) { /* best effort */ }
+  }
+  elo.close();
+}
