@@ -66,5 +66,21 @@
   "static.precomputed": "precalculada",
   "static.help": "El modo mock usa datos de ejemplo incluidos. Destildá Mock e ingresá una URL base de ELO alcanzable + credenciales para correr los snippets de Navegador contra un servidor real (ese servidor debe permitir CORS desde esta página).",
   "static.backendOnly": "Solo los snippets de Navegador pueden llamar a un servidor desde esta página. Python / Node necesitan la app local.",
-  "conn.port": "Puerto"
+  "conn.port": "Puerto",
+  "labfs.needsBackend": "Este panel corre en la app local contra un ELO en vivo. Destildá Mock, completá el formulario de conexión y pulsá Probar conexión.",
+  "labfs.loadTree": "Cargar el árbol de carpetas de ELO",
+  "labfs.eloTree": "Carpeta de ELO a espejar",
+  "labfs.selectFolder": "todavía no hay carpeta seleccionada",
+  "labfs.selected": "seleccionada",
+  "labfs.mirror": "Espejar al sandbox",
+  "labfs.mirrorHint": "Escribe carpetas y bytes de documentos en sandbox/elo-archiv-structure/ (se vacía primero) y la abre en el explorador de archivos.",
+  "labfs.localToElo": "Carpeta local para subir a ELO",
+  "labfs.serverPath": "Ruta en el host del backend",
+  "labfs.pickDir": "Elegir una carpeta…",
+  "labfs.targetFolder": "carpeta de ELO destino",
+  "labfs.upload": "Subir a ELO",
+  "labfs.running": "trabajando…",
+  "labfs.done": "listo",
+  "labfs.tooBig": "selección demasiado grande (máx. 16 MB en total para el selector del navegador)",
+  "labfs.showCode": "Mostrar el código detrás de este panel"
 }

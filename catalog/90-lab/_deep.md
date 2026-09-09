@@ -89,7 +89,60 @@ await elo.call("deleteSord", { parentId: String(PARENT), objId, deleteOptions: {
 console.log("deleted:", objId);
 ```
 
-## 3. Where to go next
+## 3. Generate an ELO structure on disk (and back)
+
+The **"Generate an ELO structure on the local filesystem"** topic in this
+category is an interactive panel, not just a snippet. A few things worth knowing
+about how it works:
+
+- **One level per click.** The tree calls `findFirstSords` with
+  `findChildren.endLevel = 1`, so each `+` fetches exactly one level. `type < 254`
+  is a folder, `254..998` is a document, `9999` is the repository root.
+
+```text
+findFirstSords { findInfo.findChildren { parentId, mainParent: true, endLevel: 1 },
+                 max: 1000, sordZ.bset "449304431574384639" }  ->  { sords, searchId }
+findClose      { searchId }
+```
+
+- **Document bytes.** `checkoutDoc` with `editInfoZ.bset "320"` returns
+  `document.docs[0].url`; then `download(url, max_bytes=…)`. The shared client's
+  `download()` defaults to **200 KB and truncates silently** - the panel passes an
+  explicit 25 MB cap. The Node client's `download()` returns text, not raw bytes,
+  so binary files come out clean only from the Python side.
+- **Mirror target.** `sandbox/elo-archiv-structure/` is **deleted and recreated**
+  on every run (the `shutil.rmtree` + recreate pattern). The backend then reveals
+  it with `os.startfile` / `open` / `xdg-open` - which only makes sense when the
+  app runs on your own machine.
+- **The reverse** walks a local folder (a path on the backend host, or a folder
+  picked with the browser directory button) and recreates it as
+  `createSord`/`checkinSord` folders + `createDoc` -> `checkinDocBegin` ->
+  `upload` -> `checkinDocEnd` documents. Both directions are capped by object
+  count and per-file size, and each ELO error is caught so one bad object does
+  not abort the run.
+- **`metadata.opf` per folder.** On export every container also gets an XML
+  sidecar with its mask (`sord.mask` / `maskName`), GRP fields (`sord.objKeys`),
+  MAP fields (`checkoutMap`, domain `objekte`), dates (`IDateIso` / `XDateIso` /
+  `TStamp`), owner and ACL. On import a `metadata.opf` is read (never uploaded
+  as a document): its mask id is used at `createSord`, then `desc`, dates,
+  colour (`kind`) and the GRP / MAP field values are written back with
+  `checkinSord` + `checkinMap`. Owner and ACL are recorded for reference only -
+  they are not re-applied (ids rarely match across repositories).
+
+```text
+metadata.opf  (one per container)
+  <eloContainer generator="elo-api-playground" exportedIso="...">
+    <source repository="..." objId="2" guid="(...)" parentId="1" />
+    <sord><name/><desc/><type/><mask id="1" name="Ordner"/><kind/>
+          <owner id="0" name="Administrator"/>
+          <dates iDateIso="..." xDateIso="" tStamp="..."/></sord>
+    <groupFields><field name="..."><value>...</value></field></groupFields>
+    <mapFields><field key="..."><value>...</value></field></mapFields>
+    <acl><entry id="9998" type="0" name="..." access="63"/></acl>
+  </eloContainer>
+```
+
+## 4. Where to go next
 
 Copying a GRP (index) field into a MAP field, symmetric links between objects,
 and public share URLs each have their own topic in this category.

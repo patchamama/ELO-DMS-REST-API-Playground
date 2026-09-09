@@ -45,6 +45,12 @@ def test_attach_file_flag_loads():
     assert by_id["connection.login"].attach_file is False
 
 
+def test_lab_fs_flag_loads():
+    by_id = {t.id: t for t in load_topics("en")}
+    assert by_id["lab.fs-sync"].lab_fs is True
+    assert by_id["connection.login"].lab_fs is False
+
+
 def test_default_fixture_is_valid_json_and_has_login():
     default = get_settings().fixtures_dir / "default.json"
     data = json.loads(default.read_text(encoding="utf-8"))

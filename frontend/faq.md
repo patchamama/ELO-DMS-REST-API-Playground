@@ -81,6 +81,30 @@ tiny built-in invoice so it still runs. In code the picked file is
 `{ name, bytes }` in Node/browser, or `None`/`null`. The upload is capped at
 8 MB and is written to the run's temp dir (`ELOPG_ATTACH`), never kept.
 
+## "Generate an ELO structure on the local filesystem" (Testing lab)
+
+That topic is an interactive panel, live mode only. Two directions:
+
+- **ELO -> local.** Expand the folder tree, pick a folder, press *Mirror*. Its
+  whole subtree - folders **and** document bytes - is written into
+  `sandbox/elo-archiv-structure/`, which is **emptied first**, and then opened in
+  your OS file manager (so it only makes sense when the app runs on your own
+  machine).
+- **local -> ELO.** Give a folder as a path on the backend host, or pick one with
+  the browser directory button, and it is recreated as folders + documents under
+  a chosen ELO folder.
+
+Both directions are capped (object count and per-file size; the browser picker
+also has a ~16 MB total limit) and every ELO error is caught, so one unreadable
+document does not abort the run. In Mock / static mode the panel is inert - only
+its collapsed *"Show the code"* section works.
+
+Every exported folder also carries a **`metadata.opf`** (XML): the mask name,
+GRP + MAP field values, dates, owner and ACL - a small backup / import template.
+On import that file is applied to the freshly created ELO folder (mask, `desc`,
+dates, colour, GRP + MAP values) and is **not** uploaded as a document; owner
+and ACL are kept for reference only.
+
 ## The static demo (GitHub Pages) - what runs?
 
 The published demo has no backend. It behaves like the app, defaulting to Mock:

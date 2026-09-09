@@ -61,6 +61,7 @@
     if (path === "/api/version") return "api/version.json";
     if (path === "/api/faq") return "api/faq.json";
     if (path === "/api/client-lib") return "api/client-lib.json";
+    if (path === "/api/lab/fs-source") return "api/lab/fs-source.json";
     if (path === "/api/spec/services") return "api/spec/services.json";
     if (path === "/api/spec/operations") return `api/spec/operations/${p.get("service")}.json`;
     if ((m = path.match(/^\/api\/spec\/op\/(.+)$/))) return `api/spec/op/${m[1]}.json`;
@@ -461,6 +462,276 @@ ${snippet}
     return tmpl.replace("{base}", base);
   }
 
+  // >>> lab-fs slice  (Testing lab: ELO <-> local filesystem panel)
+  //
+  // Rendered for a topic with `lab_fs: true`. Talks to three live-only endpoints:
+  //   POST /api/lab/elo-children  - one level of the ELO folder tree (lazy)
+  //   POST /api/lab/mirror        - ELO subtree -> sandbox/elo-archiv-structure/
+  //                                 (wiped first) + open it in the file manager
+  //   POST /api/lab/upload-tree   - a local folder (server path or the browser
+  //                                 directory picker) -> folders + documents in ELO
+  // In Mock / static mode the panel is inert; only the collapsed "show the code"
+  // section (GET /api/lab/fs-source) still works.
+  function labFsPanelHtml() {
+    return `
+      <div class="labfs-panel">
+        <p class="labfs-note" hidden></p>
+        <div class="labfs-cols">
+          <section class="labfs-side" data-role="source">
+            <h3>${esc(tr("labfs.eloTree"))}</h3>
+            <div class="labfs-tree"><button class="labfs-load">${esc(tr("labfs.loadTree"))}</button><ul class="labfs-root" hidden></ul></div>
+            <p class="labfs-selected">${esc(tr("labfs.selectFolder"))}</p>
+            <div class="labfs-actions"><button class="labfs-mirror" disabled>${esc(tr("labfs.mirror"))}</button></div>
+            <p class="hint">${esc(tr("labfs.mirrorHint"))}</p>
+          </section>
+          <section class="labfs-side" data-role="target">
+            <h3>${esc(tr("labfs.localToElo"))}</h3>
+            <label class="labfs-field">${esc(tr("labfs.serverPath"))}
+              <input type="text" class="labfs-server-path" placeholder="C:\\path\\to\\folder" />
+            </label>
+            <label class="labfs-btn"><span>${esc(tr("labfs.pickDir"))}</span>
+              <input type="file" class="labfs-dir" hidden webkitdirectory directory multiple />
+            </label>
+            <span class="labfs-dir-name"></span>
+            <h3>${esc(tr("labfs.targetFolder"))}</h3>
+            <div class="labfs-tree"><button class="labfs-load">${esc(tr("labfs.loadTree"))}</button><ul class="labfs-root" hidden></ul></div>
+            <p class="labfs-selected">${esc(tr("labfs.selectFolder"))}</p>
+            <div class="labfs-actions"><button class="labfs-upload" disabled>${esc(tr("labfs.upload"))}</button></div>
+          </section>
+        </div>
+        <pre class="labfs-log" hidden></pre>
+        <details class="labfs-src">
+          <summary>${esc(tr("labfs.showCode"))}</summary>
+          <div class="labfs-src-host"></div>
+        </details>
+      </div>`;
+  }
+
+  function wireLabFs(host) {
+    const panel = host.querySelector(".labfs-panel");
+    if (!panel) return;
+    const log = panel.querySelector(".labfs-log");
+    const say = (line, isErr) => {
+      log.hidden = false;
+      log.textContent += (log.textContent ? "\n" : "") + line;
+      if (isErr) log.classList.add("err");
+    };
+    const labPost = (url, body) =>
+      postJSON(url, Object.assign({ credentials: isMock() ? null : creds() }, body));
+
+    // --- collapsed "show the code": real source, works offline too ----------
+    let srcLoaded = false;
+    const details = panel.querySelector(".labfs-src");
+    details.addEventListener("toggle", async () => {
+      if (!details.open || srcLoaded) return;
+      srcLoaded = true;
+      const holder = panel.querySelector(".labfs-src-host");
+      holder.innerHTML = `<p class="hint">${esc(tr("run.running"))}</p>`;
+      try {
+        const data = await getJSON("/api/lab/fs-source");
+        const files = [].concat(data.backend || [], data.frontend || []);
+        holder.innerHTML = files
+          .map(
+            (f) =>
+              `<div class="lib-file"><div class="lib-file-name">${esc(f.title)}</div>` +
+              `<pre class="code"><code class="language-${/\.py\b/.test(f.title) ? "python" : "javascript"}">${esc(f.code)}</code></pre></div>`
+          )
+          .join("");
+        if (window.hljs) holder.querySelectorAll("pre code").forEach((el) => window.hljs.highlightElement(el));
+      } catch (e) {
+        holder.innerHTML = `<p class="err">${esc(String(e))}</p>`;
+      }
+    });
+
+    // --- live-only guard: the tree + actions need a real ELO + local disk ---
+    if (STATIC || isMock()) {
+      const note = panel.querySelector(".labfs-note");
+      note.hidden = false;
+      note.textContent = tr("labfs.needsBackend");
+      panel
+        .querySelectorAll(".labfs-load, .labfs-mirror, .labfs-upload, .labfs-server-path, .labfs-btn")
+        .forEach((el) => {
+          if ("disabled" in el) el.disabled = true;
+          el.classList.add("is-off");
+        });
+      return;
+    }
+
+    // --- one lazy folder tree, reused for the "source" and "target" sides ---
+    function wireTree(section, onSelect) {
+      const treeEl = section.querySelector(".labfs-tree");
+      const rootUl = treeEl.querySelector(".labfs-root");
+      const loadBtn = treeEl.querySelector(".labfs-load");
+      const selEl = section.querySelector(".labfs-selected");
+
+      const rowHtml = (r) =>
+        `<li>` +
+        `<span class="labfs-toggle${r.is_folder ? "" : " leaf"}">${r.is_folder ? "\u25B8" : "\u00B7"}</span>` +
+        `<button class="labfs-pick" data-id="${esc(r.id)}" data-name="${esc(r.name)}">${esc(r.name)}</button>` +
+        `<ul hidden></ul></li>`;
+
+      async function fill(ul, parentId) {
+        ul.innerHTML = `<li class="hint">\u2026</li>`;
+        const res = await labPost("/api/lab/elo-children", { parent_id: String(parentId) });
+        if (res.error) {
+          ul.innerHTML = `<li class="err">${esc(res.error)}</li>`;
+          return;
+        }
+        ul.innerHTML = (res.rows || []).map(rowHtml).join("") || `<li class="hint">(empty)</li>`;
+        ul.dataset.loaded = "1";
+      }
+
+      loadBtn.addEventListener("click", async () => {
+        loadBtn.disabled = true;
+        await fill(rootUl, "1");
+        rootUl.hidden = false;
+        loadBtn.hidden = true;
+      });
+
+      treeEl.addEventListener("click", async (ev) => {
+        const tog = ev.target.closest(".labfs-toggle");
+        if (tog && !tog.classList.contains("leaf")) {
+          const li = tog.closest("li");
+          const ul = li.querySelector("ul");
+          const pick = li.querySelector(".labfs-pick");
+          if (!ul.dataset.loaded) await fill(ul, pick.dataset.id);
+          ul.hidden = !ul.hidden;
+          tog.classList.toggle("open", !ul.hidden);
+          return;
+        }
+        const pick = ev.target.closest(".labfs-pick");
+        if (pick) {
+          treeEl.querySelectorAll(".labfs-pick.active").forEach((b) => b.classList.remove("active"));
+          pick.classList.add("active");
+          selEl.textContent = `${tr("labfs.selected")}: ${pick.dataset.name} (id ${pick.dataset.id})`;
+          onSelect({ id: pick.dataset.id, name: pick.dataset.name });
+        }
+      });
+    }
+
+    // --- ELO subtree -> sandbox/elo-archiv-structure -----------------------
+    const sourceSection = panel.querySelector('[data-role="source"]');
+    const mirrorBtn = sourceSection.querySelector(".labfs-mirror");
+    let SELECTED = null;
+    wireTree(sourceSection, (f) => {
+      SELECTED = f;
+      mirrorBtn.disabled = false;
+    });
+    mirrorBtn.addEventListener("click", async () => {
+      if (!SELECTED) return;
+      const label = mirrorBtn.textContent;
+      mirrorBtn.disabled = true;
+      mirrorBtn.textContent = tr("labfs.running");
+      say(`> mirror ${SELECTED.name} (id ${SELECTED.id})`);
+      try {
+        const res = await labPost("/api/lab/mirror", {
+          folder_id: String(SELECTED.id),
+          folder_name: SELECTED.name,
+        });
+        if (res.error) say("! " + res.error, true);
+        else {
+          say(
+            `  ${res.folders} folders, ${res.documents} documents, ${res.metadata} metadata.opf, ${res.bytes} bytes -> ${res.root}`
+          );
+          if (res.truncated) say("  (stopped at the object cap)");
+          (res.skipped || []).forEach((s) => say("  skipped " + s));
+          say(res.opened ? `  ${tr("labfs.done")} - opened in the file manager` : `  ${tr("labfs.done")}`);
+        }
+      } catch (e) {
+        say("! " + String(e), true);
+      } finally {
+        mirrorBtn.textContent = label;
+        mirrorBtn.disabled = false;
+      }
+    });
+
+    // --- a local folder -> folders + documents in ELO --------------------
+    const targetSection = panel.querySelector('[data-role="target"]');
+    const uploadBtn = targetSection.querySelector(".labfs-upload");
+    const serverPathEl = targetSection.querySelector(".labfs-server-path");
+    const dirInput = targetSection.querySelector(".labfs-dir");
+    const dirNameEl = targetSection.querySelector(".labfs-dir-name");
+    const CAP = 16 * 1024 * 1024;
+    let TARGET = null;
+    let PICKED = []; // [{ rel_path, b64 }]
+    let PICKED_ROOT = "uploaded";
+
+    function refreshUpload() {
+      uploadBtn.disabled = !TARGET || (!serverPathEl.value.trim() && !PICKED.length);
+    }
+    wireTree(targetSection, (f) => {
+      TARGET = f;
+      refreshUpload();
+    });
+    serverPathEl.addEventListener("input", refreshUpload);
+
+    dirInput.addEventListener("change", async () => {
+      const files = Array.from(dirInput.files || []);
+      PICKED = [];
+      dirNameEl.classList.remove("err");
+      if (!files.length) {
+        dirNameEl.textContent = "";
+        refreshUpload();
+        return;
+      }
+      const total = files.reduce((n, f) => n + f.size, 0);
+      if (total > CAP) {
+        dirNameEl.textContent = tr("labfs.tooBig");
+        dirNameEl.classList.add("err");
+        refreshUpload();
+        return;
+      }
+      PICKED_ROOT = (files[0].webkitRelativePath || "uploaded/x").split("/")[0] || "uploaded";
+      PICKED = await Promise.all(
+        files.map(
+          (f) =>
+            new Promise((resolve) => {
+              const fr = new FileReader();
+              fr.onload = () =>
+                resolve({
+                  rel_path: (f.webkitRelativePath || f.name).split("/").slice(1).join("/") || f.name,
+                  b64: String(fr.result).split(",")[1] || "",
+                });
+              fr.readAsDataURL(f);
+            })
+        )
+      );
+      dirNameEl.textContent = `${PICKED_ROOT}/ - ${files.length} files (${Math.round(total / 1024)} KB)`;
+      refreshUpload();
+    });
+
+    uploadBtn.addEventListener("click", async () => {
+      if (!TARGET) return;
+      const usingPath = !!serverPathEl.value.trim();
+      const label = uploadBtn.textContent;
+      uploadBtn.disabled = true;
+      uploadBtn.textContent = tr("labfs.running");
+      const what = usingPath ? serverPathEl.value.trim() : `${PICKED_ROOT}/ (${PICKED.length} files)`;
+      say(`> upload ${what} -> ${TARGET.name} (id ${TARGET.id})`);
+      try {
+        const body = usingPath
+          ? { target_id: String(TARGET.id), server_path: serverPathEl.value.trim() }
+          : { target_id: String(TARGET.id), root_name: PICKED_ROOT, items: PICKED };
+        const res = await labPost("/api/lab/upload-tree", body);
+        if (res.error) say("! " + res.error, true);
+        else {
+          say(`  ${res.folders} folders, ${res.documents} documents, ${res.bytes} bytes under id ${res.target_id}`);
+          if (res.metadata_applied) say(`  metadata.opf applied to ${res.metadata_applied} folder(s)`);
+          if (res.skipped) say(`  skipped ${res.skipped} oversized file(s)`);
+          (res.warnings || []).forEach((w) => say("  ! " + w, true));
+          if (res.truncated) say("  (stopped at the object cap)");
+          say("  " + tr("labfs.done"));
+        }
+      } catch (e) {
+        say("! " + String(e), true);
+      } finally {
+        uploadBtn.textContent = label;
+        uploadBtn.disabled = false;
+      }
+    });
+  }
+  // <<< lab-fs slice
+
   async function openTopic(id) {
     store.set(LS.topic, "t:" + id);
     markActiveNav(`.topiclink[data-topic="${cssEsc(id)}"]`);
@@ -526,6 +797,8 @@ ${snippet}
             : ""
         }
 
+        ${topic.lab_fs ? labFsPanelHtml() : ""}
+
         <div class="subtabs">${tabs}</div>
         <div class="snippet-host"></div>
       </article>`;
@@ -576,6 +849,9 @@ ${snippet}
       });
       clearBtn.addEventListener("click", setNone);
     }
+
+    // ---- interactive ELO <-> local filesystem panel (topic.lab_fs) --
+    if (topic.lab_fs) wireLabFs(host);
 
     const sub = host.querySelector(".subtabs");
     const snipHost = host.querySelector(".snippet-host");

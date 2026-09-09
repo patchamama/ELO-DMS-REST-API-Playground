@@ -204,6 +204,44 @@ button.fn-ref { background: none; border: 0; padding: 0; color: var(--blue); cur
   padding: 0 8px; cursor: pointer; color: var(--muted); line-height: 1.6;
 }
 
+/* ---- Testing lab: ELO <-> local filesystem panel ---- */
+.labfs-panel { border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; margin: 8px 0 18px; background: var(--panel); }
+.labfs-note { margin: 0 0 10px; padding: 6px 10px; border-radius: 6px; background: #fff; border: 1px solid var(--warn); color: var(--warn); font-size: 12px; }
+.labfs-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.labfs-side h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin: 10px 0 6px; }
+.labfs-side h3:first-child { margin-top: 0; }
+.labfs-tree { background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; max-height: 260px; overflow: auto; font-size: 12.5px; }
+.labfs-tree ul { list-style: none; margin: 0; padding-left: 16px; }
+.labfs-tree > .labfs-root { padding-left: 2px; }
+.labfs-tree li { line-height: 1.9; }
+.labfs-load { background: none; border: 1px solid var(--line); border-radius: 6px; padding: 3px 10px; font-size: 12px; cursor: pointer; color: var(--ink); }
+.labfs-load:hover { background: var(--panel); }
+.labfs-toggle { display: inline-block; width: 1.1em; cursor: pointer; color: var(--muted); user-select: none; text-align: center; }
+.labfs-toggle.leaf { cursor: default; }
+.labfs-toggle.open { transform: rotate(90deg); }
+.labfs-pick { background: none; border: 0; padding: 0 2px; font: inherit; color: var(--blue); cursor: pointer; }
+.labfs-pick.active { font-weight: 600; background: #eaf2fb; border-radius: 4px; }
+.labfs-selected { font-size: 11.5px; color: var(--muted); margin: 6px 0; }
+.labfs-field { display: block; font-size: 11.5px; color: var(--muted); margin: 4px 0; }
+.labfs-field input { display: block; width: 100%; box-sizing: border-box; margin-top: 2px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 6px; font: inherit; font-size: 12px; }
+.labfs-btn { display: inline-block; cursor: pointer; background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 4px 12px; color: var(--ink); font-size: 12px; }
+.labfs-btn:hover { background: var(--panel); }
+.labfs-dir-name { font-size: 11.5px; color: var(--muted); margin-left: 8px; }
+.labfs-dir-name.err { color: var(--err); }
+.labfs-actions { margin: 8px 0 2px; }
+.labfs-actions button { background: var(--ok); color: #fff; border: 0; border-radius: 6px; padding: 5px 14px; cursor: pointer; font-size: 13px; }
+.labfs-actions button:disabled, .labfs-load:disabled, .labfs-btn.is-off { background: var(--muted); color: #fff; cursor: default; opacity: 0.7; }
+.labfs-server-path.is-off { opacity: 0.5; }
+.labfs-log { margin: 12px 0 0; padding: 10px 12px; background: #fff; border: 1px solid var(--line); border-radius: 6px; font-size: 12px; white-space: pre-wrap; max-height: 220px; overflow: auto; }
+.labfs-log.err { border-color: var(--err); }
+.labfs-src { margin-top: 12px; }
+.labfs-src summary { cursor: pointer; font-size: 12px; color: var(--blue); }
+.labfs-src-host { margin-top: 8px; }
+
+@media (max-width: 860px) {
+  .labfs-cols { grid-template-columns: 1fr; }
+}
+
 /* ---- deep dive ---- */
 .deepdoc { max-width: 80ch; line-height: 1.55; }
 .deepdoc h1 { font-size: 20px; }

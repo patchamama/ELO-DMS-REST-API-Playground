@@ -44,6 +44,7 @@ class Topic(BaseModel):
     snippets: Snippets = Snippets()
     mock: dict[str, Any] = {}
     attach_file: bool = False   # show a "Choose file" button on this topic
+    lab_fs: bool = False        # render the interactive ELO <-> local filesystem panel
 
 
 class Attachment(BaseModel):
@@ -77,3 +78,40 @@ class ProxyRequest(BaseModel):
     mock: bool = True
     topic_id: str | None = None
     credentials: EloCreds | None = None
+
+
+# ---- Testing lab: ELO <-> local filesystem panel (live only) ---------- #
+class LabTreeRequest(BaseModel):
+    """One level of the ELO folder tree, for lazy expansion."""
+
+    parent_id: str = "1"                     # "1" = repository root
+    credentials: EloCreds | None = None
+
+
+class LabMirrorRequest(BaseModel):
+    """Mirror an ELO subtree (folders + document bytes) into
+    ``sandbox/elo-archiv-structure/`` and open it in the OS file manager."""
+
+    folder_id: str
+    folder_name: str | None = None           # becomes the top directory in the mirror
+    credentials: EloCreds | None = None
+    max_objects: int = 500
+    max_bytes: int = 25 * 1024 * 1024
+
+
+class LabUploadItem(BaseModel):
+    rel_path: str                            # POSIX path relative to the picked folder root
+    b64: str                                 # base64 of the file bytes
+
+
+class LabUploadRequest(BaseModel):
+    """Upload a local folder tree into a selected ELO folder. Exactly one
+    source: ``server_path`` (walked on the backend) or ``items`` (browser-picked)."""
+
+    target_id: str
+    root_name: str | None = None             # top folder name in ELO; defaults to the local folder's name
+    server_path: str | None = None
+    items: list[LabUploadItem] = []
+    credentials: EloCreds | None = None
+    max_objects: int = 500
+    max_bytes: int = 25 * 1024 * 1024
