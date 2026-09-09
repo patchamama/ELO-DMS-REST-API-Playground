@@ -94,3 +94,24 @@ def test_proxy_login_returns_the_session_user_without_re_calling_ix():
 def test_proxy_logout_is_a_noop():
     r = client.post("/api/elo/proxy", json={"method": "logout", "body": {}, "mock": True})
     assert r.json() == {"result": {}}
+
+
+def test_lab_endpoints_need_credentials_and_never_500():
+    for path, body in (
+        ("/api/lab/elo-children", {"parent_id": "1"}),
+        ("/api/lab/mirror", {"folder_id": "1"}),
+        ("/api/lab/upload-tree", {"target_id": "1", "server_path": "/nope"}),
+    ):
+        r = client.post(path, json=body)
+        assert r.status_code == 200
+        assert "live mode required" in r.json()["error"]
+
+
+def test_lab_fs_source_lists_the_real_backend_module():
+    r = client.get("/api/lab/fs-source")
+    assert r.status_code == 200
+    body = r.json()
+    titles = [f["title"] for f in body["backend"]]
+    assert any("lab_fs.py" in t for t in titles)
+    assert body["frontend"] and "app.js" in body["frontend"][0]["title"]
+    assert "lab-fs slice" in body["frontend"][0]["code"]

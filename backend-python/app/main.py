@@ -27,7 +27,16 @@ from .client_lib import client_lib
 from .config import get_settings
 from .elo_session import EloError, get_client, mock_client
 from .i18n import catalogue
-from .models import EloCreds, ProxyRequest, RunRequest, RunResult
+from .lab_fs import lab_fs_source, list_children, mirror_to_sandbox, upload_tree
+from .models import (
+    EloCreds,
+    LabMirrorRequest,
+    LabTreeRequest,
+    LabUploadRequest,
+    ProxyRequest,
+    RunRequest,
+    RunResult,
+)
 from .runner import mock_data, run
 
 settings = get_settings()
@@ -193,6 +202,64 @@ def api_proxy(req: ProxyRequest):
         return {"error": str(exc)}
     except Exception as exc:  # noqa: BLE001 - a browser call must not 500 the app
         return {"error": f"{type(exc).__name__}: {exc}"}
+
+
+# ---- Testing lab: ELO <-> local filesystem (live only) ---------- #
+def _lab_client(creds: EloCreds | None):
+    if not creds or not creds.base_url:
+        raise EloError(
+            "live mode required - untick Mock, fill in the connection form and press Check connection"
+        )
+    return get_client(creds.base_url, creds.user, creds.password, verify=creds.tls_verify)
+
+
+def _lab_guard(fn):
+    """Run *fn* and turn any failure into ``{"error": "..."}`` (never a 500)."""
+    try:
+        return fn()
+    except EloError as exc:
+        return {"error": str(exc)}
+    except Exception as exc:  # noqa: BLE001 - a lab call must not 500 the app
+        return {"error": f"{type(exc).__name__}: {exc}"}
+
+
+@app.post("/api/lab/elo-children")
+def api_lab_children(req: LabTreeRequest):
+    return _lab_guard(lambda: {"rows": list_children(_lab_client(req.credentials), req.parent_id)})
+
+
+@app.post("/api/lab/mirror")
+def api_lab_mirror(req: LabMirrorRequest):
+    return _lab_guard(
+        lambda: mirror_to_sandbox(
+            _lab_client(req.credentials),
+            req.folder_id,
+            folder_name=req.folder_name,
+            max_objects=req.max_objects,
+            max_bytes=req.max_bytes,
+        )
+    )
+
+
+@app.post("/api/lab/upload-tree")
+def api_lab_upload(req: LabUploadRequest):
+    return _lab_guard(
+        lambda: upload_tree(
+            _lab_client(req.credentials),
+            target_id=req.target_id,
+            root_name=req.root_name,
+            server_path=req.server_path,
+            items=[i.model_dump() for i in req.items],
+            max_objects=req.max_objects,
+            max_bytes=req.max_bytes,
+        )
+    )
+
+
+@app.get("/api/lab/fs-source")
+def api_lab_fs_source():
+    """Real source of the lab-fs backend module + frontend slice + topic YAML."""
+    return lab_fs_source()
 
 
 @app.post("/api/elo/login-check")

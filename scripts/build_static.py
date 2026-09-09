@@ -30,6 +30,7 @@ sys.path.insert(0, str(ROOT / "shared" / "python"))
 from app import __version__ as BACKEND_VERSION  # noqa: E402
 from app import catalog as cat  # noqa: E402
 from app import client_lib as clib  # noqa: E402
+from app import lab_fs as labfs  # noqa: E402
 from app import openapi_ref  # noqa: E402
 from app.i18n import catalogue  # noqa: E402
 from app.models import RunRequest  # noqa: E402
@@ -183,8 +184,9 @@ def main() -> int:
 
     _write("api/run-cache.json", run_cache)
 
-    # ---- client library + openapi reference ------------------------
+    # ---- client library + lab-fs source + openapi reference --------
     _write("api/client-lib.json", clib.client_lib())
+    _write("api/lab/fs-source.json", labfs.lab_fs_source())
 
     spec = openapi_ref.load_spec(None, mock=True)
     _write("api/spec/services.json", {"info": openapi_ref.spec_info(spec), "services": openapi_ref.services(spec)})

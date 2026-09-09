@@ -1,0 +1,392 @@
+id: lab.fs-sync
+order: 7
+lab_fs: true
+category:
+  en: Testing lab
+  de: Testlabor
+  es: Laboratorio de pruebas
+title:
+  en: "Generate an ELO structure on the local filesystem (and back)"
+  de: "Eine ELO-Struktur im lokalen Dateisystem erzeugen (und zurück)"
+  es: "Generar una estructura de ELO en el sistema de archivos local (y viceversa)"
+summary:
+  en: >
+    An interactive panel (live mode only). Expand the ELO folder tree, pick a
+    folder, and press Mirror: the selected folder is recreated inside
+    `sandbox/elo-archiv-structure/` (that directory is emptied first) with its
+    whole recursive content - every subfolder AND every document's bytes - and
+    opened in your file manager. The reverse direction takes a local folder - a
+    path on the backend host or one picked with the browser directory button -
+    and recreates the whole tree (the folder itself, its subfolders and every
+    document) under a chosen ELO folder. On export every folder also gets a
+    `metadata.opf` (XML) holding its mask, GRP and MAP field values, dates and
+    ACL - a backup / import template; on import that file is applied to the new
+    ELO folder and is not itself uploaded as a document.
+    Reading a level is `findFirstSords` + `findChildren`; a document's bytes come
+    from `checkoutDoc` then a `download`; writing is `createSord`/`checkinSord`
+    for folders and `createDoc` -> `checkinDocBegin` -> upload -> `checkinDocEnd`
+    for files. Everything is capped (objects and per-file size) and every ELO
+    error is caught so one bad document does not abort the run.
+  de: >
+    Ein interaktives Panel (nur Live-Modus). Den ELO-Ordnerbaum aufklappen,
+    einen Ordner wählen und auf Spiegeln drücken: der gewählte Ordner wird in
+    `sandbox/elo-archiv-structure/` nachgebaut (dieser Ordner wird zuvor
+    geleert) - mit seinem gesamten rekursiven Inhalt, jedem Unterordner UND den
+    Bytes jedes Dokuments - und im Dateimanager geöffnet. Die Gegenrichtung
+    nimmt einen lokalen Ordner - einen Pfad auf dem Backend oder einen über die
+    Browser-Verzeichnisauswahl gewählten - und baut den gesamten Baum (den
+    Ordner selbst, seine Unterordner und jedes Dokument) unter einem gewählten
+    ELO-Ordner nach. Beim Export erhält jeder Ordner zusätzlich eine
+    `metadata.opf` (XML) mit Maske, GRP- und MAP-Feldwerten, Daten und ACL -
+    eine Sicherung / Importvorlage; beim Import wird diese Datei auf den neuen
+    ELO-Ordner angewendet und selbst nicht als Dokument hochgeladen. Eine Ebene lesen ist
+    `findFirstSords` + `findChildren`; die Bytes eines Dokuments liefert
+    `checkoutDoc` und danach ein `download`; geschrieben wird mit
+    `createSord`/`checkinSord` für Ordner und `createDoc` -> `checkinDocBegin`
+    -> Upload -> `checkinDocEnd` für Dateien. Alles ist begrenzt (Objektzahl und
+    Größe pro Datei) und jeder ELO-Fehler wird abgefangen, damit ein defektes
+    Dokument den Lauf nicht abbricht.
+  es: >
+    Un panel interactivo (solo en modo en vivo). Desplegá el árbol de carpetas
+    de ELO, elegí una carpeta y pulsá Espejar: la carpeta seleccionada se
+    recrea dentro de `sandbox/elo-archiv-structure/` (ese directorio se vacía
+    primero) con todo su contenido recursivo - cada subcarpeta Y los bytes de
+    cada documento - y se abre en tu explorador de archivos. El sentido inverso
+    toma una carpeta local - una ruta en el backend o una elegida con el botón
+    de directorio del navegador - y recrea todo el árbol (la carpeta misma, sus
+    subcarpetas y cada documento) bajo una carpeta de ELO elegida. Al exportar,
+    cada carpeta recibe además un `metadata.opf` (XML) con su máscara, los
+    valores de los campos GRP y MAP, fechas y ACL - una copia de seguridad /
+    plantilla de importación; al importar, ese archivo se aplica a la nueva
+    carpeta de ELO y no se sube como documento. Leer un nivel es
+    `findFirstSords` + `findChildren`; los bytes de un documento vienen de
+    `checkoutDoc` y luego un `download`; escribir es `createSord`/`checkinSord`
+    para carpetas y `createDoc` -> `checkinDocBegin` -> subida ->
+    `checkinDocEnd` para archivos. Todo tiene tope (cantidad de objetos y tamaño
+    por archivo) y cada error de ELO se captura para que un documento malo no
+    corte la ejecución.
+
+elo_api:
+  - method: findFirstSords
+    rpc: POST /rest/IXServicePortIF/findFirstSords
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/findFirstSords
+    notes:
+      en: "findInfo.findChildren { parentId, mainParent, endLevel: 1 } returns one level; the tree expands it lazily, one click at a time."
+      de: "findInfo.findChildren { parentId, mainParent, endLevel: 1 } liefert eine Ebene; der Baum lädt sie bei Bedarf, Klick für Klick."
+      es: "findInfo.findChildren { parentId, mainParent, endLevel: 1 } devuelve un nivel; el árbol lo expande de forma perezosa, un clic por vez."
+  - method: checkoutDoc
+    rpc: POST /rest/IXServicePortIF/checkoutDoc
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/checkoutDoc
+    notes:
+      en: "editInfoZ.bset '320' -> document.docs[0].url; pass an explicit large max_bytes to download() or it silently truncates at 200 KB."
+      de: "editInfoZ.bset '320' -> document.docs[0].url; download() ein ausdrücklich großes max_bytes übergeben, sonst wird bei 200 KB stillschweigend abgeschnitten."
+      es: "editInfoZ.bset '320' -> document.docs[0].url; pasá un max_bytes grande explícito a download() o trunca en silencio a 200 KB."
+  - method: createSord
+    rpc: POST /rest/IXServicePortIF/createSord
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/createSord
+    notes:
+      en: "One per folder created on the way up: maskId 1 ('Ordner'), sordZ inside editInfoZ."
+      de: "Einer pro angelegtem Ordner: maskId 1 ('Ordner'), sordZ innerhalb von editInfoZ."
+      es: "Uno por cada carpeta creada: maskId 1 ('Ordner'), sordZ dentro de editInfoZ."
+  - method: checkinSord
+    rpc: POST /rest/IXServicePortIF/checkinSord
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/checkinSord
+    notes:
+      en: "Persists the folder and returns its new id, which becomes the parent for its children."
+      de: "Speichert den Ordner und liefert seine neue id, die zum Elternobjekt seiner Kinder wird."
+      es: "Persiste la carpeta y devuelve su nuevo id, que pasa a ser el padre de sus hijos."
+  - method: createDoc
+    rpc: POST /rest/IXServicePortIF/createDoc
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/createDoc
+    notes:
+      en: "One per file: maskId 0 (generic document), then the checkinDocBegin / upload / checkinDocEnd dance."
+      de: "Einer pro Datei: maskId 0 (generisches Dokument), dann der Ablauf checkinDocBegin / Upload / checkinDocEnd."
+      es: "Uno por archivo: maskId 0 (documento genérico), luego la secuencia checkinDocBegin / subida / checkinDocEnd."
+  - method: checkinDocEnd
+    rpc: POST /rest/IXServicePortIF/checkinDocEnd
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/checkinDocEnd
+    notes:
+      en: "Commits the uploaded bytes; the document is filed under its folder's id."
+      de: "Bestätigt die hochgeladenen Bytes; das Dokument wird unter der id seines Ordners abgelegt."
+      es: "Confirma los bytes subidos; el documento queda archivado bajo el id de su carpeta."
+
+result_shape: |
+  mirrored 1 -> elo-archiv-structure/Repository ( 34 folders, 128 docs, 34 metadata.opf )
+
+snippets:
+  python: |
+    from elo_playground import connect, EloError
+    import os
+    import shutil
+    import xml.etree.ElementTree as ET
+
+    # --- local ELO test box (override with ELOPG_* env vars or a .env) ---
+    ELO_BASE_URL = "http://localhost:9090/ix-Repository1"
+    ELO_USER = "Administrator"
+    ELO_PASS = "elo"
+
+    elo = connect(base_url=ELO_BASE_URL, user=ELO_USER, password=ELO_PASS)
+    ALL = "449304431574384639"
+
+    FOLDER_ID = "1"                  # the ELO folder to mirror (1 = repository root)
+    DEST = "elo-archiv-structure"    # local target; the panel above uses sandbox/<this>
+    MAX_BYTES = 25 * 1024 * 1024     # per-document cap; download() truncates at 200 KB by default
+
+    # the picked folder itself becomes the top directory of the mirror
+    sord = elo.call("checkoutSord", {"objId": FOLDER_ID,
+        "editInfoZ": {"bset": "1", "sordZ": {"bset": ALL}}}).get("sord") or {}
+    top = "".join(c if c not in '<>:"/\\|?*' else "_" for c in str(sord.get("name") or "")).strip()
+    DEST_ROOT = os.path.join(DEST, top or ("folder-" + FOLDER_ID))
+
+    def write_meta(obj_id, folder):
+        # metadata.opf: mask + GRP/MAP field values + dates, for a later re-import
+        try:
+            sd = elo.call("checkoutSord", {"objId": str(obj_id),
+                "editInfoZ": {"bset": "1", "sordZ": {"bset": ALL}}}).get("sord") or {}
+        except EloError as exc:
+            print("meta skip", obj_id, "-", exc)
+            return
+        try:
+            mp = elo.call("checkoutMap", {"objId": int(obj_id), "id": str(obj_id),
+                "domainName": "objekte", "keyNames": ["*"], "lockZ": {"bset": "0"}}).get("items") or []
+        except EloError:
+            mp = []
+        root = ET.Element("eloContainer", {"generator": "elo-api-playground"})
+        ET.SubElement(root, "source", {"objId": str(sd.get("id", "")), "guid": str(sd.get("guid", ""))})
+        node = ET.SubElement(root, "sord")
+        ET.SubElement(node, "name").text = str(sd.get("name") or "")
+        ET.SubElement(node, "desc").text = str(sd.get("desc") or "")
+        ET.SubElement(node, "mask", {"id": str(sd.get("mask", "")), "name": str(sd.get("maskName", ""))})
+        ET.SubElement(node, "dates", {"iDateIso": str(sd.get("IDateIso", "")),
+                                     "xDateIso": str(sd.get("XDateIso", ""))})
+        gf = ET.SubElement(root, "groupFields")
+        for k in sd.get("objKeys") or []:
+            if k.get("name"):
+                fe = ET.SubElement(gf, "field", {"name": str(k["name"])})
+                for v in k.get("data") or []:
+                    ET.SubElement(fe, "value").text = str(v)
+        mf = ET.SubElement(root, "mapFields")
+        for it in mp:
+            fe = ET.SubElement(mf, "field", {"key": str(it.get("key"))})
+            ET.SubElement(fe, "value").text = str(it.get("value") or "")
+        ET.indent(root, space="  ")
+        ET.ElementTree(root).write(os.path.join(folder, "metadata.opf"),
+                                   encoding="utf-8", xml_declaration=True)
+
+    def children(parent_id):
+        res = elo.call("findFirstSords", {
+            "findInfo": {"findChildren": {"parentId": str(parent_id),
+                                         "mainParent": True, "endLevel": 1}},
+            "max": 1000, "sordZ": {"bset": ALL},
+        })
+        rows = res.get("sords", []) if isinstance(res, dict) else []
+        search_id = res.get("searchId") if isinstance(res, dict) else None
+        if search_id:
+            try:
+                elo.call("findClose", {"searchId": search_id})
+            except EloError:
+                pass
+        return rows
+
+    folders = docs = 0
+
+    def mirror(parent_id, path):
+        global folders, docs
+        os.makedirs(path, exist_ok=True)
+        write_meta(parent_id, path)                           # one metadata.opf per container
+        for s in children(parent_id):
+            name = str(s.get("name") or s.get("id")).replace("/", "_").replace("\\", "_")
+            if int(s.get("type", 0) or 0) < 254:                 # folder
+                folders += 1
+                mirror(s["id"], os.path.join(path, name))
+            else:                                                # document
+                try:
+                    info = elo.call("checkoutDoc", {"objId": s["id"],
+                        "editInfoZ": {"bset": "320", "sordZ": {"bset": "0"}}})
+                    dl = ((info.get("document") or {}).get("docs")) or []
+                    if not dl or not dl[0].get("url"):
+                        continue
+                    ext = str(dl[0].get("ext") or "").lstrip(".")
+                    body = elo.download(dl[0]["url"], max_bytes=MAX_BYTES)
+                    if isinstance(body, str):
+                        body = body.encode("utf-8")
+                    fname = name if ("." in name or not ext) else name + "." + ext
+                    with open(os.path.join(path, fname), "wb") as fh:
+                        fh.write(body)
+                    docs += 1
+                except EloError as exc:
+                    print("skip", name, "-", exc)
+
+    try:
+        if os.path.isdir(DEST):
+            shutil.rmtree(DEST)
+        mirror(FOLDER_ID, DEST_ROOT)
+        print("mirrored", FOLDER_ID, "->", DEST_ROOT,
+              "(", folders + 1, "folders,", docs, "docs, +metadata.opf )")
+    except EloError as exc:
+        print("mirror failed:", exc)
+    finally:
+        elo.close()
+
+  node: |
+    import { connect, EloError } from "elo-playground";
+    import { mkdir, rm, writeFile } from "node:fs/promises";
+    import { join } from "node:path";
+
+    // --- local ELO test box (override with ELOPG_* env vars or a .env) ---
+    const ELO_BASE_URL = "http://localhost:9090/ix-Repository1";
+    const ELO_USER = "Administrator";
+    const ELO_PASS = "elo";
+
+    const elo = await connect({ baseUrl: ELO_BASE_URL, user: ELO_USER, password: ELO_PASS });
+    const ALL = "449304431574384639";
+
+    const FOLDER_ID = "1";                 // the ELO folder to mirror (1 = repository root)
+    const DEST = "elo-archiv-structure";   // local target; the panel above uses sandbox/<this>
+    const MAX_BYTES = 25 * 1024 * 1024;    // per-document cap (Node download() returns text)
+
+    // the picked folder itself becomes the top directory of the mirror
+    const picked = (await elo.call("checkoutSord", {
+      objId: FOLDER_ID, editInfoZ: { bset: "1", sordZ: { bset: ALL } },
+    })).sord || {};
+    const top = String(picked.name || "").replace(/[<>:"/\\|?*]/g, "_").trim() || `folder-${FOLDER_ID}`;
+    const DEST_ROOT = join(DEST, top);
+
+    const xmlEsc = (v) =>
+      String(v == null ? "" : v).replace(/[<>&"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" }[c]));
+
+    async function writeMeta(objId, dir) {
+      // metadata.opf: mask + GRP/MAP field values + dates, for a later re-import
+      let sd = {};
+      let mp = [];
+      try {
+        sd = (await elo.call("checkoutSord", {
+          objId: String(objId), editInfoZ: { bset: "1", sordZ: { bset: ALL } },
+        })).sord || {};
+      } catch (exc) {
+        if (exc instanceof EloError) { console.log("meta skip", objId, "-", exc.message); return; }
+        throw exc;
+      }
+      try {
+        mp = (await elo.call("checkoutMap", {
+          objId: Number(objId), id: String(objId), domainName: "objekte",
+          keyNames: ["*"], lockZ: { bset: "0" },
+        })).items || [];
+      } catch (e) { mp = []; }
+      const grp = (sd.objKeys || [])
+        .filter((k) => k.name)
+        .map((k) => `    <field name="${xmlEsc(k.name)}">` +
+          (k.data || []).map((v) => `<value>${xmlEsc(v)}</value>`).join("") + "</field>")
+        .join("\n");
+      const map = (mp || [])
+        .map((it) => `    <field key="${xmlEsc(it.key)}"><value>${xmlEsc(it.value)}</value></field>`)
+        .join("\n");
+      const xml =
+        '<?xml version="1.0" encoding="utf-8"?>\n' +
+        '<eloContainer generator="elo-api-playground">\n' +
+        `  <source objId="${xmlEsc(sd.id)}" guid="${xmlEsc(sd.guid)}" />\n` +
+        "  <sord>\n" +
+        `    <name>${xmlEsc(sd.name)}</name>\n` +
+        `    <desc>${xmlEsc(sd.desc)}</desc>\n` +
+        `    <mask id="${xmlEsc(sd.mask)}" name="${xmlEsc(sd.maskName)}" />\n` +
+        `    <dates iDateIso="${xmlEsc(sd.IDateIso)}" xDateIso="${xmlEsc(sd.XDateIso)}" />\n` +
+        "  </sord>\n" +
+        `  <groupFields>\n${grp}\n  </groupFields>\n` +
+        `  <mapFields>\n${map}\n  </mapFields>\n` +
+        "</eloContainer>\n";
+      await writeFile(join(dir, "metadata.opf"), xml);
+    }
+
+    async function children(parentId) {
+      const res = await elo.call("findFirstSords", {
+        findInfo: { findChildren: { parentId: String(parentId), mainParent: true, endLevel: 1 } },
+        max: 1000, sordZ: { bset: ALL },
+      });
+      const rows = res && res.sords ? res.sords : [];
+      if (res && res.searchId) {
+        try { await elo.call("findClose", { searchId: res.searchId }); } catch (e) { /* ignore */ }
+      }
+      return rows;
+    }
+
+    let folders = 0;
+    let docs = 0;
+
+    async function mirror(parentId, dir) {
+      await mkdir(dir, { recursive: true });
+      await writeMeta(parentId, dir);                      // one metadata.opf per container
+      for (const s of await children(parentId)) {
+        const name = String(s.name || s.id).replace(/[/\\]/g, "_");
+        if (Number(s.type || 0) < 254) {
+          folders += 1;
+          await mirror(s.id, join(dir, name));
+        } else {
+          try {
+            const info = await elo.call("checkoutDoc", {
+              objId: s.id, editInfoZ: { bset: "320", sordZ: { bset: "0" } },
+            });
+            const d = (((info.document || {}).docs) || [])[0];
+            if (!d || !d.url) continue;
+            const ext = String(d.ext || "").replace(/^\./, "");
+            const body = await elo.download(d.url, { maxBytes: MAX_BYTES });
+            const fname = name.includes(".") || !ext ? name : `${name}.${ext}`;
+            await writeFile(join(dir, fname), body);
+            docs += 1;
+          } catch (exc) {
+            if (exc instanceof EloError) console.log("skip", name, "-", exc.message);
+            else throw exc;
+          }
+        }
+      }
+    }
+
+    try {
+      await rm(DEST, { recursive: true, force: true });
+      await mirror(FOLDER_ID, DEST_ROOT);
+      console.log("mirrored", FOLDER_ID, "->", DEST_ROOT,
+        `(${folders + 1} folders, ${docs} docs, +metadata.opf)`);
+    } catch (exc) {
+      if (exc instanceof EloError) console.log("mirror failed:", exc.message);
+      else throw exc;
+    } finally {
+      elo.close();
+    }
+
+mock:
+  findFirstSords:
+    - searchId: "(MOCK-FS)"
+      moreResults: false
+      sords:
+        - { id: 100, parentId: 1, name: "Invoices", type: 1, childCount: 1 }
+        - { id: 101, parentId: 1, name: "readme", type: 254, childCount: 0 }
+    - searchId: "(MOCK-FS)"
+      moreResults: false
+      sords:
+        - { id: 102, parentId: 100, name: "2026-0042", type: 254, childCount: 0 }
+    - searchId: "(MOCK-FS)"
+      moreResults: false
+      sords: []
+  findClose: {}
+  checkoutSord:
+    sord:
+      id: 1
+      name: "Repository"
+      type: 1
+      mask: 1
+      maskName: "Ordner"
+      IDateIso: "20260101120000"
+      objKeys:
+        - { name: "ELOINDEX", data: [] }
+  checkoutMap:
+    items: []
+  checkoutDoc:
+    document:
+      docs:
+        - { url: "mock://readdoc/1", ext: "txt" }
+  _download: "INVOICE 2026-0042\nAcme GmbH\nTotal: 1,469.13 EUR\n"

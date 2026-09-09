@@ -66,5 +66,21 @@
   "static.precomputed": "vorberechnet",
   "static.help": "Der Mock-Modus nutzt mitgelieferte Beispieldaten. Mock abwählen und eine erreichbare ELO-Basis-URL + Zugangsdaten eingeben, um Browser-Snippets gegen einen echten Server auszuführen (dieser Server muss CORS für diese Seite erlauben).",
   "static.backendOnly": "Nur Browser-Snippets können von dieser Seite aus einen Server aufrufen. Python / Node brauchen die lokale App.",
-  "conn.port": "Port"
+  "conn.port": "Port",
+  "labfs.needsBackend": "Dieses Panel läuft in der lokalen App gegen ein echtes ELO. Mock abwählen, das Verbindungsformular ausfüllen und Verbindung prüfen drücken.",
+  "labfs.loadTree": "ELO-Ordnerbaum laden",
+  "labfs.eloTree": "Zu spiegelnder ELO-Ordner",
+  "labfs.selectFolder": "noch kein Ordner gewählt",
+  "labfs.selected": "gewählt",
+  "labfs.mirror": "In die Sandbox spiegeln",
+  "labfs.mirrorHint": "Schreibt Ordner und Dokument-Bytes nach sandbox/elo-archiv-structure/ (zuvor geleert) und öffnet den Ordner im Dateimanager.",
+  "labfs.localToElo": "Lokaler Ordner zum Hochladen nach ELO",
+  "labfs.serverPath": "Pfad auf dem Backend-Host",
+  "labfs.pickDir": "Ordner wählen…",
+  "labfs.targetFolder": "Ziel-ELO-Ordner",
+  "labfs.upload": "Nach ELO hochladen",
+  "labfs.running": "läuft…",
+  "labfs.done": "fertig",
+  "labfs.tooBig": "Auswahl zu groß (max. 16 MB gesamt für die Browser-Auswahl)",
+  "labfs.showCode": "Den Code hinter diesem Panel anzeigen"
 }
