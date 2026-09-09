@@ -1,0 +1,18 @@
+INVOICE
+
+Globex Corporation  -  742 Evergreen Terrace  -  Springfield
+VAT: GB987654321
+
+Invoice no.: 2026-0043
+Invoice date: 2026-03-01
+Purchase order: PO-55210
+
+Item  Description                       Qty     Unit price       Amount
+1     Cloud storage (TB / month)        5       19.00 USD     95.00 USD
+2     Support plan (Gold)               1      450.00 USD    450.00 USD
+
+Subtotal:      545.00 USD
+Tax (0%):        0.00 USD
+Total due:     545.00 USD
+
+Payment terms: net 30.

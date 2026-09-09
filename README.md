@@ -6,12 +6,17 @@ shows the minimum call needed to produce a documented result, in three runtimes 
 commented snippets you can run live. It works offline in **mock mode** and against
 a real ELO on `localhost`. UI in English / German / Spanish.
 
-29 topics across 10 categories today; adding more is one YAML file each (see below).
+32 topics across 11 categories today; adding more is one YAML file each (see below).
 
-The last category, **Testing lab**, is a scratch area: find an object by
-GUID / id / name, a full CRUD lifecycle, changing owner / colour / permissions,
-and sending a document to the Textreader (`processOcr`). Its **CRUD Operations**
-deep dive chains the whole flow end to end.
+**Testing lab** is a scratch area: find an object by GUID / id / name, a full
+CRUD lifecycle, owner / colour / permissions, symmetric links, and copying a GRP
+field into a MAP field. Its snippets provision and delete their own scratch
+objects, so they run live anywhere. **OCR & text extraction** covers
+`processOcr` (send a file, get its text) and reading the fulltext index.
+
+Sample invoice files for OCR / flow testing live in `examples/invoices/`
+(regenerate with `python scripts/make_sample_invoices.py` - pure stdlib, no
+dependencies).
 
 Self-contained: one FastAPI backend, one small Express service, a shared client
 in three languages, and a no-build-step frontend. Python 3.12 + Node 18+.

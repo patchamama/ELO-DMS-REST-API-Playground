@@ -1,0 +1,203 @@
+id: lab.links
+order: 4
+category:
+  en: Testing lab
+  de: Testlabor
+  es: Laboratorio de pruebas
+title:
+  en: Link two objects (and remove the link)
+  de: Zwei Objekte verknüpfen (und die Verknüpfung entfernen)
+  es: Vincular dos objetos (y quitar el vínculo)
+summary:
+  en: >
+    A *link* is a soft, symmetric association between two objects - not a
+    reference (that is `refSord`, see Repository -> File into a second folder)
+    and not a copy. `linkSords` takes `fromId` and a list of `toIds`;
+    `unlinkSords` takes the same. After linking, `checkoutSord` shows the link
+    on both sides: `sord.linksGoOut` on the source, `sord.linksComeIn` on the
+    target, each `{ id, linkId, permanent }`. The snippet creates its own two
+    scratch folders and deletes them, so it runs anywhere. This WRITES.
+    (Verified live.)
+  de: "Ein *Link* ist eine weiche, symmetrische Verbindung zwischen zwei Objekten - keine Referenz (das ist `refSord`, siehe Archiv -> In zweiten Ordner einhängen) und keine Kopie. `linkSords` nimmt `fromId` und eine Liste `toIds`; `unlinkSords` nimmt dasselbe. Nach dem Verknüpfen zeigt `checkoutSord` den Link auf beiden Seiten: `sord.linksGoOut` an der Quelle, `sord.linksComeIn` am Ziel, jeweils `{ id, linkId, permanent }`. Das Snippet legt seine zwei Wegwerf-Ordner selbst an und löscht sie wieder, es läuft also überall. Das SCHREIBT. (Live bestätigt.)"
+  es: "Un *link* es una asociación blanda y simétrica entre dos objetos - no es una referencia (eso es `refSord`, ver Repositorio -> Archivar en una segunda carpeta) ni una copia. `linkSords` toma `fromId` y una lista `toIds`; `unlinkSords` toma lo mismo. Tras vincular, `checkoutSord` muestra el link de los dos lados: `sord.linksGoOut` en el origen, `sord.linksComeIn` en el destino, cada uno `{ id, linkId, permanent }`. El snippet crea sus dos carpetas desechables y las borra, así que corre en cualquier lado. Esto ESCRIBE. (Verificado en vivo.)"
+
+elo_api:
+  - method: linkSords
+    rpc: POST /rest/IXServicePortIF/linkSords
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/linkSords
+    notes:
+      en: 'Body { fromId, toIds: [ ... ], linkZ: { bset: "1" } }. Returns {}.'
+      de: 'Body { fromId, toIds: [ ... ], linkZ: { bset: "1" } }. Liefert {}.'
+      es: 'Cuerpo { fromId, toIds: [ ... ], linkZ: { bset: "1" } }. Devuelve {}.'
+  - method: checkoutSord
+    rpc: POST /rest/IXServicePortIF/checkoutSord
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/checkoutSord
+    notes:
+      en: 'sord.linksGoOut / sord.linksComeIn hold the links; each entry is { id, linkId, permanent }.'
+      de: 'sord.linksGoOut / sord.linksComeIn enthalten die Links; jeder Eintrag ist { id, linkId, permanent }.'
+      es: 'sord.linksGoOut / sord.linksComeIn tienen los links; cada entrada es { id, linkId, permanent }.'
+  - method: unlinkSords
+    rpc: POST /rest/IXServicePortIF/unlinkSords
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/unlinkSords
+    notes:
+      en: 'Same body as linkSords. Removing a non-existent link is a no-op, not an error.'
+      de: 'Gleicher Body wie linkSords. Einen nicht vorhandenen Link zu entfernen ist ein No-op, kein Fehler.'
+      es: 'Mismo cuerpo que linkSords. Quitar un link inexistente es un no-op, no un error.'
+
+result_shape: |
+  created A=5601  B=5602
+  linked  -> A.linksGoOut = ['5602']
+  unlinked
+  cleaned up
+
+snippets:
+  python: |
+    from elo_playground import connect, EloError
+
+    elo = connect()
+    ALL = "449304431574384639"
+    PARENT = 1
+
+    def make_folder(name):
+        tpl = elo.call("createSord", {"parentId": str(PARENT), "maskId": 0,
+                                      "editInfoZ": {"bset": "1", "sordZ": {"bset": ALL}}})["sord"]
+        tpl["name"] = name
+        return str(elo.call("checkinSord", {"sord": tpl, "sordZ": {"bset": ALL},
+                                            "unlockZ": {"bset": "1"}}))
+
+    a = b = None
+    try:
+        a, b = make_folder("pg-link-A"), make_folder("pg-link-B")
+        print(f"created A={a}  B={b}")
+
+        elo.call("linkSords", {"fromId": a, "toIds": [b], "linkZ": {"bset": "1"}})
+        out = elo.call("checkoutSord", {"objId": a,
+                                        "editInfoZ": {"bset": "1", "sordZ": {"bset": ALL}}})["sord"]
+        print("linked  -> A.linksGoOut =", [l["id"] for l in out.get("linksGoOut", [])])
+
+        elo.call("unlinkSords", {"fromId": a, "toIds": [b], "linkZ": {"bset": "1"}})
+        print("unlinked")
+    except EloError as exc:
+        print("link operation failed:", exc)
+    finally:
+        for oid in (a, b):
+            if oid:
+                try:
+                    elo.call("deleteSord", {"parentId": str(PARENT), "objId": oid,
+                                            "deleteOptions": {"deleteFinally": False}})
+                    elo.call("deleteSord", {"parentId": str(PARENT), "objId": oid,
+                                            "deleteOptions": {"deleteFinally": True}})
+                except EloError as exc:
+                    print("cleanup of", oid, "failed:", exc)
+        print("cleaned up")
+        elo.close()
+
+  node: |
+    import { connect, EloError } from "elo-playground";
+
+    const elo = await connect();
+    const ALL = "449304431574384639";
+    const PARENT = 1;
+
+    const makeFolder = async (name) => {
+      const tpl = (await elo.call("createSord", {
+        parentId: String(PARENT), maskId: 0,
+        editInfoZ: { bset: "1", sordZ: { bset: ALL } },
+      })).sord;
+      tpl.name = name;
+      return String(await elo.call("checkinSord", {
+        sord: tpl, sordZ: { bset: ALL }, unlockZ: { bset: "1" },
+      }));
+    };
+
+    let a = null;
+    let b = null;
+    try {
+      a = await makeFolder("pg-link-A");
+      b = await makeFolder("pg-link-B");
+      console.log(`created A=${a}  B=${b}`);
+
+      await elo.call("linkSords", { fromId: a, toIds: [b], linkZ: { bset: "1" } });
+      const out = (await elo.call("checkoutSord", {
+        objId: a, editInfoZ: { bset: "1", sordZ: { bset: ALL } },
+      })).sord;
+      console.log("linked  -> A.linksGoOut =", (out.linksGoOut || []).map((l) => l.id));
+
+      await elo.call("unlinkSords", { fromId: a, toIds: [b], linkZ: { bset: "1" } });
+      console.log("unlinked");
+    } catch (exc) {
+      if (exc instanceof EloError) console.log("link operation failed:", exc.message);
+      else throw exc;
+    } finally {
+      for (const oid of [a, b]) {
+        if (!oid) continue;
+        try {
+          await elo.call("deleteSord", { parentId: String(PARENT), objId: oid, deleteOptions: { deleteFinally: false } });
+          await elo.call("deleteSord", { parentId: String(PARENT), objId: oid, deleteOptions: { deleteFinally: true } });
+        } catch (exc) {
+          console.log("cleanup of", oid, "failed:", exc.message);
+        }
+      }
+      console.log("cleaned up");
+      elo.close();
+    }
+
+  browser: |
+    const elo = await connect();
+    const ALL = "449304431574384639";
+    const PARENT = 1;
+
+    const makeFolder = async (name) => {
+      const tpl = (await elo.call("createSord", {
+        parentId: String(PARENT), maskId: 0,
+        editInfoZ: { bset: "1", sordZ: { bset: ALL } },
+      })).sord;
+      tpl.name = name;
+      return String(await elo.call("checkinSord", {
+        sord: tpl, sordZ: { bset: ALL }, unlockZ: { bset: "1" },
+      }));
+    };
+
+    let a = null;
+    let b = null;
+    try {
+      a = await makeFolder("pg-link-A");
+      b = await makeFolder("pg-link-B");
+      console.log(`created A=${a}  B=${b}`);
+      await elo.call("linkSords", { fromId: a, toIds: [b], linkZ: { bset: "1" } });
+      const out = (await elo.call("checkoutSord", {
+        objId: a, editInfoZ: { bset: "1", sordZ: { bset: ALL } },
+      })).sord;
+      console.log("linked  -> A.linksGoOut =", (out.linksGoOut || []).map((l) => l.id));
+      await elo.call("unlinkSords", { fromId: a, toIds: [b], linkZ: { bset: "1" } });
+      console.log("unlinked");
+    } catch (exc) {
+      console.log("link operation failed:", exc.message);
+    } finally {
+      for (const oid of [a, b]) {
+        if (!oid) continue;
+        try {
+          await elo.call("deleteSord", { parentId: String(PARENT), objId: oid, deleteOptions: { deleteFinally: false } });
+          await elo.call("deleteSord", { parentId: String(PARENT), objId: oid, deleteOptions: { deleteFinally: true } });
+        } catch (exc) { /* best effort */ }
+      }
+      console.log("cleaned up");
+    }
+
+mock:
+  createSord:
+    sord: { id: 0, name: "", parentId: 1 }
+  checkinSord: [5601, 5602]
+  linkSords: {}
+  checkoutSord:
+    sord:
+      id: 5601
+      name: "pg-link-A"
+      linksGoOut:
+        - { id: "5602", linkId: "MOCK-LINK-1", permanent: false }
+      linksComeIn: []
+  unlinkSords: {}
+  deleteSord: {}

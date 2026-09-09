@@ -1,0 +1,12 @@
+{
+  "_comment": "Mock responses for the runnable blocks in 95-ocr/_deep.md (topic_id = category id '95-ocr'). processOcr is a list: one entry per loop iteration.",
+  "processOcr": [
+    { "recognizeFile": { "text": "RECHNUNG / INVOICE\nRechnungsnummer / Invoice no.: 2026-0042\nRechnungsdatum / Invoice date: 2026-02-14\nGesamtbetrag / Total: 1.469,13 EUR\n" } },
+    { "recognizeFile": { "text": "INVOICE\nInvoice no.: 2026-0043\nInvoice date: 2026-03-01\nTotal due: 545.00 USD\n" } },
+    { "recognizeFile": { "text": "RECHNUNG\nRechnungsnummer: 2026-0044\nRechnungsdatum: 2026-03-18\nRechnungsbetrag: 1.351,25 CHF\n" } }
+  ],
+  "checkoutSord": {
+    "sord": { "id": 5001, "name": "Invoice 2026-001.pdf", "objKeys": [{ "name": "INVOICE_NO", "data": ["2026-001"] }] }
+  },
+  "checkinSord": 5001
+}

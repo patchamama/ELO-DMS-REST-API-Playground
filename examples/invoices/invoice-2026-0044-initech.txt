@@ -1,0 +1,18 @@
+RECHNUNG
+
+Initech AG  -  Bahnhofstrasse 12  -  8001 Zuerich
+MwSt-Nr: CHE-123.456.789
+
+Rechnungsnummer: 2026-0044
+Rechnungsdatum: 2026-03-18
+Leistungszeitraum: Februar 2026
+
+Pos  Artikel                            Menge   Preis            Summe
+1    Wartungspauschale                 1       800,00 CHF    800,00 CHF
+2    Zusatzmodul Reporting             1       450,00 CHF    450,00 CHF
+
+Netto:           1.250,00 CHF
+MwSt 8,1%:         101,25 CHF
+Rechnungsbetrag: 1.351,25 CHF
+
+Zahlbar bis 2026-04-17.

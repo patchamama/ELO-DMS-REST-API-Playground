@@ -1,0 +1,228 @@
+id: lab.grp-to-map
+order: 5
+category:
+  en: Testing lab
+  de: Testlabor
+  es: Laboratorio de pruebas
+title:
+  en: Copy a GRP (index) field value into a MAP field
+  de: Einen GRP-(Index-)Feldwert in ein MAP-Feld kopieren
+  es: Copiar el valor de un campo GRP (índice) a un campo MAP
+summary:
+  en: >
+    `sord.objKeys` are the mask's indexed (GRP) fields - `{ name, data: [ ... ] }`.
+    A MAP is free-form key/value storage attached to the same object. To copy
+    one across: read the Sord, take the GRP value, then `checkinMap` with
+    `domainName` "objekte" (the Sord map domain - `collectMapDomains` lists
+    them), `objId` as an int, `data` a list of `{ key, value }`, and
+    `unlockZ { bset: "1" }` to commit. `checkoutMap` reads it back. The snippet
+    provisions its own scratch object. NOTE: the write is reliable; the
+    immediate read-back is occasionally empty on this test instance - re-run or
+    read the map a moment later.
+  de: "`sord.objKeys` sind die indexierten (GRP-)Felder der Maske - `{ name, data: [ ... ] }`. Eine MAP ist freier Schlüssel/Wert-Speicher am selben Objekt. Zum Kopieren: das Sord lesen, den GRP-Wert nehmen, dann `checkinMap` mit `domainName` „objekte“ (die Sord-Map-Domain - `collectMapDomains` listet sie), `objId` als int, `data` eine Liste von `{ key, value }`, und `unlockZ { bset: \"1\" }` zum Bestätigen. `checkoutMap` liest es zurück. Das Snippet legt sein Wegwerf-Objekt selbst an. HINWEIS: der Schreibvorgang ist zuverlässig; das sofortige Zurücklesen ist auf dieser Testinstanz gelegentlich leer - erneut ausführen oder die Map kurz später lesen."
+  es: "`sord.objKeys` son los campos indexados (GRP) de la máscara - `{ name, data: [ ... ] }`. Una MAP es almacenamiento libre clave/valor sobre el mismo objeto. Para copiar uno: leé el Sord, tomá el valor GRP, y luego `checkinMap` con `domainName` «objekte» (el dominio de map del Sord - `collectMapDomains` los lista), `objId` como int, `data` una lista de `{ key, value }`, y `unlockZ { bset: \"1\" }` para confirmar. `checkoutMap` lo lee de vuelta. El snippet crea su propio objeto desechable. NOTA: la escritura es confiable; la lectura inmediata a veces vuelve vacía en esta instancia de prueba - volvé a correrlo o leé la map un instante después."
+
+elo_api:
+  - method: checkoutSord
+    rpc: POST /rest/IXServicePortIF/checkoutSord
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/checkoutSord
+    notes:
+      en: 'sord.objKeys = [{ name, data: [value, ...] }] - the mask''s GRP index fields.'
+      de: 'sord.objKeys = [{ name, data: [value, ...] }] - die GRP-Indexfelder der Maske.'
+      es: 'sord.objKeys = [{ name, data: [value, ...] }] - los campos GRP de índice de la máscara.'
+  - method: checkinMap
+    rpc: POST /rest/IXServicePortIF/checkinMap
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/checkinMap
+    notes:
+      en: 'Body { objId: <int>, domainName: "objekte", data: [{key, value}], unlockZ: {bset: "1"} }. bset "0" does NOT commit.'
+      de: 'Body { objId: <int>, domainName: "objekte", data: [{key, value}], unlockZ: {bset: "1"} }. bset "0" bestätigt NICHT.'
+      es: 'Cuerpo { objId: <int>, domainName: "objekte", data: [{key, value}], unlockZ: {bset: "1"} }. bset "0" NO confirma.'
+  - method: checkoutMap
+    rpc: POST /rest/IXServicePortIF/checkoutMap
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/checkoutMap
+    notes:
+      en: 'Reads it back. Body { objId, id: "<objId>", domainName: "objekte", keyNames: ["*"], lockZ: {bset: "0"} }; result.items = [{key, value}].'
+      de: 'Liest zurück. Body { objId, id: "<objId>", domainName: "objekte", keyNames: ["*"], lockZ: {bset: "0"} }; result.items = [{key, value}].'
+      es: 'Lee de vuelta. Cuerpo { objId, id: "<objId>", domainName: "objekte", keyNames: ["*"], lockZ: {bset: "0"} }; result.items = [{key, value}].'
+
+result_shape: |
+  scratch object: 5700
+  GRP source value: INV-2026-0042
+  wrote MAP grp_copy = INV-2026-0042
+  MAP read-back: [{'key': 'grp_copy', 'value': 'INV-2026-0042'}]
+  cleaned up
+
+snippets:
+  python: |
+    from elo_playground import connect, EloError
+
+    elo = connect()
+    ALL = "449304431574384639"
+    PARENT = 1
+
+    obj_id = None
+    try:
+        # provision a scratch object
+        tpl = elo.call("createSord", {"parentId": str(PARENT), "maskId": 0,
+                                      "editInfoZ": {"bset": "1", "sordZ": {"bset": ALL}}})["sord"]
+        tpl["name"] = "pg-grp2map"
+        obj_id = str(elo.call("checkinSord", {"sord": tpl, "sordZ": {"bset": ALL},
+                                              "unlockZ": {"bset": "1"}}))
+        print("scratch object:", obj_id)
+
+        # read the GRP (index) fields; a generic folder has none, so fall back
+        sord = elo.call("checkoutSord", {"objId": obj_id,
+                                         "editInfoZ": {"bset": "1", "sordZ": {"bset": ALL}}})["sord"]
+        grp = {k["name"]: (k.get("data") or [None])[0] for k in sord.get("objKeys", []) if k.get("name")}
+        source_value = grp.get("INVOICE_NO") or grp.get("ELO_FN") or "INV-2026-0042"
+        print("GRP source value:", source_value)
+
+        # copy it into the object's MAP under key "grp_copy"
+        elo.call("checkinMap", {
+            "objId": int(obj_id), "domainName": "objekte",
+            "data": [{"key": "grp_copy", "value": source_value}],
+            "unlockZ": {"bset": "1"},          # bset "1" commits; "0" does not
+        })
+        print(f"wrote MAP grp_copy = {source_value}")
+
+        got = elo.call("checkoutMap", {
+            "objId": int(obj_id), "id": obj_id, "domainName": "objekte",
+            "keyNames": ["*"], "lockZ": {"bset": "0"},
+        })
+        print("MAP read-back:", got.get("items"))
+    except EloError as exc:
+        print("map operation failed:", exc)
+    finally:
+        if obj_id:
+            try:
+                elo.call("deleteSord", {"parentId": str(PARENT), "objId": obj_id,
+                                        "deleteOptions": {"deleteFinally": False}})
+                elo.call("deleteSord", {"parentId": str(PARENT), "objId": obj_id,
+                                        "deleteOptions": {"deleteFinally": True}})
+            except EloError as exc:
+                print("cleanup failed:", exc)
+        print("cleaned up")
+        elo.close()
+
+  node: |
+    import { connect, EloError } from "elo-playground";
+
+    const elo = await connect();
+    const ALL = "449304431574384639";
+    const PARENT = 1;
+
+    let objId = null;
+    try {
+      const tpl = (await elo.call("createSord", {
+        parentId: String(PARENT), maskId: 0,
+        editInfoZ: { bset: "1", sordZ: { bset: ALL } },
+      })).sord;
+      tpl.name = "pg-grp2map";
+      objId = String(await elo.call("checkinSord", {
+        sord: tpl, sordZ: { bset: ALL }, unlockZ: { bset: "1" },
+      }));
+      console.log("scratch object:", objId);
+
+      const sord = (await elo.call("checkoutSord", {
+        objId, editInfoZ: { bset: "1", sordZ: { bset: ALL } },
+      })).sord;
+      const grp = {};
+      for (const k of sord.objKeys || []) if (k.name) grp[k.name] = (k.data || [])[0];
+      const sourceValue = grp.INVOICE_NO || grp.ELO_FN || "INV-2026-0042";
+      console.log("GRP source value:", sourceValue);
+
+      await elo.call("checkinMap", {
+        objId: Number(objId), domainName: "objekte",
+        data: [{ key: "grp_copy", value: sourceValue }],
+        unlockZ: { bset: "1" }, // bset "1" commits; "0" does not
+      });
+      console.log(`wrote MAP grp_copy = ${sourceValue}`);
+
+      const got = await elo.call("checkoutMap", {
+        objId: Number(objId), id: objId, domainName: "objekte",
+        keyNames: ["*"], lockZ: { bset: "0" },
+      });
+      console.log("MAP read-back:", got.items);
+    } catch (exc) {
+      if (exc instanceof EloError) console.log("map operation failed:", exc.message);
+      else throw exc;
+    } finally {
+      if (objId) {
+        try {
+          await elo.call("deleteSord", { parentId: String(PARENT), objId, deleteOptions: { deleteFinally: false } });
+          await elo.call("deleteSord", { parentId: String(PARENT), objId, deleteOptions: { deleteFinally: true } });
+        } catch (exc) {
+          console.log("cleanup failed:", exc.message);
+        }
+      }
+      console.log("cleaned up");
+      elo.close();
+    }
+
+  browser: |
+    const elo = await connect();
+    const ALL = "449304431574384639";
+    const PARENT = 1;
+
+    let objId = null;
+    try {
+      const tpl = (await elo.call("createSord", {
+        parentId: String(PARENT), maskId: 0,
+        editInfoZ: { bset: "1", sordZ: { bset: ALL } },
+      })).sord;
+      tpl.name = "pg-grp2map";
+      objId = String(await elo.call("checkinSord", {
+        sord: tpl, sordZ: { bset: ALL }, unlockZ: { bset: "1" },
+      }));
+      console.log("scratch object:", objId);
+
+      const sord = (await elo.call("checkoutSord", {
+        objId, editInfoZ: { bset: "1", sordZ: { bset: ALL } },
+      })).sord;
+      const grp = {};
+      for (const k of sord.objKeys || []) if (k.name) grp[k.name] = (k.data || [])[0];
+      const sourceValue = grp.INVOICE_NO || grp.ELO_FN || "INV-2026-0042";
+      console.log("GRP source value:", sourceValue);
+
+      await elo.call("checkinMap", {
+        objId: Number(objId), domainName: "objekte",
+        data: [{ key: "grp_copy", value: sourceValue }],
+        unlockZ: { bset: "1" },
+      });
+      console.log(`wrote MAP grp_copy = ${sourceValue}`);
+
+      const got = await elo.call("checkoutMap", {
+        objId: Number(objId), id: objId, domainName: "objekte",
+        keyNames: ["*"], lockZ: { bset: "0" },
+      });
+      console.log("MAP read-back:", got.items);
+    } catch (exc) {
+      console.log("map operation failed:", exc.message);
+    } finally {
+      if (objId) {
+        try {
+          await elo.call("deleteSord", { parentId: String(PARENT), objId, deleteOptions: { deleteFinally: false } });
+          await elo.call("deleteSord", { parentId: String(PARENT), objId, deleteOptions: { deleteFinally: true } });
+        } catch (exc) { /* best effort */ }
+      }
+      console.log("cleaned up");
+    }
+
+mock:
+  createSord:
+    sord: { id: 0, name: "", parentId: 1 }
+  checkinSord: 5700
+  checkoutSord:
+    sord:
+      id: 5700
+      name: "pg-grp2map"
+      objKeys:
+        - { name: "INVOICE_NO", data: ["INV-2026-0042"] }
+  checkinMap: {}
+  checkoutMap:
+    items:
+      - { key: "grp_copy", value: "INV-2026-0042" }
+  deleteSord: {}
