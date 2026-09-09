@@ -1464,21 +1464,31 @@ ${snippet}
     f.base_url.addEventListener("input", updateSchemeBtn);
     $("#conn-check").addEventListener("click", runConnCheck);
 
-    // flip the Base URL between http:// and https:// and re-test. Switching to
-    // https on a local ELO usually means a self-signed cert, so drop TLS verify.
+    // flip the Base URL between http:// and https:// and re-test. ELO's default
+    // IX ports are paired (9090 http / 9093 https), so swap an explicit default
+    // port too. Switching to https also drops TLS verify (local ELO is
+    // self-signed); a non-default port is left as the user set it.
+    const HTTP_PORT = "9090";
+    const HTTPS_PORT = "9093";
     $("#conn-scheme").addEventListener("click", () => {
       let raw = (f.base_url.value || "").trim();
       if (!raw) raw = "http://localhost:9090/ix-Repository1";
-      if (/^https:\/\//i.test(raw)) {
-        raw = raw.replace(/^https:\/\//i, "http://");
-      } else if (/^http:\/\//i.test(raw)) {
-        raw = raw.replace(/^http:\/\//i, "https://");
+      if (!/^https?:\/\//i.test(raw)) raw = "http://" + raw;
+      let u;
+      try {
+        u = new URL(raw);
+      } catch (e) {
+        return;
+      }
+      if (u.protocol === "http:") {
+        u.protocol = "https:";
+        if (u.port === HTTP_PORT) u.port = HTTPS_PORT;
         f.tls_verify.checked = false;
       } else {
-        raw = "https://" + raw;
-        f.tls_verify.checked = false;
+        u.protocol = "http:";
+        if (u.port === HTTPS_PORT) u.port = HTTP_PORT;
       }
-      f.base_url.value = raw;
+      f.base_url.value = u.toString().replace(/\/$/, "");
       updateSchemeBtn();
       saveConn();
       runConnCheck();
