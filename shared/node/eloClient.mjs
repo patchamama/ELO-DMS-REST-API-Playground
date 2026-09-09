@@ -16,8 +16,25 @@
  * This mirrors shared/python/elo_playground method-for-method, so the Python and
  * Node snippets read almost identically. Requires Node 18+ (global `fetch`).
  */
+import { readFileSync } from "node:fs";
+import { basename } from "node:path";
 
 export class EloError extends Error {}
+
+/**
+ * The file the user picked with the topic's "Choose file" button, as
+ * `{ name, bytes }` (bytes is a Buffer) - or `null` when nothing was picked.
+ * The playground writes the upload to a temp file and points ELOPG_ATTACH at it.
+ */
+export function attachment() {
+  const p = process.env.ELOPG_ATTACH;
+  if (!p) return null;
+  try {
+    return { name: process.env.ELOPG_ATTACH_NAME || basename(p), bytes: readFileSync(p) };
+  } catch {
+    return null;
+  }
+}
 
 // Any short string; ELO records it in the session log as the "client computer".
 const CLIENT_NAME = "elo-api-playground";

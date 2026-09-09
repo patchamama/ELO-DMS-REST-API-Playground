@@ -72,6 +72,7 @@ def load_topics(lang: str = "en") -> list[Topic]:
                     browser=snip.get("browser", "").strip("\n"),
                 ),
                 mock=d.get("mock") or {},
+                attach_file=bool(d.get("attach_file", False)),
             )
         )
     topics.sort(key=lambda t: (t.category_id, t.order, t.id))

@@ -43,6 +43,14 @@ class Topic(BaseModel):
     result_shape: str = ""
     snippets: Snippets = Snippets()
     mock: dict[str, Any] = {}
+    attach_file: bool = False   # show a "Choose file" button on this topic
+
+
+class Attachment(BaseModel):
+    """A file the user picked with the topic's "Choose file" button."""
+
+    name: str
+    b64: str   # base64 of the file bytes
 
 
 class RunRequest(BaseModel):
@@ -51,6 +59,7 @@ class RunRequest(BaseModel):
     mock: bool = True
     topic_id: str | None = None
     credentials: EloCreds | None = None
+    attachment: Attachment | None = None
 
 
 class RunResult(BaseModel):

@@ -9,22 +9,39 @@ const ELO_BASE_URL = "http://localhost:9090/ix-Repository1";
 const ELO_USER = "Administrator";
 const ELO_PASS = "elo";
 
-// btoa() needs a binary string; TextEncoder + a byte-wise map keeps it
-// correct for non-ASCII.
-const bytes = new TextEncoder().encode(
-  "INVOICE 2026-0042\nAcme GmbH\nNet:   1,234.56 EUR\nVAT 19%: 234.57 EUR\nTotal: 1,469.13 EUR\n"
-);
-const b64 = btoa(String.fromCharCode(...bytes));
+// base64 of a Uint8Array (btoa needs a binary string)
+const toB64 = (u8) => {
+  let s = "";
+  for (const b of u8) s += String.fromCharCode(b);
+  return btoa(s);
+};
+
+// "Choose file" above picks a real scan; without it a tiny built-in invoice
+// is sent so the snippet is self-contained.
+const picked = attachment();
+let name;
+let ext;
+let b64;
+if (picked) {
+  name = picked.name;
+  ext = name.includes(".") ? name.split(".").pop().toLowerCase() : "txt";
+  b64 = toB64(picked.bytes);
+} else {
+  name = "invoice.txt";
+  ext = "txt";
+  b64 = toB64(
+    new TextEncoder().encode(
+      "INVOICE 2026-0042\nAcme GmbH\nNet:   1,234.56 EUR\nVAT 19%: 234.57 EUR\nTotal: 1,469.13 EUR\n"
+    )
+  );
+}
+console.log(`sending ${name}  (contentType=${ext})`);
 
 const elo = await connect({ baseUrl: ELO_BASE_URL, user: ELO_USER, password: ELO_PASS });
 try {
   const res = await elo.call("processOcr", {
     ocrInfo: {
-      recognizeFile: {
-        imageData: { data: b64, contentType: "txt" },
-        outputFormat: 0,
-        pageNo: -1,
-      },
+      recognizeFile: { imageData: { data: b64, contentType: ext }, outputFormat: 0, pageNo: -1 },
     },
   });
   const rf = res.recognizeFile;

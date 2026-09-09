@@ -3,7 +3,7 @@
 // category: OCR & text extraction
 // id:       ocr.extract
 
-import { connect, EloError } from "elo-playground";
+import { connect, EloError, attachment } from "elo-playground";
 
 // --- local ELO test box (override with ELOPG_* env vars or a .env) ---
 const ELO_BASE_URL = "http://localhost:9090/ix-Repository1";
@@ -12,23 +12,31 @@ const ELO_PASS = "elo";
 
 const elo = await connect({ baseUrl: ELO_BASE_URL, user: ELO_USER, password: ELO_PASS });
 
-// A tiny "invoice" as plain-text bytes so this snippet is self-contained.
-// For a real scan: read examples/invoices/invoice-2026-0042-acme.pdf and
-// set contentType to "pdf".
-const payload = Buffer.from(
-  "INVOICE 2026-0042\n" +
-    "Acme GmbH\n" +
-    "Net:   1,234.56 EUR\n" +
-    "VAT 19%: 234.57 EUR\n" +
-    "Total: 1,469.13 EUR\n",
-  "utf-8"
-);
+// "Choose file" above picks a real scan; without it a tiny built-in invoice
+// is sent so the snippet is self-contained.
+const picked = attachment();
+let name;
+let ext;
+let data;
+if (picked) {
+  name = picked.name;
+  ext = name.includes(".") ? name.split(".").pop().toLowerCase() : "txt";
+  data = Buffer.from(picked.bytes);
+} else {
+  name = "invoice.txt";
+  ext = "txt";
+  data = Buffer.from(
+    "INVOICE 2026-0042\nAcme GmbH\nNet:   1,234.56 EUR\nVAT 19%: 234.57 EUR\nTotal: 1,469.13 EUR\n",
+    "utf-8"
+  );
+}
+console.log(`sending ${name}  (${data.length} bytes, contentType=${ext})`);
 
 try {
   const res = await elo.call("processOcr", {
     ocrInfo: {
       recognizeFile: {
-        imageData: { data: payload.toString("base64"), contentType: "txt" },
+        imageData: { data: data.toString("base64"), contentType: ext },
         outputFormat: 0, // OcrInfoC.TEXT
         pageNo: -1, // every page
       },

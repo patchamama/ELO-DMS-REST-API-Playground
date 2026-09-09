@@ -190,6 +190,20 @@ button.fn-ref { background: none; border: 0; padding: 0; color: var(--blue); cur
 /* link to ELO's own API docs, in the API-reference operation view */
 .elo-doc { margin: 4px 0 0; font-size: 12px; }
 
+/* "Choose file" picker for OCR topics */
+.attach { display: flex; align-items: center; gap: 10px; margin: 10px 0 4px; font-size: 12px; }
+.attach-btn {
+  display: inline-block; cursor: pointer; background: var(--panel);
+  border: 1px solid var(--line); border-radius: 6px; padding: 4px 12px; color: var(--ink);
+}
+.attach-btn:hover { background: #fff; }
+.attach-name { color: var(--muted); }
+.attach-name.err { color: var(--err); }
+.attach-clear {
+  background: none; border: 1px solid var(--line); border-radius: 6px;
+  padding: 0 8px; cursor: pointer; color: var(--muted); line-height: 1.6;
+}
+
 /* ---- deep dive ---- */
 .deepdoc { max-width: 80ch; line-height: 1.55; }
 .deepdoc h1 { font-size: 20px; }

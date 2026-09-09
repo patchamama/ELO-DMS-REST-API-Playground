@@ -224,7 +224,7 @@
   }
 
   // ---- Run: backend (python / node) ------------------------------ //
-  async function runBackend(language, code, topicId, outputEl, metaEl, btn, cacheKey) {
+  async function runBackend(language, code, topicId, outputEl, metaEl, btn, cacheKey, attach) {
     const label = btn ? btn.textContent : "";
     if (btn) {
       btn.disabled = true;
@@ -257,6 +257,7 @@
         mock: isMock(),
         topic_id: topicId || null,
         credentials: isMock() ? null : creds(),
+        attachment: attach || null,
       });
       renderRunResult(res, outputEl, metaEl);
     } catch (e) {
@@ -305,7 +306,7 @@
     return BROWSER_CLIENT_SRC;
   }
 
-  async function runBrowser(code, topicId, outputEl, metaEl, btn) {
+  async function runBrowser(code, topicId, outputEl, metaEl, btn, attach) {
     const label = btn ? btn.textContent : "";
     if (btn) {
       btn.disabled = true;
@@ -325,6 +326,7 @@
       // static demo: mock -> resolve locally; not mock -> call the given ELO directly
       mockData: STATIC && mock ? CURRENT_MOCK : null,
       directUrl: STATIC && !mock ? (creds().base_url || null) : null,
+      attachment: attach || null, // "Choose file" -> window.__ELOPG__.attachment
     };
     const srcdoc = buildIframeDoc(clientSrc, config, code);
 
@@ -404,9 +406,9 @@ ${snippet}
 <\/script>`;
   }
 
-  function runAny(language, code, topicId, outputEl, metaEl, btn, cacheKey) {
-    if (language === "browser") return runBrowser(code, topicId, outputEl, metaEl, btn);
-    return runBackend(language, code, topicId, outputEl, metaEl, btn, cacheKey);
+  function runAny(language, code, topicId, outputEl, metaEl, btn, cacheKey, attach) {
+    if (language === "browser") return runBrowser(code, topicId, outputEl, metaEl, btn, attach);
+    return runBackend(language, code, topicId, outputEl, metaEl, btn, cacheKey, attach);
   }
 
   // ---- catalogue nav ------------------------------------------- //
@@ -513,6 +515,17 @@ ${snippet}
             : ""
         }
 
+        ${
+          topic.attach_file
+            ? `<div class="attach">
+                 <label class="attach-btn"><span>${esc(tr("attach.choose"))}</span>
+                   <input type="file" hidden /></label>
+                 <span class="attach-name">${esc(tr("attach.none"))}</span>
+                 <button class="attach-clear" title="clear" hidden>&times;</button>
+               </div>`
+            : ""
+        }
+
         <div class="subtabs">${tabs}</div>
         <div class="snippet-host"></div>
       </article>`;
@@ -527,13 +540,52 @@ ${snippet}
     // syntax-highlight the "Result shape" block (JSON when it looks like it)
     highlightBlock(host.querySelector("pre.shape code"), topic.result_shape);
 
+    // ---- optional "Choose file" picker (topic.attach_file) ----------
+    let ATTACH = null; // { name, b64 } or null -> the snippet sends a sample
+    const attachBox = host.querySelector(".attach");
+    if (attachBox) {
+      const input = attachBox.querySelector('input[type="file"]');
+      const nameEl = attachBox.querySelector(".attach-name");
+      const clearBtn = attachBox.querySelector(".attach-clear");
+      const CAP = 8 * 1024 * 1024;
+      const setNone = () => {
+        ATTACH = null;
+        nameEl.textContent = tr("attach.none");
+        nameEl.classList.remove("err");
+        clearBtn.hidden = true;
+        input.value = "";
+      };
+      input.addEventListener("change", () => {
+        const f = input.files && input.files[0];
+        if (!f) return setNone();
+        if (f.size > CAP) {
+          ATTACH = null;
+          nameEl.textContent = tr("attach.tooBig");
+          nameEl.classList.add("err");
+          clearBtn.hidden = false;
+          return;
+        }
+        const fr = new FileReader();
+        fr.onload = () => {
+          ATTACH = { name: f.name, b64: String(fr.result).split(",")[1] || "" };
+          nameEl.textContent = `${f.name} (${Math.max(1, Math.round(f.size / 1024))} KB)`;
+          nameEl.classList.remove("err");
+          clearBtn.hidden = false;
+        };
+        fr.readAsDataURL(f);
+      });
+      clearBtn.addEventListener("click", setNone);
+    }
+
     const sub = host.querySelector(".subtabs");
     const snipHost = host.querySelector(".snippet-host");
     function showLang(lang) {
       store.set(LS.sub, lang);
       $$(".sub", sub).forEach((b) => b.classList.toggle("active", b.dataset.lang === lang));
       snipHost.innerHTML = "";
-      snipHost.appendChild(makeRunner(lang, topic.snippets[lang], topic.id, "t:" + topic.id));
+      snipHost.appendChild(
+        makeRunner(lang, topic.snippets[lang], topic.id, "t:" + topic.id, () => ATTACH)
+      );
     }
     sub.addEventListener("click", (ev) => {
       const b = ev.target.closest(".sub");
@@ -659,7 +711,7 @@ ${snippet}
   }
 
   // one EDITABLE code block + Copy + Reset + Run + output panel
-  function makeRunner(language, code, topicId, cacheKey) {
+  function makeRunner(language, code, topicId, cacheKey, getAttach) {
     const original = code;
     const cmMode = language === "python" ? "python" : "javascript";
     const wrap = document.createElement("div");
@@ -731,10 +783,12 @@ ${snippet}
     else editHost.querySelector("textarea").addEventListener("input", refreshMeta);
 
     // --- buttons -------------------------------------------------------
-    btn.addEventListener("click", () =>
-      // a pre-computed static result only matches the ORIGINAL snippet
-      runAny(language, getCode(), topicId, out, meta, btn, isEdited() ? null : cacheKey)
-    );
+    btn.addEventListener("click", () => {
+      const attach = getAttach ? getAttach() : null;
+      // a pre-computed static result only matches the ORIGINAL snippet + no file
+      const key = isEdited() || attach ? null : cacheKey;
+      runAny(language, getCode(), topicId, out, meta, btn, key, attach);
+    });
     copyBtn.addEventListener("click", async () => {
       try {
         await navigator.clipboard.writeText(getCode());

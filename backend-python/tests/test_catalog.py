@@ -39,6 +39,12 @@ def test_mock_blocks_are_json_serialisable():
         json.dumps(t.mock)  # would raise on a bad value
 
 
+def test_attach_file_flag_loads():
+    by_id = {t.id: t for t in load_topics("en")}
+    assert by_id["ocr.extract"].attach_file is True
+    assert by_id["connection.login"].attach_file is False
+
+
 def test_default_fixture_is_valid_json_and_has_login():
     default = get_settings().fixtures_dir / "default.json"
     data = json.loads(default.read_text(encoding="utf-8"))

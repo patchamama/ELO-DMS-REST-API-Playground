@@ -200,10 +200,25 @@ function asList(value) {
   return [];
 }
 
+/**
+ * The file the user picked with the topic's "Choose file" button, as
+ * `{ name, bytes }` (bytes is a Uint8Array) - or `null` when nothing was picked.
+ * The playground injects it as `window.__ELOPG__.attachment = { name, b64 }`.
+ */
+export function attachment() {
+  const a = (typeof window !== "undefined" && window.__ELOPG__ && window.__ELOPG__.attachment) || null;
+  if (!a || !a.b64) return null;
+  const bin = atob(a.b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return { name: a.name || "file", bytes };
+}
+
 // Also expose as globals so the playground's sandboxed run-iframe (which has no
 // module loader) can use `connect()` / `new EloClient()` directly.
 if (typeof window !== "undefined") {
   window.EloClient = EloClient;
   window.EloError = EloError;
   window.connect = connect;
+  window.attachment = attachment;
 }

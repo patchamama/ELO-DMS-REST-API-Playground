@@ -18,13 +18,13 @@ import { runNodeSnippet } from "./runner.mjs";
 const PORT = Number(process.env.ELOPG_NODE_PORT || 8787);
 
 const app = express();
-app.use(express.json({ limit: "1mb" }));
+app.use(express.json({ limit: "16mb" })); // room for a base64 "Choose file" upload
 
 app.get("/health", (_req, res) => res.json({ ok: true, service: "backend-node" }));
 
 // ---- snippet runner ------------------------------------------------- //
 app.post("/run", async (req, res) => {
-  const { code, mock, mockData, credentials, timeoutMs, outputCap } = req.body ?? {};
+  const { code, mock, mockData, credentials, attachment, timeoutMs, outputCap } = req.body ?? {};
   if (typeof code !== "string") {
     res.status(400).json({ ok: false, detail: "missing 'code'" });
     return;
@@ -35,6 +35,7 @@ app.post("/run", async (req, res) => {
       mock: !!mock,
       mockData: mockData ?? null,
       credentials: credentials ?? null,
+      attachment: attachment ?? null,
       timeoutMs: Number(timeoutMs) || 15000,
       outputCap: Number(outputCap) || 262144,
     });
