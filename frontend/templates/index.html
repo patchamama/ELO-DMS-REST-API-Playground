@@ -101,6 +101,7 @@ print(elo.call("getServerInfo", {}).get("version"))
     defaultBaseUrl: {{ default_base_url | tojson }},
     defaultPort: {{ default_port | tojson }},
     defaultUser: {{ default_user | tojson }},
+    defaultPassword: {{ default_password | default("") | tojson }},
     mockDefault: {{ mock_default | tojson }},
     proxyUrl: window.location.origin + "/api/elo/proxy"
   };

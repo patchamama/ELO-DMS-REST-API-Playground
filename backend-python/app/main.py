@@ -79,6 +79,9 @@ def index(request: Request):
             "default_base_url": settings.elo_base_url,
             "default_port": _default_port(),
             "default_user": settings.elo_user,
+            # pre-fill the password only from a LOCAL .env (never baked into the
+            # static build); empty by default so nothing is shipped.
+            "default_password": settings.elo_password,
             "mock_default": settings.mock,
         },
     )

@@ -31,6 +31,13 @@ def test_already_ahead_compares_working_copy_to_head(monkeypatch):
     assert bump._already_ahead("x", "9.9.9") is False
 
 
-def test_backend_prefixes_cover_the_three_server_layers():
-    assert bump.BACKEND_PREFIXES == ("backend-python/", "backend-node/", "shared/")
+def test_backend_prefixes_cover_server_and_content_layers():
+    for p in ("backend-python/", "backend-node/", "shared/", "catalog/", "snippets/", "fixtures/"):
+        assert p in bump.BACKEND_PREFIXES
     assert bump.FRONTEND_PREFIXES == ("frontend/",)
+
+
+def test_touched_matches_by_prefix():
+    assert "catalog/90-lab/06-share-link.yaml".startswith(bump.BACKEND_PREFIXES)
+    assert not "README.md".startswith(bump.BACKEND_PREFIXES)
+    assert "frontend/static/app.js".startswith(bump.FRONTEND_PREFIXES)

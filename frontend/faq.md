@@ -47,6 +47,22 @@ read almost identically. The differences are:
   *Check connection*, then *Run*. Python and Node then call your ELO directly;
   browser snippets go through the backend proxy.
 
+## Where does `connect()` get the credentials? Why isn't the password in the code?
+
+`connect()` reads the connection from **environment variables** -
+`ELOPG_ELO_BASE_URL`, `ELOPG_ELO_USER`, `ELOPG_ELO_PASSWORD`,
+`ELOPG_TLS_VERIFY` - with sensible defaults (`Administrator` on
+`http://localhost:9090/ix-Repository1`, password empty). When you press **Run**,
+the playground sets those from the connection form for the child process, so the
+snippet gets your real credentials without any hard-coded in it.
+
+The password is deliberately **not** in the snippets or defaults: this is a
+public repo, and a real password committed to it would be a leak. Put it in a
+local `.env` (`ELOPG_ELO_PASSWORD=...`, copied from `env.sample`) and the
+connection form pre-fills it; or tick *Remember password* to keep it in this
+browser. Copy a snippet into your own project and it works the same way - set
+the `ELOPG_*` variables in your environment.
+
 ## The static demo (GitHub Pages) - what runs?
 
 The published demo has no backend. It behaves like the app, defaulting to Mock:
