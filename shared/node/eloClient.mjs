@@ -278,10 +278,11 @@ export async function connect({ login = true } = {}) {
     // ELO, never for production.
     process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
   }
+  // Defaults for a stock local ELO test install; any ELOPG_* var overrides them.
   const client = new EloClient(
     env.ELOPG_ELO_BASE_URL || "http://localhost:9090/ix-Repository1",
     env.ELOPG_ELO_USER || "Administrator",
-    env.ELOPG_ELO_PASSWORD || "",
+    env.ELOPG_ELO_PASSWORD || "elo",
     { verify }
   );
   if (login) await client.login();
