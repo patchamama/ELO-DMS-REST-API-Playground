@@ -3,7 +3,7 @@
 // category: OCR & text extraction
 // id:       ocr.archived
 
-import { connect, EloError } from "elo-playground";
+import { connect, EloError, attachment } from "elo-playground";
 
 // --- local ELO test box (override with ELOPG_* env vars or a .env) ---
 const ELO_BASE_URL = "http://localhost:9090/ix-Repository1";
@@ -13,13 +13,18 @@ const ELO_PASS = "elo";
 const elo = await connect({ baseUrl: ELO_BASE_URL, user: ELO_USER, password: ELO_PASS });
 const ALL = "449304431574384639";
 
-// --- provision: upload a throwaway text document ---
-const body = Buffer.from("INVOICE 2026-0042\nAcme GmbH\nTotal: 1,469.13 EUR\n", "utf-8");
+// --- provision: upload a document ("Choose file" above, else a sample) ---
+const picked = attachment();
+const docName = picked ? picked.name : "pg-ocr-doc.txt";
+const body = picked
+  ? Buffer.from(picked.bytes)
+  : Buffer.from("INVOICE 2026-0042\nAcme GmbH\nTotal: 1,469.13 EUR\n", "utf-8");
+const ext = docName.includes(".") ? docName.split(".").pop().toLowerCase() : "txt";
 const sord = (await elo.call("createDoc", {
   parentId: 1, maskId: 0, editInfoZ: { bset: "1", sordZ: { bset: ALL } },
 })).sord;
-sord.name = "pg-ocr-doc.txt";
-const doc = await elo.call("checkinDocBegin", { sord, document: { docs: [{ ext: "txt" }] } });
+sord.name = docName;
+const doc = await elo.call("checkinDocBegin", { sord, document: { docs: [{ ext }] } });
 doc.docs[0].uploadResult = await elo.upload(doc.docs[0].url, body);
 const objId = String((await elo.call("checkinDocEnd", {
   sord, document: doc, sordZ: { bset: ALL }, unlockZ: { bset: "1" },

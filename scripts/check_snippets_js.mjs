@@ -17,7 +17,7 @@ const ROOT = fileURLToPath(new URL("..", import.meta.url));
 // globals available to every snippet (browser: connect/EloClient/EloError are
 // injected by the run iframe; node: imported from "elo-playground")
 const GLOBALS = new Set([
-  "connect", "EloClient", "EloError",
+  "connect", "EloClient", "EloError", "attachment",
   "console", "JSON", "Object", "Array", "Boolean", "Number", "String", "Math",
   "Date", "RegExp", "Error", "TypeError", "RangeError", "Promise", "Set", "Map",
   "WeakMap", "WeakSet", "Symbol", "Proxy", "Reflect", "BigInt", "Intl",

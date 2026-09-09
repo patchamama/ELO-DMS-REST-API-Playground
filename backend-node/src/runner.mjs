@@ -35,6 +35,7 @@ export async function runNodeSnippet({
   mock,
   mockData,
   credentials,
+  attachment = null,
   timeoutMs = 15000,
   outputCap = 262144,
 }) {
@@ -47,6 +48,8 @@ export async function runNodeSnippet({
   const env = { ...process.env };
   delete env.ELOPG_MOCK;
   delete env.ELOPG_MOCK_DATA;
+  delete env.ELOPG_ATTACH;
+  delete env.ELOPG_ATTACH_NAME;
   if (mock) {
     env.ELOPG_MOCK = "1";
     const mockPath = join(dir, "mock.json");
@@ -57,6 +60,14 @@ export async function runNodeSnippet({
     env.ELOPG_ELO_USER = credentials.user;
     env.ELOPG_ELO_PASSWORD = credentials.password ?? "";
     env.ELOPG_TLS_VERIFY = credentials.tls_verify ? "1" : "0";
+  }
+  if (attachment && typeof attachment.b64 === "string") {
+    const raw = Buffer.from(attachment.b64, "base64").subarray(0, 12 * 1024 * 1024);
+    const safe = (attachment.name || "attachment").split(/[\\/]/).pop() || "attachment";
+    const attPath = join(dir, safe);
+    await writeFile(attPath, raw);
+    env.ELOPG_ATTACH = attPath;
+    env.ELOPG_ATTACH_NAME = attachment.name || safe;
   }
 
   const started = Date.now();

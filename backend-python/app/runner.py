@@ -53,10 +53,34 @@ def mock_data(topic_id: str | None) -> dict:
     return data
 
 
+_ATTACH_CAP = 12 * 1024 * 1024  # 12 MiB decoded - OCR test files are tiny
+
+
+def _write_attachment(req: RunRequest, workdir: Path, env: dict[str, str]) -> None:
+    """If the run carries a picked file, drop it in the workdir and point
+    ELOPG_ATTACH at it (read by elo_playground.attachment())."""
+    att = getattr(req, "attachment", None)
+    if not att:
+        return
+    import base64
+
+    try:
+        raw = base64.b64decode(att.b64, validate=True)[:_ATTACH_CAP]
+    except Exception:  # noqa: BLE001 - a bad upload must not crash the run
+        return
+    safe = Path(att.name or "attachment").name or "attachment"
+    path = workdir / safe
+    path.write_bytes(raw)
+    env["ELOPG_ATTACH"] = str(path)
+    env["ELOPG_ATTACH_NAME"] = att.name or safe
+
+
 def _base_env(req: RunRequest, workdir: Path) -> dict[str, str]:
     env = dict(os.environ)
     env.pop("ELOPG_MOCK", None)
     env.pop("ELOPG_MOCK_DATA", None)
+    env.pop("ELOPG_ATTACH", None)
+    env.pop("ELOPG_ATTACH_NAME", None)
     if req.mock:
         env["ELOPG_MOCK"] = "1"
         mock_path = workdir / "mock.json"
@@ -67,6 +91,7 @@ def _base_env(req: RunRequest, workdir: Path) -> dict[str, str]:
         env["ELOPG_ELO_USER"] = req.credentials.user
         env["ELOPG_ELO_PASSWORD"] = req.credentials.password
         env["ELOPG_TLS_VERIFY"] = "1" if req.credentials.tls_verify else "0"
+    _write_attachment(req, workdir, env)
     return env
 
 
@@ -129,6 +154,7 @@ def run_node(req: RunRequest) -> RunResult:
         "mock": req.mock,
         "mockData": mock_data(req.topic_id) if req.mock else None,
         "credentials": req.credentials.model_dump() if req.credentials else None,
+        "attachment": req.attachment.model_dump() if req.attachment else None,
         "timeoutMs": s.run_timeout_s * 1000,
         "outputCap": s.run_output_cap,
     }

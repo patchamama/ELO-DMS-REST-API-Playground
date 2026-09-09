@@ -3,7 +3,7 @@
 # category: OCR & text extraction
 # id:       ocr.archived
 
-from elo_playground import connect, EloError
+from elo_playground import connect, EloError, attachment
 
 # --- local ELO test box (override with ELOPG_* env vars or a .env) ---
 ELO_BASE_URL = "http://localhost:9090/ix-Repository1"
@@ -13,12 +13,18 @@ ELO_PASS = "elo"
 elo = connect(base_url=ELO_BASE_URL, user=ELO_USER, password=ELO_PASS)
 ALL = "449304431574384639"
 
-# --- provision: upload a throwaway text document ---
-body = b"INVOICE 2026-0042\nAcme GmbH\nTotal: 1,469.13 EUR\n"
+# --- provision: upload a document ("Choose file" above, else a sample) ---
+picked = attachment()
+if picked:
+    doc_name, body = picked
+else:
+    doc_name = "pg-ocr-doc.txt"
+    body = b"INVOICE 2026-0042\nAcme GmbH\nTotal: 1,469.13 EUR\n"
+ext = doc_name.rsplit(".", 1)[-1].lower() if "." in doc_name else "txt"
 sord = elo.call("createDoc", {"parentId": 1, "maskId": 0,
                               "editInfoZ": {"bset": "1", "sordZ": {"bset": ALL}}})["sord"]
-sord["name"] = "pg-ocr-doc.txt"
-doc = elo.call("checkinDocBegin", {"sord": sord, "document": {"docs": [{"ext": "txt"}]}})
+sord["name"] = doc_name
+doc = elo.call("checkinDocBegin", {"sord": sord, "document": {"docs": [{"ext": ext}]}})
 doc["docs"][0]["uploadResult"] = elo.upload(doc["docs"][0]["url"], body)
 obj_id = str(elo.call("checkinDocEnd", {"sord": sord, "document": doc,
                                         "sordZ": {"bset": ALL}, "unlockZ": {"bset": "1"}})["objId"])

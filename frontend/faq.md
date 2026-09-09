@@ -71,6 +71,16 @@ passed through as `ELOPG_*` for that one run, so the form wins over the
 snippet's constants. The form pre-fills from your local `.env`
 (`ELOPG_ELO_PASSWORD=...`); *Remember password* keeps it in this browser.
 
+## "Choose file" on the OCR topics
+
+The two **OCR & text extraction** topics show a *Choose file* button. Pick a
+real scan (there are samples in `examples/invoices/`) and it is sent to
+`processOcr` / uploaded to the archive; with nothing picked, the snippet sends a
+tiny built-in invoice so it still runs. In code the picked file is
+`attachment()` from `elo-playground` - `(name, bytes)` in Python,
+`{ name, bytes }` in Node/browser, or `None`/`null`. The upload is capped at
+8 MB and is written to the run's temp dir (`ELOPG_ATTACH`), never kept.
+
 ## The static demo (GitHub Pages) - what runs?
 
 The published demo has no backend. It behaves like the app, defaulting to Mock:

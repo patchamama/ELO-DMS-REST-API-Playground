@@ -1,12 +1,18 @@
 """The Python side of the snippet runner (offline / mock only)."""
+import base64
 import textwrap
 
-from app.models import RunRequest
+from app.models import Attachment, RunRequest
 from app.runner import mock_data, run_python
 
 
-def _run(code: str, topic_id: str | None = None) -> object:
-    return run_python(RunRequest(language="python", code=textwrap.dedent(code), mock=True, topic_id=topic_id))
+def _run(code: str, topic_id: str | None = None, attachment: Attachment | None = None) -> object:
+    return run_python(
+        RunRequest(
+            language="python", code=textwrap.dedent(code), mock=True,
+            topic_id=topic_id, attachment=attachment,
+        )
+    )
 
 
 def test_trivial_snippet_captures_stdout():
@@ -20,6 +26,19 @@ def test_failing_snippet_reports_stderr_and_nonzero_exit():
     res = _run("raise SystemExit(3)")
     assert not res.ok
     assert res.exit_code == 3
+
+
+def test_attachment_reaches_the_snippet():
+    code = """
+        from elo_playground import attachment
+        got = attachment()
+        print("none" if got is None else f"{got[0]}:{got[1].decode()}")
+    """
+    # no attachment -> None
+    assert "none" in _run(code).stdout
+    # with one -> (name, bytes)
+    att = Attachment(name="scan.pdf", b64=base64.b64encode(b"hello ocr").decode())
+    assert "scan.pdf:hello ocr" in _run(code, attachment=att).stdout
 
 
 def test_shared_client_is_importable_and_returns_mock_data():

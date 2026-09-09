@@ -24,7 +24,7 @@ from .client import EloClient
 from .errors import EloError
 from .mock import MockEloClient
 
-__all__ = ["EloClient", "MockEloClient", "EloError", "connect"]
+__all__ = ["EloClient", "MockEloClient", "EloError", "connect", "attachment"]
 
 # Defaults for a stock local ELO test install. Any ELOPG_* env var overrides
 # these, so real deployments never rely on them - but a copied snippet still
@@ -73,6 +73,19 @@ def connect(
     if login:
         client.login()
     return client
+
+
+def attachment() -> "tuple[str, bytes] | None":
+    """The file the user picked with the topic's "Choose file" button, as
+    ``(filename, bytes)`` - or ``None`` when nothing was picked (the snippet then
+    falls back to a small built-in sample). The playground writes the upload to a
+    temp file and points ``ELOPG_ATTACH`` at it.
+    """
+    path = os.environ.get("ELOPG_ATTACH")
+    if not path or not Path(path).is_file():
+        return None
+    name = os.environ.get("ELOPG_ATTACH_NAME") or Path(path).name
+    return name, Path(path).read_bytes()
 
 
 def _truthy(value: str | None) -> bool:
