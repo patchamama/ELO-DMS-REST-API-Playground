@@ -585,7 +585,7 @@ ${snippet}
 
     // 1. ELO IX operations, named as string literals to elo.call / find_all
     const callRe = /\.call\(\s*(["'])([A-Za-z][\w]*)\1/g;
-    while ((m = callRe.exec(code))) add('elo.call("' + m[2] + '")', "elo-op", m[2]);
+    while ((m = callRe.exec(code))) add(m[2] + "()", "elo-op", m[2]);
     const faRe = /\.(?:find_all|findAll)\(\s*(["'])([A-Za-z][\w]*)\1\s*,\s*(["'])([A-Za-z][\w]*)\3/g;
     while ((m = faRe.exec(code))) {
       add(m[2] + "()", "elo-op", m[2]);
@@ -632,7 +632,7 @@ ${snippet}
     };
     box.innerHTML =
       `<span class="fn-refs-label">${esc(tr("topic.fnRefs"))}</span> ` +
-      refs.map(item).join(' <span class="fn-sep">-</span> ');
+      refs.map(item).join(' <span class="fn-sep">·</span> ');
     box.querySelectorAll("[data-op]").forEach((b) =>
       b.addEventListener("click", () => {
         $('.tab[data-view="spec"]').click();
