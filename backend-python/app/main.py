@@ -11,6 +11,7 @@ or ``python -m app.main``.
 from __future__ import annotations
 
 import hashlib
+import socket
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -72,6 +73,16 @@ def _static_version() -> str:
     return hashlib.sha1(str(newest).encode()).hexdigest()[:8]
 
 
+def _server_host() -> str:
+    """This machine's hostname - used to swap a localhost Base URL for a name a
+    TLS certificate can actually match. Empty when it is not a usable name."""
+    try:
+        h = socket.gethostname().strip()
+    except OSError:
+        return ""
+    return "" if h.lower() in ("", "localhost", "127.0.0.1") else h
+
+
 # ---- page ------------------------------------------------------------- #
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request):
@@ -81,6 +92,7 @@ def index(request: Request):
         {
             "static_v": _static_version(),
             "default_base_url": settings.elo_base_url,
+            "server_host": _server_host(),
             "default_user": settings.elo_user,
             # pre-fill the password only from a LOCAL .env (never baked into the
             # static build); empty by default so nothing is shipped.

@@ -122,11 +122,15 @@ The published demo has no backend. It behaves like the app, defaulting to Mock:
 There is no separate Port field - the port is part of the **Base URL**
 (`http://localhost:9090/ix-Repository1`, or `https://elo.example/ix-Repository1`
 behind a reverse proxy on 443). The **`→ https` / `→ http`** button next to
-*Test* flips the scheme of the Base URL and re-tests in one click. ELO's default
-IX ports are paired, so it also swaps an explicit **`:9090` ↔ `:9093`** with the
-scheme (a non-default port is left as you set it); switching to https unticks
-*Verify TLS certificate* too, since a local ELO's IX/HTTPS (`:9093`) uses a
-self-signed certificate.
+*Test* flips the scheme of the Base URL and re-tests in one click. Going to
+https also:
+
+- swaps an explicit **`:9090` ↔ `:9093`** (ELO's paired default IX ports; a
+  non-default port is left as you set it);
+- replaces `localhost` / `127.0.0.1` with the server's real hostname when the
+  app knows it, because a TLS certificate never matches `localhost`;
+- unticks *Verify TLS certificate*, since a local ELO's IX/HTTPS (`:9093`) uses
+  a self-signed certificate.
 
 ## Versioning
 
