@@ -222,22 +222,22 @@ node   sandbox\example.mjs    # Node
 
 Both files are the `connection.login` snippet verbatim - paste any other snippet
 from the **Catalog** or from `snippets\<language>\<category>\<slug>.<ext>` over
-them and re-run. Every snippet defines the connection at the top for a stock
-local ELO test box:
+them and re-run. Every snippet defines the whole connection at the top for a
+stock local ELO test box:
 
 ```python
+ELO_BASE_URL = "http://localhost:9090/ix-Repository1"   # the port lives in the URL
 ELO_USER = "Administrator"
 ELO_PASS = "elo"
-elo = connect(user=ELO_USER, password=ELO_PASS)
+elo = connect(base_url=ELO_BASE_URL, user=ELO_USER, password=ELO_PASS)
 ```
 
-`connect()` also takes `base_url` and `verify`; for each of those the order is
-explicit argument -> `ELOPG_*` env var -> built-in default, so
-`ELOPG_ELO_BASE_URL` / `ELOPG_ELO_USER` / `ELOPG_ELO_PASSWORD` (or a local
-`.env`) override the snippet's constants. A connection-refused error means no
-ELO is listening there; `EloError: ... authentication failed` means the
-credentials are wrong. Details in
-[`sandbox/README.md`](sandbox/README.md); the snippet library itself is
+For each of `base_url` / `user` / `password` / `verify` the order is explicit
+argument -> `ELOPG_*` env var -> built-in default, so `ELOPG_ELO_BASE_URL` /
+`ELOPG_ELO_USER` / `ELOPG_ELO_PASSWORD` (or a local `.env`) override the
+snippet's constants. A connection-refused error means no ELO is listening there;
+`EloError: ... authentication failed` means the credentials are wrong. Details
+in [`sandbox/README.md`](sandbox/README.md); the snippet library itself is
 [`snippets/README.md`](snippets/README.md).
 
 ## Adding a topic

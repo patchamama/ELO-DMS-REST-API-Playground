@@ -258,9 +258,10 @@ def generate(detail: dict, language: str) -> str:
         return (
             "from elo_playground import connect\n\n"
             "# --- local ELO test box (override with ELOPG_* env vars or a .env) ---\n"
+            'ELO_BASE_URL = "http://localhost:9090/ix-Repository1"\n'
             'ELO_USER = "Administrator"\n'
             'ELO_PASS = "elo"\n\n'
-            "elo = connect(user=ELO_USER, password=ELO_PASS)\n\n"
+            "elo = connect(base_url=ELO_BASE_URL, user=ELO_USER, password=ELO_PASS)\n\n"
             f'# {detail["http_method"]} {detail["path"]}\n'
             f'result = elo.call("{method}", {body}{svc_arg})\n'
             "print(result)\n"
@@ -276,9 +277,10 @@ def generate(detail: dict, language: str) -> str:
     return (
         f"{head}"
         "// --- local ELO test box (override with ELOPG_* env vars or a .env) ---\n"
+        'const ELO_BASE_URL = "http://localhost:9090/ix-Repository1";\n'
         'const ELO_USER = "Administrator";\n'
         'const ELO_PASS = "elo";\n\n'
-        "const elo = await connect({ user: ELO_USER, password: ELO_PASS });\n\n"
+        "const elo = await connect({ baseUrl: ELO_BASE_URL, user: ELO_USER, password: ELO_PASS });\n\n"
         f'// {detail["http_method"]} {detail["path"]}\n'
         f'const result = await elo.call("{method}", {body}{svc_arg});\n'
         "console.log(result);\n"

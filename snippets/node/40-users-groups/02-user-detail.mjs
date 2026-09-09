@@ -6,10 +6,11 @@
 import { connect } from "elo-playground";
 
 // --- local ELO test box (override with ELOPG_* env vars or a .env) ---
+const ELO_BASE_URL = "http://localhost:9090/ix-Repository1";
 const ELO_USER = "Administrator";
 const ELO_PASS = "elo";
 
-const elo = await connect({ user: ELO_USER, password: ELO_PASS });
+const elo = await connect({ baseUrl: ELO_BASE_URL, user: ELO_USER, password: ELO_PASS });
 
 const res = await elo.call("checkoutUsers", {
   ids: [0, 12],                        // Administrator + Max Muster

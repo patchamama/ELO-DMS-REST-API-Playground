@@ -13,10 +13,11 @@ import re
 from elo_playground import connect, EloError
 
 # --- local ELO test box (override with ELOPG_* env vars or a .env) ---
+ELO_BASE_URL = "http://localhost:9090/ix-Repository1"
 ELO_USER = "Administrator"
 ELO_PASS = "elo"
 
-elo = connect(user=ELO_USER, password=ELO_PASS)
+elo = connect(base_url=ELO_BASE_URL, user=ELO_USER, password=ELO_PASS)
 
 SAMPLES = {
     "acme":   "RECHNUNG / INVOICE\nRechnungsnummer / Invoice no.: 2026-0042\nRechnungsdatum / Invoice date: 2026-02-14\nGesamtbetrag / Total: 1.469,13 EUR\n",
@@ -56,10 +57,11 @@ Once you have a value, write it to a GRP field with the read / modify /
 from elo_playground import connect
 
 # --- local ELO test box (override with ELOPG_* env vars or a .env) ---
+ELO_BASE_URL = "http://localhost:9090/ix-Repository1"
 ELO_USER = "Administrator"
 ELO_PASS = "elo"
 
-elo = connect(user=ELO_USER, password=ELO_PASS)
+elo = connect(base_url=ELO_BASE_URL, user=ELO_USER, password=ELO_PASS)
 ALL = "449304431574384639"
 obj_id = "5001"          # the document you OCR'd
 
