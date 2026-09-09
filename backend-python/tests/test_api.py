@@ -10,6 +10,15 @@ def test_index_page_renders():
     r = client.get("/")
     assert r.status_code == 200
     assert "ELO API Playground" in r.text
+    assert 'name="port"' in r.text
+
+
+def test_version_endpoint():
+    from app import __version__
+
+    v = client.get("/api/version").json()
+    assert v["backend"] == __version__
+    assert v["frontend"] and v["frontend"][0].isdigit()
 
 
 def test_catalog_endpoint():

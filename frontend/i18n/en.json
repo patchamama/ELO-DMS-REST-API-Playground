@@ -57,5 +57,6 @@
   "static.noRun": "Python / Node run on the local app. Clone the repo and run it to execute this, or use the Browser tab.",
   "static.precomputed": "pre-computed",
   "static.help": "Mock mode uses bundled sample data. Untick Mock and enter a reachable ELO base URL + credentials to run Browser snippets against a real server (that server must allow CORS from this page).",
-  "static.backendOnly": "Only Browser snippets can call a server from this page. Python / Node need the local app."
+  "static.backendOnly": "Only Browser snippets can call a server from this page. Python / Node need the local app.",
+  "conn.port": "Port"
 }

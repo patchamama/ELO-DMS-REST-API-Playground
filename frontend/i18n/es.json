@@ -57,5 +57,6 @@
   "static.noRun": "Python / Node corren en la app local. Cloná el repo y ejecutala, o usá la pestaña Navegador.",
   "static.precomputed": "precalculada",
   "static.help": "El modo mock usa datos de ejemplo incluidos. Destildá Mock e ingresá una URL base de ELO alcanzable + credenciales para correr los snippets de Navegador contra un servidor real (ese servidor debe permitir CORS desde esta página).",
-  "static.backendOnly": "Solo los snippets de Navegador pueden llamar a un servidor desde esta página. Python / Node necesitan la app local."
+  "static.backendOnly": "Solo los snippets de Navegador pueden llamar a un servidor desde esta página. Python / Node necesitan la app local.",
+  "conn.port": "Puerto"
 }

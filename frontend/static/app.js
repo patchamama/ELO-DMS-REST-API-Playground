@@ -58,6 +58,7 @@
     if ((m = path.match(/^\/api\/i18n\/(.+)$/))) return `api/i18n/${m[1]}.json`;
     if ((m = path.match(/^\/api\/topics\/(.+)$/))) return `api/topics/${lang}/${m[1]}.json`;
     if ((m = path.match(/^\/api\/deep\/(.+)$/))) return `api/deep/${m[1]}.json`;
+    if (path === "/api/version") return "api/version.json";
     if (path === "/api/client-lib") return "api/client-lib.json";
     if (path === "/api/spec/services") return "api/spec/services.json";
     if (path === "/api/spec/operations") return `api/spec/operations/${p.get("service")}.json`;
@@ -82,10 +83,30 @@
   }
 
   // ---- connection state -------------------------------------------- //
+  const DEFAULT_PORT = "9090"; // ELO Indexserver default (HTTP)
+
+  // combine the "Base URL" field with the separate "Port" field
+  function effectiveBaseUrl() {
+    const f = $("#conn");
+    let raw = (f.base_url.value || "").trim();
+    if (!raw) return "";
+    if (!/^https?:\/\//i.test(raw)) raw = "http://" + raw;
+    let u;
+    try {
+      u = new URL(raw);
+    } catch (e) {
+      return raw;
+    }
+    const port = (f.port.value || "").trim();
+    if (port) u.port = port;
+    return `${u.protocol}//${u.hostname}${u.port ? ":" + u.port : ""}${u.pathname}`.replace(/\/$/, "");
+  }
+
   function readConn() {
     const f = $("#conn");
     return {
-      base_url: f.base_url.value.trim(),
+      base_url: effectiveBaseUrl(),
+      port: (f.port.value || "").trim(),
       user: f.user.value.trim(),
       password: f.password.value,
       tls_verify: f.tls_verify.checked,
@@ -101,8 +122,16 @@
     return $("#conn").mock.checked;
   }
   function saveConn() {
+    const f = $("#conn");
     const c = readConn();
-    const blob = { base_url: c.base_url, user: c.user, tls_verify: c.tls_verify, mock: c.mock, remember: c.remember };
+    const blob = {
+      base_url: f.base_url.value.trim(), // store what the user typed, not the assembled URL
+      port: c.port,
+      user: c.user,
+      tls_verify: c.tls_verify,
+      mock: c.mock,
+      remember: c.remember,
+    };
     if (c.remember) blob.password = c.password;
     store.set(LS.conn, JSON.stringify(blob));
   }
@@ -115,6 +144,7 @@
     }
     const f = $("#conn");
     f.base_url.value = blob.base_url || CFG.defaultBaseUrl || "";
+    f.port.value = blob.port || CFG.defaultPort || DEFAULT_PORT;
     f.user.value = blob.user || CFG.defaultUser || "";
     f.password.value = blob.password || "";
     f.tls_verify.checked = blob.tls_verify !== false;
@@ -142,6 +172,18 @@
     });
   }
   const tr = (k) => T[k] || k;
+
+  async function renderVersion() {
+    const el = $("#app-version");
+    if (!el) return;
+    try {
+      const v = await getJSON("/api/version");
+      el.textContent = `UI ${v.frontend} · API ${v.backend}`;
+      el.title = `frontend ${v.frontend} / backend ${v.backend}`;
+    } catch (e) {
+      /* leave it blank */
+    }
+  }
 
   // ---- highlight helpers ------------------------------------------ //
   function looksJson(text) {
@@ -397,7 +439,7 @@ ${snippet}
   }
 
   function docLink(ref) {
-    const base = ($("#conn").base_url.value.trim() || CFG.defaultBaseUrl || "").replace(/\/+$/, "");
+    const base = (effectiveBaseUrl() || CFG.defaultBaseUrl || "").replace(/\/+$/, "");
     return (ref.doc_url || "").replace("{base}", base);
   }
 
@@ -652,7 +694,7 @@ ${snippet}
   // ---- "API reference" tab (openapi.json walkthrough) --------- //
   let SPEC_LOADED = false;
   function specQuery() {
-    const base = encodeURIComponent($("#conn").base_url.value.trim() || CFG.defaultBaseUrl || "");
+    const base = encodeURIComponent(effectiveBaseUrl() || CFG.defaultBaseUrl || "");
     return `mock=${isMock() ? 1 : 0}&base_url=${base}`;
   }
   async function loadSpec(force) {
@@ -895,6 +937,7 @@ ${snippet}
     wireTabs();
     wireScratchpad();
     if (STATIC) await enterStaticMode();
+    renderVersion();
     await loadCatalog();
     reopenLast();
   })();

@@ -27,6 +27,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "backend-python"))
 sys.path.insert(0, str(ROOT / "shared" / "python"))
 
+from app import __version__ as BACKEND_VERSION  # noqa: E402
 from app import catalog as cat  # noqa: E402
 from app import client_lib as clib  # noqa: E402
 from app import openapi_ref  # noqa: E402
@@ -108,7 +109,8 @@ def main() -> int:
     env = jinja2.Environment(loader=jinja2.FileSystemLoader(str(ROOT / "frontend" / "templates")), autoescape=True)
     build_id = format(int(time.time()), "x")[-8:]
     html = env.get_template("index.html").render(
-        static_v=build_id, default_base_url="", default_user="", mock_default=True
+        static_v=build_id, default_base_url="", default_port="9090",
+        default_user="", mock_default=True,
     )
     html = (
         html.replace('href="/vendor/', 'href="vendor/')
@@ -122,6 +124,9 @@ def main() -> int:
         )
     )
     (DIST / "index.html").write_text(html, encoding="utf-8")
+
+    fe_ver = (ROOT / "frontend" / "VERSION").read_text(encoding="utf-8").strip()
+    _write("api/version.json", {"backend": BACKEND_VERSION, "frontend": fe_ver})
 
     # ---- i18n + catalogue ---------------------------------------------
     for lang in LANGS:
