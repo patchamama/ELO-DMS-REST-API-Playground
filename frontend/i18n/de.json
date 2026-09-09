@@ -53,7 +53,9 @@
   "scratch.language": "Sprache",
   "scratch.hint": "Den gemeinsamen Client importieren:  Python  from elo_playground import connect   ·   Node  import { connect } from \"elo-playground\"   ·   Browser  connect() ist vorab geladen",
   "warn.localOnly": "\"Ausführen\" startet Code auf DIESEM Rechner mit Ihren ELO-Zugangsdaten. Nur für die lokale Entwicklung.",
-  "static.badge": "Statische Demo · Mock-Daten",
-  "static.noRun": "Diese Ausgabe ist nicht vorberechnet. Klone das Repo und starte die lokale App, um sie auszuführen.",
-  "static.precomputed": "vorberechnet"
+  "static.badge": "Demo · Mock standardmäßig",
+  "static.noRun": "Python / Node laufen in der lokalen App. Klone das Repo und starte sie, oder nutze den Browser-Tab.",
+  "static.precomputed": "vorberechnet",
+  "static.help": "Der Mock-Modus nutzt mitgelieferte Beispieldaten. Mock abwählen und eine erreichbare ELO-Basis-URL + Zugangsdaten eingeben, um Browser-Snippets gegen einen echten Server auszuführen (dieser Server muss CORS für diese Seite erlauben).",
+  "static.backendOnly": "Nur Browser-Snippets können von dieser Seite aus einen Server aufrufen. Python / Node brauchen die lokale App."
 }

@@ -137,9 +137,20 @@ python scripts/smoke.py            # offline: catalogue, snippet sync, one run e
 
 `python scripts/build_static.py` writes a fully static copy into `dist/`: the
 whole catalogue, every snippet, the shared-client source and the API reference,
-all backed by mock data. **Browser** snippets run for real in the sandboxed
-iframe against a JS mock; **Python / Node** snippets show their pre-computed
-mock-mode output (the build runs each one).
+all backed by mock data. It behaves like the real app - the connection form is
+there, defaulting to **Mock mode**:
+
+- **Mock** (default): **Browser** snippets run for real in the sandboxed iframe
+  against a JS mock; **Python / Node** snippets show their pre-computed mock
+  output (the build runs each one).
+- **Untick Mock + enter a base URL + credentials**: **Browser** snippets then
+  call that ELO server *directly* (`fetch` + HTTP Basic). That server has to
+  send CORS headers for the demo's origin - most ELO installs do not by default,
+  so this is a "point it at your own server" option. Python / Node still need
+  the local app.
+
+The local app's connection form defaults to `http://localhost:9090/ix-Repository1`
+(from `ELOPG_ELO_BASE_URL`); the static build ships it blank.
 
 `.github/workflows/pages.yml` builds and publishes it to GitHub Pages on every
 push to `main` (enable it once at **Settings -> Pages -> Source = GitHub Actions**).

@@ -17,19 +17,28 @@
 export class EloError extends Error {}
 
 export class EloClient {
-  constructor({ proxyUrl = "/api/elo/proxy", credentials = null, mock = false, topicId = null, mockData = null } = {}) {
+  constructor({
+    proxyUrl = "/api/elo/proxy",
+    credentials = null,
+    mock = false,
+    topicId = null,
+    mockData = null,
+    directUrl = null,
+  } = {}) {
     this._proxyUrl = proxyUrl;
     this._credentials = credentials; // {base_url, user, password, tls_verify} or null
     this._mock = mock;
     this._topicId = topicId; // lets the backend load this topic's mock: block
     this._mockData = mockData; // { "<method>": <entry>, ... } - resolve locally, no backend
+    this._directUrl = directUrl; // call ELO's REST straight from the browser (needs CORS on the server)
     this._calls = {};
     this.user = null;
   }
 
-  /** Make one IX RPC call (via the backend proxy) and return its `result`. */
+  /** Make one IX RPC call and return its `result`. */
   async call(method, body = {}) {
     if (this._mockData) return this._mockCall(method);
+    if (this._directUrl) return this._directCall(method, body);
 
     let resp;
     try {
@@ -52,6 +61,41 @@ export class EloClient {
       throw new EloError(`${method}: ${data.error || "HTTP " + resp.status}`);
     }
     return data.result;
+  }
+
+  /**
+   * Call ELO's REST API straight from the browser: POST
+   * <directUrl>/rest/IXServicePortIF/<method> with HTTP Basic auth. Only works
+   * if that ELO server sends CORS headers for this page's origin - most do not
+   * by default, so this is a best-effort "point at your own server" mode.
+   */
+  async _directCall(method, body = {}) {
+    const c = this._credentials || {};
+    const url = `${this._directUrl.replace(/\/+$/, "")}/rest/IXServicePortIF/${method}`;
+    let resp;
+    try {
+      resp = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Basic " + btoa(`${c.user || ""}:${c.password || ""}`),
+        },
+        body: JSON.stringify(body ?? {}),
+      });
+    } catch (err) {
+      throw new EloError(
+        `${method}: direct call failed (${err.message}) - the ELO server must allow CORS from this origin`
+      );
+    }
+    if (resp.status === 401 || resp.status === 403) {
+      throw new EloError(`${method}: authentication failed (HTTP ${resp.status})`);
+    }
+    if (resp.status >= 400) throw new EloError(`${method}: HTTP ${resp.status}`);
+    const data = await resp.json().catch(() => ({}));
+    if (data && typeof data === "object" && data.exception) {
+      throw new EloError(`${method}: ${typeof data.exception === "string" ? data.exception : JSON.stringify(data.exception)}`);
+    }
+    return data && typeof data === "object" && "result" in data ? data.result : data;
   }
 
   /** Local mock resolution (static demo) - mirrors the Python MockEloClient. */
@@ -129,7 +173,8 @@ export async function connect({ login = true } = {}) {
     credentials: cfg.credentials ?? null,
     mock: !!cfg.mock,
     topicId: cfg.topicId ?? null,
-    mockData: cfg.mockData ?? null, // static demo: resolve calls locally, no backend
+    mockData: cfg.mockData ?? null, // static demo, mock on: resolve calls locally
+    directUrl: cfg.directUrl ?? null, // static demo, mock off: call the given ELO server directly
   });
   if (login) await client.login();
   return client;
