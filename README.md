@@ -86,7 +86,8 @@ All three expose the same methods - `connect()`, `call()`, `login()`,
 ```powershell
 cd elo-api-playground   # the repo root
 
-# Python
+# Python  (also editable-installs the shared elo_playground client - run pip from
+#          the repo root so the `-e ./shared/python` path resolves)
 python -m venv .venv
 .\.venv\Scripts\pip install -r backend-python\requirements-dev.txt
 
@@ -209,6 +210,25 @@ python -m pytest backend-python
 node --test backend-node/test/*.test.mjs
 python scripts/smoke.py            # offline: catalogue, snippet sync, one run each
 ```
+
+## Run one snippet from the terminal
+
+After the one-time **Setup**, from the repo root:
+
+```powershell
+python sandbox\example.py     # Python
+node   sandbox\example.mjs    # Node
+```
+
+Both files are the `connection.login` snippet verbatim - paste any other snippet
+from the **Catalog** or from `snippets\<language>\<category>\<slug>.<ext>` over
+them and re-run. `connect()` takes no arguments: it defaults to
+`http://localhost:9090/ix-Repository1`, user `Administrator`, password `elo`
+(override with `ELOPG_ELO_BASE_URL` / `ELOPG_ELO_USER` / `ELOPG_ELO_PASSWORD`,
+or a local `.env`). A connection-refused error means no ELO is listening there;
+`EloError: ... authentication failed` means the credentials are wrong. Details
+in [`sandbox/README.md`](sandbox/README.md); the snippet library itself is
+[`snippets/README.md`](snippets/README.md).
 
 ## Adding a topic
 

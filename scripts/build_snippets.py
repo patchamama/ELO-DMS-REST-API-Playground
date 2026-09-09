@@ -65,7 +65,9 @@ def build(check: bool) -> int:
 
     existing = {
         p for p in SNIPPETS.glob("**/*")
-        if p.is_file() and "__pycache__" not in p.parts and p.suffix != ".pyc"
+        if p.is_file()
+        and "__pycache__" not in p.parts
+        and p.suffix not in (".pyc", ".md")  # snippets/README.md is hand-written
     }
     stale = existing - set(wanted)
     drift: list[str] = []

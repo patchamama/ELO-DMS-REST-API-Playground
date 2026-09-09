@@ -2,9 +2,16 @@
 .env
 __pycache__/
 *.pyc
+*.egg-info/
 .pytest_cache/
 .venv/
 node_modules/
 runtime/
 *.log
 /dist/
+
+# sandbox/ is a scratch area - keep only the seed files
+/sandbox/*
+!/sandbox/README.md
+!/sandbox/example.py
+!/sandbox/example.mjs

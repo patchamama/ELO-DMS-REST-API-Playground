@@ -1,3 +1,10 @@
 -r requirements.txt
 pytest~=8.3
 pyflakes~=3.4
+
+# Editable install of the shared teaching client so `from elo_playground import
+# connect` works from a bare `python file.py` (not just inside the app / tests).
+# pip resolves this path against the current directory -> run pip from the repo
+# root, as the README Setup and the start scripts do.
+-e ./shared/python
+
