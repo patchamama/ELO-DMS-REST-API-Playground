@@ -11,6 +11,7 @@ or ``python -m app.main``.
 from __future__ import annotations
 
 import hashlib
+from urllib.parse import urlsplit
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,6 +20,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 
+from . import __version__ as BACKEND_VERSION
 from . import catalog as catalog_mod
 from . import openapi_ref
 from .client_lib import client_lib
@@ -29,7 +31,11 @@ from .models import EloCreds, ProxyRequest, RunRequest, RunResult
 from .runner import mock_data, run
 
 settings = get_settings()
-app = FastAPI(title="ELO API Playground", version="0.1.0")
+
+_ver_file = settings.frontend_dir / "VERSION"
+FRONTEND_VERSION = _ver_file.read_text(encoding="utf-8").strip() if _ver_file.is_file() else "0"
+
+app = FastAPI(title="ELO API Playground", version=BACKEND_VERSION)
 
 # The browser run-sandbox is an <iframe srcdoc> with an opaque ("null") origin;
 # its fetch() to /api/elo/proxy is therefore cross-origin. This is a local
@@ -58,6 +64,10 @@ def _static_version() -> str:
     return hashlib.sha1(str(newest).encode()).hexdigest()[:8]
 
 
+def _default_port() -> str:
+    return str(urlsplit(settings.elo_base_url).port or 9090)
+
+
 # ---- page ------------------------------------------------------------- #
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request):
@@ -67,10 +77,16 @@ def index(request: Request):
         {
             "static_v": _static_version(),
             "default_base_url": settings.elo_base_url,
+            "default_port": _default_port(),
             "default_user": settings.elo_user,
             "mock_default": settings.mock,
         },
     )
+
+
+@app.get("/api/version")
+def api_version():
+    return {"backend": BACKEND_VERSION, "frontend": FRONTEND_VERSION}
 
 
 # ---- catalogue ------------------------------------------------------- #

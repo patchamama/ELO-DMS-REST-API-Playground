@@ -175,3 +175,6 @@ pre.output.err { color: var(--err); }
   #view-catalog, #view-spec { grid-template-columns: 1fr; }
   .catnav { border-right: 0; border-bottom: 1px solid var(--line); }
 }
+
+.version { font-size: 10px; color: var(--muted); margin-top: 1px; }
+.conn label.port input { min-width: 64px; width: 64px; }

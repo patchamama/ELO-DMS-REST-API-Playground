@@ -6,12 +6,16 @@
     <div>
       <div class="brand-title" data-t="app.title">ELO API Playground</div>
       <div class="brand-sub" data-t="app.tagline"></div>
+      <div class="version" id="app-version"></div>
     </div>
   </div>
 
   <form id="conn" class="conn" autocomplete="off">
     <label><span data-t="conn.baseUrl">Base URL</span>
       <input name="base_url" type="text" spellcheck="false" />
+    </label>
+    <label class="port"><span data-t="conn.port">Port</span>
+      <input name="port" type="text" inputmode="numeric" spellcheck="false" size="5" />
     </label>
     <label><span data-t="conn.user">User</span>
       <input name="user" type="text" spellcheck="false" />
@@ -86,6 +90,7 @@ print(elo.call("getServerInfo", {}).get("version"))
 <script>
   window.__PLAYGROUND__ = {
     defaultBaseUrl: {{ default_base_url | tojson }},
+    defaultPort: {{ default_port | tojson }},
     defaultUser: {{ default_user | tojson }},
     mockDefault: {{ mock_default | tojson }},
     proxyUrl: window.location.origin + "/api/elo/proxy"
