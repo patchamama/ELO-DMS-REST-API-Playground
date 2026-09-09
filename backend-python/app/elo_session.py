@@ -28,14 +28,16 @@ _lock = threading.Lock()
 _cache: dict[str, tuple[float, EloClient]] = {}
 
 
-def _key(base_url: str, user: str, password: str) -> str:
-    return hashlib.sha256(f"{base_url}\0{user}\0{password}".encode()).hexdigest()
+def _key(base_url: str, user: str, password: str, verify: bool = True) -> str:
+    # ``verify`` is part of the identity: toggling "Verify TLS certificate" in the
+    # UI must hand back a client with the matching httpx setting, not a stale one.
+    return hashlib.sha256(f"{base_url}\0{user}\0{password}\0{int(bool(verify))}".encode()).hexdigest()
 
 
 def get_client(base_url: str, user: str, password: str, *, verify: bool = True) -> EloClient:
     """Return a cached logged-in client, creating (and logging in) one if needed."""
     now = time.time()
-    k = _key(base_url, user, password)
+    k = _key(base_url, user, password, verify)
     with _lock:
         hit = _cache.get(k)
         if hit and now - hit[0] < _TTL_SECONDS:
