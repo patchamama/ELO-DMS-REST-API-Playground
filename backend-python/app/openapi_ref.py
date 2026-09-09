@@ -205,6 +205,8 @@ def operation_detail(spec: dict, operation_id: str) -> dict | None:
             "result_ref": result_ref,
             "response_props": response_props,
             "used_by": _catalog_uses(method),
+            # deep link into the server's own Swagger UI ({base} filled in client-side)
+            "elo_doc_url": f"{{base}}/rest/#/{svc}/{operation_id}",
         }
     return None
 

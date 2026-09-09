@@ -59,6 +59,7 @@
     if ((m = path.match(/^\/api\/topics\/(.+)$/))) return `api/topics/${lang}/${m[1]}.json`;
     if ((m = path.match(/^\/api\/deep\/(.+)$/))) return `api/deep/${m[1]}.json`;
     if (path === "/api/version") return "api/version.json";
+    if (path === "/api/faq") return "api/faq.json";
     if (path === "/api/client-lib") return "api/client-lib.json";
     if (path === "/api/spec/services") return "api/spec/services.json";
     if (path === "/api/spec/operations") return `api/spec/operations/${p.get("service")}.json`;
@@ -443,6 +444,13 @@ ${snippet}
     return (ref.doc_url || "").replace("{base}", base);
   }
 
+  // {base}-templated link to ELO's own API docs; empty when no server is known
+  function eloDocHref(tmpl) {
+    const base = (effectiveBaseUrl() || CFG.defaultBaseUrl || "").replace(/\/+$/, "");
+    if (!base || !tmpl) return "";
+    return tmpl.replace("{base}", base);
+  }
+
   async function openTopic(id) {
     store.set(LS.topic, "t:" + id);
     markActiveNav(`.topiclink[data-topic="${cssEsc(id)}"]`);
@@ -531,6 +539,115 @@ ${snippet}
     }
   }
 
+  // ---- "functions used in this snippet" list ------------------- //
+  const ELO_CLIENT_METHODS = new Set(["call", "login", "find_all", "findAll", "download", "upload", "close"]);
+  const PY_JSON = new Set(["loads", "dumps", "load", "dump"]);
+  const PY_BUILTINS = new Set(
+    ("print len range enumerate sorted reversed list dict set tuple str int float bool min max sum abs zip map " +
+      "filter open repr type isinstance getattr hasattr format any all round input").split(" ")
+  );
+  const JS_OBJECTS = new Set(["console", "JSON", "Object", "Array", "Math", "Number", "String", "Promise", "Date"]);
+  const JS_PROTO_METHODS = new Set(
+    ("forEach map filter slice splice join split push pop shift unshift find findIndex sort reverse concat includes " +
+      "indexOf lastIndexOf reduce some every keys values entries replace replaceAll trim trimStart trimEnd toUpperCase " +
+      "toLowerCase padStart padEnd repeat flat flatMap at fill match matchAll startsWith endsWith toString toFixed").split(" ")
+  );
+  const MDN_GLOBAL = "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/";
+  const JS_GLOBAL_FN = {
+    btoa: "https://developer.mozilla.org/docs/Web/API/btoa",
+    atob: "https://developer.mozilla.org/docs/Web/API/atob",
+    fetch: "https://developer.mozilla.org/docs/Web/API/fetch",
+    setTimeout: "https://developer.mozilla.org/docs/Web/API/setTimeout",
+    structuredClone: "https://developer.mozilla.org/docs/Web/API/structuredClone",
+    parseInt: MDN_GLOBAL + "parseInt",
+    parseFloat: MDN_GLOBAL + "parseFloat",
+    isNaN: MDN_GLOBAL + "isNaN",
+    encodeURIComponent: MDN_GLOBAL + "encodeURIComponent",
+    decodeURIComponent: MDN_GLOBAL + "decodeURIComponent",
+  };
+  function jsObjUrl(obj, meth) {
+    if (obj === "console") return "https://developer.mozilla.org/docs/Web/API/console/" + meth + "_static";
+    return MDN_GLOBAL + obj + "/" + meth;
+  }
+
+  // scan `code` for  function(...)  and  object.method(...)  calls and classify
+  // each: ELO client methods and ELO IX operation names link into this site,
+  // generic JS / Python builtins link to MDN / docs.python.org (new tab).
+  function refsFromCode(code, language) {
+    const seen = new Set();
+    const out = [];
+    const add = (label, kind, target) => {
+      if (seen.has(label)) return;
+      seen.add(label);
+      out.push({ label, kind, target });
+    };
+    let m;
+
+    // 1. ELO IX operations, named as string literals to elo.call / find_all
+    const callRe = /\.call\(\s*(["'])([A-Za-z][\w]*)\1/g;
+    while ((m = callRe.exec(code))) add('elo.call("' + m[2] + '")', "elo-op", m[2]);
+    const faRe = /\.(?:find_all|findAll)\(\s*(["'])([A-Za-z][\w]*)\1\s*,\s*(["'])([A-Za-z][\w]*)\3/g;
+    while ((m = faRe.exec(code))) {
+      add(m[2] + "()", "elo-op", m[2]);
+      add(m[4] + "()", "elo-op", m[4]);
+    }
+
+    // 2. member calls  obj.method(
+    const memRe = /\b([A-Za-z_$][\w$]*)\.([A-Za-z_$][\w$]*)\s*\(/g;
+    while ((m = memRe.exec(code))) {
+      const obj = m[1];
+      const meth = m[2];
+      if (obj === "elo" && ELO_CLIENT_METHODS.has(meth)) add("elo." + meth + "()", "elo-lib", null);
+      else if (language === "python" && obj === "json" && PY_JSON.has(meth))
+        add("json." + meth + "()", "py", "json.html#json." + meth);
+      else if (obj === "Buffer")
+        add("Buffer." + meth + "()", "mdn", "https://nodejs.org/api/buffer.html");
+      else if (JS_OBJECTS.has(obj)) add(obj + "." + meth + "()", "mdn", jsObjUrl(obj, meth));
+      else if (language !== "python" && JS_PROTO_METHODS.has(meth))
+        add(obj + "." + meth + "()", "mdn", MDN_GLOBAL + "Array/" + meth);
+    }
+
+    // 3. bare calls  name(
+    const bareRe = /(?:^|[^.\w$])([A-Za-z_$][\w$]*)\s*\(/g;
+    while ((m = bareRe.exec(code))) {
+      const name = m[1];
+      if (name === "connect") add("connect()", "elo-lib", null);
+      else if (language === "python" && PY_BUILTINS.has(name)) add(name + "()", "py", "functions.html#" + name);
+      else if (language !== "python" && JS_GLOBAL_FN[name]) add(name + "()", "mdn", JS_GLOBAL_FN[name]);
+    }
+    return out;
+  }
+
+  function renderFnRefs(wrap, code, language) {
+    const refs = refsFromCode(code, language);
+    if (!refs.length) return;
+    const box = document.createElement("div");
+    box.className = "fn-refs";
+    const item = (r) => {
+      if (r.kind === "elo-op")
+        return `<button class="fn-ref link" data-op="IXServicePortIF_${esc(r.target)}">${esc(r.label)}</button>`;
+      if (r.kind === "elo-lib") return `<button class="fn-ref link" data-lib="1">${esc(r.label)}</button>`;
+      const href = r.kind === "py" ? "https://docs.python.org/3/library/" + r.target : r.target;
+      return `<a class="fn-ref" href="${esc(href)}" target="_blank" rel="noopener">${esc(r.label)}</a>`;
+    };
+    box.innerHTML =
+      `<span class="fn-refs-label">${esc(tr("topic.fnRefs"))}</span> ` +
+      refs.map(item).join(' <span class="fn-sep">-</span> ');
+    box.querySelectorAll("[data-op]").forEach((b) =>
+      b.addEventListener("click", () => {
+        $('.tab[data-view="spec"]').click();
+        openOperation(b.dataset.op);
+      })
+    );
+    box.querySelectorAll("[data-lib]").forEach((b) =>
+      b.addEventListener("click", () => {
+        $('.tab[data-view="catalog"]').click();
+        openClientLib();
+      })
+    );
+    wrap.appendChild(box);
+  }
+
   // one code block + Copy + Run + output panel
   function makeRunner(language, code, topicId, cacheKey) {
     const wrap = document.createElement("div");
@@ -563,6 +680,7 @@ ${snippet}
         /* clipboard blocked - ignore */
       }
     });
+    renderFnRefs(wrap, code, language);
     return wrap;
   }
 
@@ -678,17 +796,34 @@ ${snippet}
     });
   }
 
-  const VIEWS = ["catalog", "spec", "scratchpad"];
+  const VIEWS = ["catalog", "spec", "scratchpad", "faq"];
   function wireTabs() {
     $$(".tab").forEach((tab) => {
       tab.addEventListener("click", () => {
         $$(".tab").forEach((t) => t.classList.toggle("active", t === tab));
         VIEWS.forEach((v) => ($("#view-" + v).hidden = tab.dataset.view !== v));
         if (tab.dataset.view === "spec") loadSpec();
+        if (tab.dataset.view === "faq") loadFaq();
         if (tab.dataset.view === "scratchpad" && SCRATCH_CM) setTimeout(() => SCRATCH_CM.refresh(), 0);
       });
     });
     $$(".lang").forEach((b) => b.addEventListener("click", () => setLang(b.dataset.lang)));
+  }
+
+  // ---- FAQ tab (Markdown, loaded once) ------------------------- //
+  let FAQ_LOADED = false;
+  async function loadFaq() {
+    if (FAQ_LOADED) return;
+    const host = $("#faq-host");
+    try {
+      const d = await getJSON("/api/faq");
+      const html = window.DOMPurify.sanitize(window.marked.parse(d.markdown || "", { breaks: false }));
+      host.innerHTML = `<article class="topic deepdoc">${html}</article>`;
+      if (window.hljs) host.querySelectorAll("pre code").forEach((el) => window.hljs.highlightElement(el));
+      FAQ_LOADED = true;
+    } catch (e) {
+      host.innerHTML = `<p class="err">${esc(String(e))}</p>`;
+    }
   }
 
   // ---- "API reference" tab (openapi.json walkthrough) --------- //
@@ -770,12 +905,18 @@ ${snippet}
     const usedBy = (d.used_by || [])
       .map((u) => `<button class="link xref" data-topic="${esc(u.id)}">${esc(u.title)}</button>`)
       .join(" ");
+    const eloDoc = eloDocHref(d.elo_doc_url);
     host.innerHTML = `
       <article class="topic">
         <h1><code>${esc(d.method)}</code></h1>
         <p class="summary"><code>${esc(d.http_method)} ${esc(d.path)}</code>${
           d.service !== "IXServicePortIF" ? ` · service <code>${esc(d.service)}</code>` : ""
         }</p>
+        ${
+          eloDoc
+            ? `<p class="elo-doc"><a href="${esc(eloDoc)}" target="_blank" rel="noopener">${esc(tr("spec.eloDocs"))} ↗</a></p>`
+            : ""
+        }
         ${usedBy ? `<p class="xref-line">${esc(tr("spec.usedBy"))}: ${usedBy}</p>` : ""}
         <p class="warn">${esc(tr("spec.liveHint"))}</p>
 
@@ -916,7 +1057,7 @@ ${snippet}
       const base = conn.base_url;
       if (base && !base.value) base.placeholder = "https://your-elo-host/ix-Repository1  (needs CORS)";
     }
-    const bar = document.querySelector(".topbar");
+    const bar = document.querySelector(".topbar-right") || document.querySelector(".topbar");
     if (bar && !bar.querySelector(".static-badge")) {
       const b = document.createElement("span");
       b.className = "static-badge";
