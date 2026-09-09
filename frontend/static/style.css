@@ -181,7 +181,13 @@ textarea.code-textarea {
   padding: 12px 14px; background: var(--code-bg); font-size: 12.5px; line-height: 1.5;
 }
 .output-wrap { border-top: 1px solid var(--line); }
-.output-head { display: flex; justify-content: space-between; padding: 4px 10px; background: var(--panel); font-size: 11px; color: var(--muted); }
+.output-head { display: flex; justify-content: space-between; align-items: center; padding: 4px 10px; background: var(--panel); font-size: 11px; color: var(--muted); }
+.output-head .oh-left { display: flex; align-items: center; gap: 6px; }
+.output-head .fmt {
+  background: none; border: 1px solid var(--line); border-radius: 5px;
+  padding: 1px 7px; font-size: 10px; line-height: 1.5; cursor: pointer; color: var(--muted);
+}
+.output-head .fmt:hover { background: #fff; color: var(--ink); }
 pre.output { margin: 0; padding: 10px 14px; min-height: 34px; max-height: 320px; overflow: auto; font-size: 12.5px; white-space: pre-wrap; }
 pre.output.err { color: var(--err); }
 
