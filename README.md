@@ -169,6 +169,16 @@ the top-right corner as `UI x · API y`. Backend:
 `backend-python/app/__init__.py`. Frontend: `frontend/VERSION`. Endpoint:
 `GET /api/version`.
 
+A committed pre-commit hook (`.githooks/pre-commit` → `scripts/bump_version.py`)
+bumps the **patch** number automatically: staging anything under `frontend/`
+bumps the frontend version, staging anything under `backend-python/`,
+`backend-node/` or `shared/` bumps the backend version, and the bumped file is
+folded into the same commit. At most one bump per layer per commit (a hand bump
+is left alone). Enable it once per clone with
+`git config core.hooksPath .githooks` - `start.bat`, `scripts/run.ps1` and
+`scripts/run.sh` do that for you. Bump the minor / major digits by hand when a
+change deserves it.
+
 ### Where does my code run? Is it safe?
 
 - **Python / Node**: in a child process on the backend, on the machine running

@@ -1,0 +1,28 @@
+#!/bin/sh
+# Auto-bump the frontend / backend patch version when their sources are staged.
+#
+# Enable once per clone:   git config core.hooksPath .githooks
+# (start.bat / scripts/run.ps1 / scripts/run.sh do this for you.)
+
+root="$(git rev-parse --show-toplevel)"
+script="$root/scripts/bump_version.py"
+
+# Prefer a project virtualenv (Git Bash here often has no python on PATH),
+# then fall back to whatever interpreter is available.
+for py in \
+  "$root/.venv/Scripts/python.exe" "$root/.venv/bin/python" \
+  "$root/../.venv/Scripts/python.exe" "$root/../.venv/bin/python"
+do
+  if [ -x "$py" ]; then
+    exec "$py" "$script"
+  fi
+done
+
+for py in py python3 python; do
+  if command -v "$py" >/dev/null 2>&1; then
+    exec "$py" "$script"
+  fi
+done
+
+echo "bump_version: no Python found - version not bumped" >&2
+exit 0
