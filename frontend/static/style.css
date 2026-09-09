@@ -110,9 +110,21 @@ button.xref-op { font-family: monospace; font-size: 11px; }
   position: sticky; top: 0; align-self: start;
   max-height: calc(100vh - 110px); overflow-y: auto;
 }
-.catgroup { margin-bottom: 14px; }
-.catname { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin: 6px 8px; }
-.catnav ul { list-style: none; margin: 0; padding: 0; }
+.catgroup { margin-bottom: 12px; }
+.catgroup:first-child { border-bottom: 1px solid var(--line); padding-bottom: 8px; margin-bottom: 6px; }
+.catname {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 12.5px; font-weight: 700; color: var(--ink);
+  text-transform: none; letter-spacing: 0;
+  margin: 18px 2px 6px; padding: 5px 9px;
+  background: #e9eff7; border-left: 3px solid var(--blue); border-radius: 0 6px 6px 0;
+}
+.catgroup:nth-child(2) .catname { margin-top: 4px; }
+.catname .catcount {
+  font-size: 10px; font-weight: 600; color: var(--blue-d);
+  background: #fff; border-radius: 10px; padding: 0 6px;
+}
+.catnav ul { list-style: none; margin: 0; padding: 0 0 0 2px; }
 .topiclink {
   display: block; width: 100%; text-align: left; background: none; border: 0;
   padding: 6px 8px; font-size: 13px; border-radius: 6px; cursor: pointer; color: var(--ink);

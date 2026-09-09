@@ -97,6 +97,7 @@ print(elo.call("getServerInfo", {}).get("version"))
 <script>
   window.__PLAYGROUND__ = {
     defaultBaseUrl: {{ default_base_url | tojson }},
+    serverHost: {{ server_host | default("") | tojson }},
     defaultUser: {{ default_user | tojson }},
     defaultPassword: {{ default_password | default("") | tojson }},
     mockDefault: {{ mock_default | tojson }},

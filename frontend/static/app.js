@@ -532,7 +532,7 @@ ${snippet}
     for (const cat of data.categories) {
       const box = document.createElement("div");
       box.className = "catgroup";
-      box.innerHTML = `<div class="catname">${esc(cat.title)}</div>`;
+      box.innerHTML = `<div class="catname">${esc(cat.title)}<span class="catcount">${cat.topics.length}</span></div>`;
       const ul = document.createElement("ul");
       for (const topic of cat.topics) {
         const li = document.createElement("li");
@@ -1631,6 +1631,10 @@ ${snippet}
       if (u.protocol === "http:") {
         u.protocol = "https:";
         if (u.port === HTTP_PORT) u.port = HTTPS_PORT;
+        // a TLS cert never matches "localhost" - use the server's real hostname
+        if (CFG.serverHost && /^(localhost|127\.0\.0\.1)$/i.test(u.hostname)) {
+          u.hostname = CFG.serverHost;
+        }
         f.tls_verify.checked = false;
       } else {
         u.protocol = "http:";
