@@ -10,6 +10,12 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 
+# Enable the auto version-bump git hook (idempotent).
+if (Get-Command git -ErrorAction SilentlyContinue) {
+    git -C $root rev-parse --git-dir *> $null
+    if ($LASTEXITCODE -eq 0) { git -C $root config core.hooksPath .githooks }
+}
+
 if (-not (Test-Path "$root\node_modules\elo-playground")) {
     Write-Host "node_modules missing - running 'npm install' ..." -ForegroundColor Yellow
     npm install

@@ -6,6 +6,11 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT="$(pwd)"
 
+# Enable the auto version-bump git hook (idempotent).
+if command -v git >/dev/null 2>&1 && git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1; then
+  git -C "$ROOT" config core.hooksPath .githooks
+fi
+
 if [ ! -e "node_modules/elo-playground" ]; then
   echo "[playground] node_modules missing - running 'npm install' ..."
   npm install --no-audit --no-fund

@@ -71,6 +71,11 @@ the top-right corner as `UI x · API y`. Backend version:
 `backend-python/app/__init__.py`. Frontend version: `frontend/VERSION`. Endpoint:
 `GET /api/version`.
 
+A pre-commit hook bumps the patch number automatically: touching `frontend/`
+bumps the frontend version, touching `backend-python/` / `backend-node/` /
+`shared/` bumps the backend version, once per commit. Enable it per clone with
+`git config core.hooksPath .githooks` (the start scripts do this).
+
 ## "API reference" tab
 
 Browses `openapi.json`:

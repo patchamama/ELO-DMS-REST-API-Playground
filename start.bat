@@ -7,6 +7,9 @@ if "%ROOT:~-1%"=="\" set "ROOT=%ROOT:~0,-1%"
 set "APIPORT=8010"
 set "NODEPORT=8787"
 
+rem --- enable the auto version-bump git hook (idempotent) ------------
+where git >nul 2>nul && git -C "%ROOT%" rev-parse --git-dir >nul 2>nul && git -C "%ROOT%" config core.hooksPath .githooks
+
 rem --- locate a Python interpreter (absolute path) -----------------------
 set "PY="
 if exist "%ROOT%\.venv\Scripts\python.exe" set "PY=%ROOT%\.venv\Scripts\python.exe"
