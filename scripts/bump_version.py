@@ -4,8 +4,9 @@
 Looks at the files staged for the current commit and bumps the **patch** number
 of the layer(s) they belong to:
 
-    frontend/**                                  -> frontend/VERSION
-    backend-python/**  backend-node/**  shared/**  -> backend-python/app/__init__.py
+    frontend/**                                   -> frontend/VERSION
+    backend-python/**  backend-node/**  shared/**
+    catalog/**  snippets/**  fixtures/**          -> backend-python/app/__init__.py
 
 Rules:
   * one patch bump per layer per commit - if that layer's version file is already
@@ -30,7 +31,11 @@ FRONTEND_VERSION_REL = "frontend/VERSION"
 BACKEND_INIT_REL = "backend-python/app/__init__.py"
 
 FRONTEND_PREFIXES = ("frontend/",)
-BACKEND_PREFIXES = ("backend-python/", "backend-node/", "shared/")
+# "backend" here means the server + everything it serves (the learning content).
+BACKEND_PREFIXES = (
+    "backend-python/", "backend-node/", "shared/",
+    "catalog/", "snippets/", "fixtures/",
+)
 
 _VER_RE = re.compile(r"(\d+)\.(\d+)\.(\d+)")
 

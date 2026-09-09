@@ -37,14 +37,23 @@ if not exist "%ROOT%\.env" if exist "%ROOT%\env.sample" (
     echo [playground] Created .env from env.sample - review it if needed.
 )
 
-rem --- warn if the API port is already taken --------------------------
+rem --- if the API port is busy, don't spawn a doomed second server -------
 netstat -ano | findstr /r /c:"LISTENING" | findstr /c:":%APIPORT% " >nul 2>&1
 if not errorlevel 1 (
+    set "PGRUNNING="
+    for /f "delims=" %%R in ('curl -s -m 2 "http://127.0.0.1:%APIPORT%/health" 2^>nul ^| findstr /c:"backend-python"') do set "PGRUNNING=1"
+    if defined PGRUNNING (
+        echo [playground] Already running on port %APIPORT% - opening the browser.
+        start "" "http://127.0.0.1:%APIPORT%"
+        endlocal
+        exit /b 0
+    )
     echo.
-    echo [playground] WARNING: port %APIPORT% is already in use. The app may not
-    echo             start, or your browser may open a different app. Close it,
-    echo             or set ELOPG_PORT in .env to a free port.
+    echo [playground] ERROR: port %APIPORT% is in use by another program.
+    echo             Close it, or set ELOPG_PORT in .env to a free port, then re-run.
     echo.
+    pause
+    exit /b 1
 )
 
 echo [playground] Starting Node runner   -> http://127.0.0.1:%NODEPORT%
