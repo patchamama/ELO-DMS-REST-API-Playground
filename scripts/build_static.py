@@ -128,6 +128,9 @@ def main() -> int:
     fe_ver = (ROOT / "frontend" / "VERSION").read_text(encoding="utf-8").strip()
     _write("api/version.json", {"backend": BACKEND_VERSION, "frontend": fe_ver})
 
+    faq_path = ROOT / "frontend" / "faq.md"
+    _write("api/faq.json", {"markdown": faq_path.read_text(encoding="utf-8") if faq_path.is_file() else ""})
+
     # ---- i18n + catalogue ---------------------------------------------
     for lang in LANGS:
         _write(f"api/i18n/{lang}.json", catalogue(lang))

@@ -11,6 +11,7 @@ def test_index_page_renders():
     assert r.status_code == 200
     assert "ELO API Playground" in r.text
     assert 'name="port"' in r.text
+    assert 'data-view="faq"' in r.text
 
 
 def test_version_endpoint():
@@ -19,6 +20,20 @@ def test_version_endpoint():
     v = client.get("/api/version").json()
     assert v["backend"] == __version__
     assert v["frontend"] and v["frontend"][0].isdigit()
+
+
+def test_faq_endpoint():
+    r = client.get("/api/faq")
+    assert r.status_code == 200
+    md = r.json()["markdown"]
+    assert "elo_playground" in md
+
+
+def test_spec_op_has_elo_doc_url():
+    ops = client.get("/api/spec/operations").json()["operations"]
+    op_id = ops[0]["operation_id"]
+    detail = client.get(f"/api/spec/op/{op_id}").json()
+    assert detail["elo_doc_url"].startswith("{base}/rest/")
 
 
 def test_catalog_endpoint():

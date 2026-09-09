@@ -89,6 +89,13 @@ def api_version():
     return {"backend": BACKEND_VERSION, "frontend": FRONTEND_VERSION}
 
 
+@app.get("/api/faq")
+def api_faq():
+    """The FAQ page (Markdown), rendered client-side in the FAQ tab."""
+    p = settings.frontend_dir / "faq.md"
+    return {"markdown": p.read_text(encoding="utf-8") if p.is_file() else ""}
+
+
 # ---- catalogue ------------------------------------------------------- #
 @app.get("/api/i18n/{lang}")
 def api_i18n(lang: str):
