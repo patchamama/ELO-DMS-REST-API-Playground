@@ -29,7 +29,11 @@ def _pyflakes(*paths: str) -> tuple[int, str]:
 
 def test_python_snippets_have_no_undefined_names():
     pytest.importorskip("pyflakes")
-    rc, out = _pyflakes(str(_SNIPPETS_PY))
+    paths = [str(_SNIPPETS_PY)]
+    seed = _ROOT / "sandbox" / "example.py"  # the tracked sandbox seed
+    if seed.is_file():
+        paths.append(str(seed))
+    rc, out = _pyflakes(*paths)
     assert rc == 0, f"pyflakes flagged a snippet:\n{out}"
 
 

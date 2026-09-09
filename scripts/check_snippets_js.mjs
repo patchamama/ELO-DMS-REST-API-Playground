@@ -7,7 +7,7 @@
  *
  * Exit 0 = clean, exit 1 = something is undefined.
  */
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as acorn from "acorn";
@@ -142,6 +142,12 @@ for (const dir of ["snippets/node", "snippets/browser"]) {
   for (const file of walkFiles(join(ROOT, dir))) {
     checkSource(readFileSync(file, "utf-8"), relative(ROOT, file));
   }
+}
+
+// the tracked sandbox seed (users' other scratch files there are not checked)
+{
+  const seed = join(ROOT, "sandbox", "example.mjs");
+  if (existsSync(seed)) checkSource(readFileSync(seed, "utf-8"), "sandbox/example.mjs");
 }
 
 // fenced js/javascript blocks in the "Deep dive" docs are runnable too
