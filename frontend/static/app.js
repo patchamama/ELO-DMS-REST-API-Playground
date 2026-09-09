@@ -200,6 +200,98 @@
     }
   }
 
+  // ---- output reformatters: the JSON / XML buttons on a run's output ---- //
+  // pretty-print `text` as JSON (2-space). Tolerates a leading line before the
+  // JSON body (e.g. "result:\n{...}"). Returns a string or null.
+  function jsonPretty(text) {
+    const t = (text || "").trim();
+    if (!t) return null;
+    const tryParse = (s) => {
+      try {
+        return JSON.stringify(JSON.parse(s), null, 2);
+      } catch (e) {
+        return null;
+      }
+    };
+    let out = tryParse(t);
+    if (out == null) {
+      const i = t.search(/[{[]/);
+      if (i > 0) out = tryParse(t.slice(i));
+    }
+    return out;
+  }
+
+  // pretty-print `text` as XML (2-space, via DOMParser). Returns a string or null.
+  function prettyXml(text) {
+    const t = (text || "").trim();
+    if (!t || t[0] !== "<") return null;
+    let doc;
+    try {
+      doc = new DOMParser().parseFromString(t, "application/xml");
+    } catch (e) {
+      return null;
+    }
+    if (doc.getElementsByTagName("parsererror").length) return null;
+    const PAD = "  ";
+    const attrs = (el) =>
+      Array.from(el.attributes || [])
+        .map(
+          (a) =>
+            ` ${a.name}="${String(a.value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;")}"`
+        )
+        .join("");
+    const ser = (node, depth) => {
+      const pad = PAD.repeat(depth);
+      if (node.nodeType === 8) return `${pad}<!--${node.nodeValue}-->\n`;
+      if (node.nodeType !== 1) return "";
+      const kids = Array.from(node.childNodes).filter(
+        (c) => c.nodeType === 1 || c.nodeType === 8 || (c.nodeType === 3 && c.nodeValue.trim())
+      );
+      if (!kids.length) return `${pad}<${node.nodeName}${attrs(node)}/>\n`;
+      if (kids.length === 1 && kids[0].nodeType === 3) {
+        return `${pad}<${node.nodeName}${attrs(node)}>${kids[0].nodeValue.trim()}</${node.nodeName}>\n`;
+      }
+      let s = `${pad}<${node.nodeName}${attrs(node)}>\n`;
+      for (const c of kids) {
+        s += c.nodeType === 3 ? `${PAD.repeat(depth + 1)}${c.nodeValue.trim()}\n` : ser(c, depth + 1);
+      }
+      return s + `${pad}</${node.nodeName}>\n`;
+    };
+    const root = doc.documentElement;
+    if (!root || root.nodeName === "parsererror") return null;
+    const decl = /^<\?xml/i.test(t) ? '<?xml version="1.0" encoding="utf-8"?>\n' : "";
+    return (decl + ser(root, 0)).replace(/\s+$/, "");
+  }
+
+  // add "JSON" / "XML" buttons to an .output-head; they reformat outputEl in place
+  function wireOutputFormatters(headEl, outputEl) {
+    if (!headEl || headEl.querySelector(".fmt")) return;
+    const host = headEl.querySelector(".oh-left") || headEl;
+    const mk = (label, fn, lang) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "fmt";
+      b.textContent = label;
+      b.addEventListener("click", () => {
+        const raw = outputEl.dataset.raw != null ? outputEl.dataset.raw : outputEl.textContent;
+        const pretty = fn(raw);
+        if (pretty == null) {
+          b.textContent = "–";
+          setTimeout(() => (b.textContent = label), 800);
+          return;
+        }
+        outputEl.innerHTML = window.hljs
+          ? `<code class="language-${lang}">${window.hljs.highlight(pretty, { language: lang }).value}</code>`
+          : esc(pretty);
+        outputEl.classList.add("hljs");
+        outputEl.classList.remove("err");
+      });
+      return b;
+    };
+    host.appendChild(mk("JSON", jsonPretty, "json"));
+    host.appendChild(mk("XML", prettyXml, "xml"));
+  }
+
   async function setLang(lang) {
     LANG = lang;
     store.set(LS.lang, lang);
@@ -263,12 +355,14 @@
   function renderRunResult(res, outputEl, metaEl) {
     if (res.detail) {
       outputEl.textContent = "! " + res.detail + (res.stderr ? "\n\n" + res.stderr : "");
+      outputEl.dataset.raw = outputEl.textContent;
       outputEl.classList.add("err");
     } else {
       const parts = [];
       if (res.stdout) parts.push(res.stdout.replace(/\n$/, ""));
       if (res.stderr) parts.push((parts.length ? "\n--- stderr ---\n" : "") + res.stderr.replace(/\n$/, ""));
       const text = parts.join("\n") || "(no output)";
+      outputEl.dataset.raw = text; // kept so the JSON / XML buttons can reformat it
       const jsonHtml = res.ok && !res.stderr ? jsonHighlightHtml(res.stdout) : null;
       if (jsonHtml) {
         outputEl.innerHTML = jsonHtml;
@@ -333,6 +427,7 @@
         if (metaEl) metaEl.textContent = Math.round(performance.now() - started) + " ms";
         outputEl.classList.toggle("err", !d.ok);
         if (!outputEl.textContent) outputEl.textContent = d.ok ? "(no output)" : "(failed)";
+        outputEl.dataset.raw = outputEl.textContent; // for the JSON / XML buttons
         if (d.ok && !outputEl.classList.contains("err")) {
           const jsonHtml = jsonHighlightHtml(outputEl.textContent);
           if (jsonHtml) outputEl.innerHTML = jsonHtml;
@@ -991,7 +1086,7 @@ ${snippet}
       </div>
       <div class="code-edit"></div>
       <div class="output-wrap">
-        <div class="output-head"><span>${esc(tr("topic.output"))}</span><span class="meta"></span></div>
+        <div class="output-head"><span class="oh-left"><span>${esc(tr("topic.output"))}</span></span><span class="meta"></span></div>
         <pre class="output"></pre>
       </div>
       <div class="fn-refs" hidden></div>`;
@@ -1004,6 +1099,7 @@ ${snippet}
     const out = wrap.querySelector(".output");
     const meta = wrap.querySelector(".meta");
     const fnHost = wrap.querySelector(".fn-refs");
+    wireOutputFormatters(wrap.querySelector(".output-head"), out);
 
     // --- the editor: CodeMirror when available, <textarea> otherwise -----
     let getCode;
@@ -1377,6 +1473,7 @@ ${snippet}
     const codeEl = $("#scratch-code");
     const out = $("#scratch-output");
     const meta = $("#scratch-meta");
+    wireOutputFormatters(out.closest(".output-wrap").querySelector(".output-head"), out);
     const samples = {
       python:
         'from elo_playground import connect\n\n' +
