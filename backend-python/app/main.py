@@ -180,6 +180,14 @@ def api_proxy(req: ProxyRequest):
                 req.credentials.password,
                 verify=req.credentials.tls_verify,
             )
+        # The proxy already holds a logged-in session (get_client / mock_client
+        # both log in). Do not forward login/logout: a body-less "login" RPC is
+        # rejected by IX, and "logout" would drop the shared cached session
+        # other browser calls in the same run still need.
+        if req.method == "login":
+            return {"result": {"user": client.user}}
+        if req.method == "logout":
+            return {"result": {}}
         return {"result": client.call(req.method, req.body)}
     except EloError as exc:
         return {"error": str(exc)}
