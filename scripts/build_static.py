@@ -34,7 +34,7 @@ from app import lab_fs as labfs  # noqa: E402
 from app import openapi_ref  # noqa: E402
 from app.i18n import catalogue  # noqa: E402
 from app.models import RunRequest  # noqa: E402
-from app.runner import mock_data, run_python  # noqa: E402
+from app.runner import mock_data, run_compiled, run_python  # noqa: E402
 
 DIST = ROOT / "dist"
 LANGS = ("en", "de", "es")
@@ -149,15 +149,17 @@ def main() -> int:
     run_cache: dict[str, dict] = {}
     for t in topics:
         merged = mock_data(t.id)
-        for language in ("python", "node"):
+        for language in ("python", "node", "go", "php", "java"):
             code = getattr(t.snippets, language)
             if not code:
                 continue
             key = f"t:{t.id}|{language}"
             if language == "python":
                 run_cache[key] = _run_python_mock(code, t.id)
-            elif _HAVE_NODE:
+            elif language == "node" and _HAVE_NODE:
                 run_cache[key] = _run_node_mock(code, merged)
+            elif language in ("go", "php", "java"):
+                run_cache[key] = run_compiled(RunRequest(language=language, code=code, mock=True, topic_id=t.id), language).model_dump()
             print(f"  ran {key}: ok={run_cache.get(key, {}).get('ok')}")
 
     for c in cat.categories("en"):
@@ -193,7 +195,7 @@ def main() -> int:
         _write(f"api/spec/operations/{svc['service']}.json", {"operations": openapi_ref.operations(spec, svc["service"])})
     for op in openapi_ref.operations(spec):
         detail = openapi_ref.operation_detail(spec, op["operation_id"])
-        detail["snippets"] = {l: openapi_ref.generate(detail, l) for l in ("python", "node", "browser")}
+        detail["snippets"] = {l: openapi_ref.generate(detail, l) for l in ("python", "node", "browser", "go", "php", "java", "rhino")}
         _write(f"api/spec/op/{op['operation_id']}.json", detail)
 
     n_files = sum(1 for _ in DIST.glob("**/*") if _.is_file())

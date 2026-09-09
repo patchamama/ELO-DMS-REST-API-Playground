@@ -6,7 +6,7 @@ from typing import Any, Literal
 from pydantic import BaseModel
 
 Lang = Literal["en", "de", "es"]
-RunLanguage = Literal["python", "node", "browser"]
+RunLanguage = Literal["python", "node", "browser", "go", "php", "java", "rhino"]
 
 
 class EloCreds(BaseModel):
@@ -30,6 +30,10 @@ class Snippets(BaseModel):
     python: str = ""
     node: str = ""
     browser: str = ""
+    go: str = ""
+    php: str = ""
+    java: str = ""
+    rhino: str = ""
 
 
 class Topic(BaseModel):

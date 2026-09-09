@@ -181,9 +181,64 @@ def run_node(req: RunRequest) -> RunResult:
     )
 
 
+def _run_command(req: RunRequest, command: list[str], source_name: str) -> RunResult:
+    """Run a standard-library example in an isolated work directory."""
+    s = get_settings()
+    workdir = s.runtime_dir / "run" / uuid.uuid4().hex[:12]
+    workdir.mkdir(parents=True, exist_ok=True)
+    (workdir / source_name).write_text(req.code, encoding="utf-8")
+    env = _base_env(req, workdir)
+    out_f, err_f = workdir / "stdout.txt", workdir / "stderr.txt"
+    start = time.time()
+    try:
+        with out_f.open("wb") as o, err_f.open("wb") as e:
+            proc = subprocess.run(command, cwd=workdir, env=env, stdout=o, stderr=e, timeout=s.run_timeout_s, check=False)
+        code, detail = proc.returncode, ""
+    except FileNotFoundError:
+        code, detail = None, f"toolchain not installed: {command[0]}"
+    except subprocess.TimeoutExpired:
+        code, detail = None, f"timed out after {s.run_timeout_s}s"
+    result = RunResult(ok=(code == 0), stdout=_read_capped(out_f, s.run_output_cap), stderr=_read_capped(err_f, s.run_output_cap), exit_code=code, duration_ms=int((time.time() - start) * 1000), detail=detail)
+    shutil.rmtree(workdir, ignore_errors=True)
+    return result
+
+
+def run_compiled(req: RunRequest, language: str) -> RunResult:
+    if language == "go":
+        return _run_command(req, ["go", "run", "snippet.go"], "snippet.go")
+    if language == "php":
+        return _run_command(req, ["php", "snippet.php"], "snippet.php")
+    # Java needs a compile phase; do not hide compiler diagnostics from learners.
+    s = get_settings()
+    workdir = s.runtime_dir / "run" / uuid.uuid4().hex[:12]
+    workdir.mkdir(parents=True, exist_ok=True)
+    (workdir / "Main.java").write_text(req.code, encoding="utf-8")
+    env = _base_env(req, workdir)
+    out_f, err_f = workdir / "stdout.txt", workdir / "stderr.txt"
+    start = time.time()
+    try:
+        with out_f.open("wb") as o, err_f.open("wb") as e:
+            compiled = subprocess.run(["javac", "Main.java"], cwd=workdir, env=env, stdout=o, stderr=e, timeout=s.run_timeout_s, check=False)
+            code = compiled.returncode
+            if code == 0:
+                code = subprocess.run(["java", "-cp", str(workdir), "Main"], cwd=workdir, env=env, stdout=o, stderr=e, timeout=s.run_timeout_s, check=False).returncode
+        detail = ""
+    except FileNotFoundError:
+        code, detail = None, "toolchain not installed: javac"
+    except subprocess.TimeoutExpired:
+        code, detail = None, f"timed out after {s.run_timeout_s}s"
+    result = RunResult(ok=(code == 0), stdout=_read_capped(out_f, s.run_output_cap), stderr=_read_capped(err_f, s.run_output_cap), exit_code=code, duration_ms=int((time.time() - start) * 1000), detail=detail)
+    shutil.rmtree(workdir, ignore_errors=True)
+    return result
+
+
 def run(req: RunRequest) -> RunResult:
     if req.language == "python":
         return run_python(req)
     if req.language == "node":
         return run_node(req)
+    if req.language in ("go", "php", "java"):
+        return run_compiled(req, req.language)
+    if req.language == "rhino":
+        return RunResult(ok=False, detail="Rhino examples are reviewed IndexServer script artifacts; deploy and invoke them through executeScript, never through Web Client injection.")
     return RunResult(ok=False, detail="browser snippets run in the page, not on the server")
