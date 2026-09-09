@@ -5,7 +5,11 @@
 
 from elo_playground import connect
 
-elo = connect()
+# --- local ELO test box (override with ELOPG_* env vars or a .env) ---
+ELO_USER = "Administrator"
+ELO_PASS = "elo"
+
+elo = connect(user=ELO_USER, password=ELO_PASS)
 
 res = elo.call("checkoutSordTypes", {"id": -1, "sordTypeZ": {"bset": "31"}})
 types = res if isinstance(res, list) else res.get("sordTypes", [])

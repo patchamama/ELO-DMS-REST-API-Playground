@@ -4,7 +4,11 @@
 // category: Workflows (advanced)
 // id:       workflows.start
 
-const elo = await connect();
+// --- local ELO test box (override with ELOPG_* env vars or a .env) ---
+const ELO_USER = "Administrator";
+const ELO_PASS = "elo";
+
+const elo = await connect({ user: ELO_USER, password: ELO_PASS });
 const ALL = "449304431574384639";
 
 const tpl = (await elo.call("createSord", {

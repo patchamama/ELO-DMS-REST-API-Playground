@@ -6,7 +6,11 @@
 import base64
 from elo_playground import connect, EloError
 
-elo = connect()
+# --- local ELO test box (override with ELOPG_* env vars or a .env) ---
+ELO_USER = "Administrator"
+ELO_PASS = "elo"
+
+elo = connect(user=ELO_USER, password=ELO_PASS)
 
 # A tiny "invoice" as plain-text bytes so this snippet is self-contained.
 # For a real scan: open("examples/invoices/invoice-2026-0042-acme.pdf","rb")

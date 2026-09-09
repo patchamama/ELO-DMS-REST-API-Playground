@@ -1054,9 +1054,23 @@ ${snippet}
     const out = $("#scratch-output");
     const meta = $("#scratch-meta");
     const samples = {
-      python: 'from elo_playground import connect\n\nelo = connect()\nprint(elo.call("getServerInfo", {}).get("version"))\n',
-      node: 'import { connect } from "elo-playground";\n\nconst elo = await connect();\nconsole.log((await elo.call("getServerInfo", {})).version);\n',
-      browser: 'const elo = await connect();\nconsole.log((await elo.call("getServerInfo", {})).version);\n',
+      python:
+        'from elo_playground import connect\n\n' +
+        'ELO_USER = "Administrator"   # local ELO test box (or set ELOPG_* / .env)\n' +
+        'ELO_PASS = "elo"\n\n' +
+        'elo = connect(user=ELO_USER, password=ELO_PASS)\n' +
+        'print(elo.call("getServerInfo", {}).get("version"))\n',
+      node:
+        'import { connect } from "elo-playground";\n\n' +
+        'const ELO_USER = "Administrator";   // local ELO test box (or set ELOPG_* / .env)\n' +
+        'const ELO_PASS = "elo";\n\n' +
+        'const elo = await connect({ user: ELO_USER, password: ELO_PASS });\n' +
+        'console.log((await elo.call("getServerInfo", {})).version);\n',
+      browser:
+        'const ELO_USER = "Administrator";   // local ELO test box (or set ELOPG_* / .env)\n' +
+        'const ELO_PASS = "elo";\n\n' +
+        'const elo = await connect({ user: ELO_USER, password: ELO_PASS });\n' +
+        'console.log((await elo.call("getServerInfo", {})).version);\n',
     };
     const cmMode = (lang) => (lang === "python" ? "python" : "javascript");
 

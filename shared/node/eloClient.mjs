@@ -248,12 +248,14 @@ export class MockEloClient {
 }
 
 /**
- * Build a client from environment variables and (by default) log in.
- * Same variables as the Python `connect()`:
+ * Build a client and (by default) log in. Each of `baseUrl` / `user` /
+ * `password` / `verify` is taken from, in order: the explicit option, then the
+ * matching ELOPG_* environment variable, then the built-in default for a stock
+ * local ELO test box (http://localhost:9090/ix-Repository1 / Administrator / elo).
  *   ELOPG_MOCK, ELOPG_MOCK_DATA, ELOPG_ELO_BASE_URL, ELOPG_ELO_USER,
  *   ELOPG_ELO_PASSWORD, ELOPG_TLS_VERIFY
  */
-export async function connect({ login = true } = {}) {
+export async function connect({ baseUrl, user, password, verify, login = true } = {}) {
   const env = process.env;
 
   if (truthy(env.ELOPG_MOCK)) {
@@ -271,19 +273,18 @@ export async function connect({ login = true } = {}) {
     return client;
   }
 
-  const verify = !falsy(env.ELOPG_TLS_VERIFY);
-  if (!verify) {
+  const tlsVerify = verify !== undefined ? verify : !falsy(env.ELOPG_TLS_VERIFY);
+  if (!tlsVerify) {
     // Node's fetch has no per-request "insecure" switch. This is the documented
     // escape hatch; acceptable for a local learning tool against a self-signed
     // ELO, never for production.
     process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
   }
-  // Defaults for a stock local ELO test install; any ELOPG_* var overrides them.
   const client = new EloClient(
-    env.ELOPG_ELO_BASE_URL || "http://localhost:9090/ix-Repository1",
-    env.ELOPG_ELO_USER || "Administrator",
-    env.ELOPG_ELO_PASSWORD || "elo",
-    { verify }
+    baseUrl || env.ELOPG_ELO_BASE_URL || "http://localhost:9090/ix-Repository1",
+    user || env.ELOPG_ELO_USER || "Administrator",
+    password || env.ELOPG_ELO_PASSWORD || "elo",
+    { verify: tlsVerify }
   );
   if (login) await client.login();
   return client;

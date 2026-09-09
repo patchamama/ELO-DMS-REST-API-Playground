@@ -4,6 +4,10 @@
 // category: OCR & text extraction
 // id:       ocr.extract
 
+// --- local ELO test box (override with ELOPG_* env vars or a .env) ---
+const ELO_USER = "Administrator";
+const ELO_PASS = "elo";
+
 // btoa() needs a binary string; TextEncoder + a byte-wise map keeps it
 // correct for non-ASCII.
 const bytes = new TextEncoder().encode(
@@ -11,7 +15,7 @@ const bytes = new TextEncoder().encode(
 );
 const b64 = btoa(String.fromCharCode(...bytes));
 
-const elo = await connect();
+const elo = await connect({ user: ELO_USER, password: ELO_PASS });
 try {
   const res = await elo.call("processOcr", {
     ocrInfo: {

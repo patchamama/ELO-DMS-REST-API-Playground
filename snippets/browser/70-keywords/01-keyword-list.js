@@ -4,7 +4,11 @@
 // category: Keyword lists
 // id:       keywords.list
 
-const elo = await connect();
+// --- local ELO test box (override with ELOPG_* env vars or a .env) ---
+const ELO_USER = "Administrator";
+const ELO_PASS = "elo";
+
+const elo = await connect({ user: ELO_USER, password: ELO_PASS });
 const res = await elo.call("checkoutKeywordList", { kwid: "ELOSTDSWL", max: 500, keywordZ: { bset: "7" } });
 const top = res.children || [];
 console.log(`${res.id}: ${top.length} top-level entries`);

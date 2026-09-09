@@ -165,12 +165,26 @@ export class EloClient {
 /**
  * Build a client using the config the playground page injected as
  * `window.__ELOPG__ = { credentials, mock, topicId }`, and log in.
+ *
+ * A snippet may also pass `{ baseUrl, user, password }` for parity with the
+ * Python / Node `connect()`. In the browser those only matter in live mode:
+ * they are forwarded to the backend proxy (or used for the direct call in the
+ * static demo). In mock mode they are ignored, like everywhere else.
  */
-export async function connect({ login = true } = {}) {
+export async function connect({ baseUrl, user, password, login = true } = {}) {
   const cfg = (typeof window !== "undefined" && window.__ELOPG__) || {};
+  let credentials = cfg.credentials ?? null;
+  if (baseUrl || user || password) {
+    credentials = {
+      base_url: baseUrl || credentials?.base_url || null,
+      user: user || credentials?.user || null,
+      password: password || credentials?.password || null,
+      tls_verify: credentials?.tls_verify ?? true,
+    };
+  }
   const client = new EloClient({
     proxyUrl: cfg.proxyUrl || "/api/elo/proxy", // absolute when run inside the sandboxed iframe
-    credentials: cfg.credentials ?? null,
+    credentials,
     mock: !!cfg.mock,
     topicId: cfg.topicId ?? null,
     mockData: cfg.mockData ?? null, // static demo, mock on: resolve calls locally

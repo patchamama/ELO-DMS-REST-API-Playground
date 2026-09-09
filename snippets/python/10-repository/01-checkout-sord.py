@@ -5,7 +5,11 @@
 
 from elo_playground import connect
 
-elo = connect()
+# --- local ELO test box (override with ELOPG_* env vars or a .env) ---
+ELO_USER = "Administrator"
+ELO_PASS = "elo"
+
+elo = connect(user=ELO_USER, password=ELO_PASS)
 
 # objId can be an int id OR a "(GUID)" copied from the ELO client.
 # 2 is a real folder on a stock repository, so this runs anywhere.

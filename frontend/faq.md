@@ -47,20 +47,27 @@ read almost identically. The differences are:
   *Check connection*, then *Run*. Python and Node then call your ELO directly;
   browser snippets go through the backend proxy.
 
-## Where does `connect()` get the credentials? Why isn't the password in the code?
+## Where does `connect()` get the credentials?
 
-`connect()` reads the connection from **environment variables** -
-`ELOPG_ELO_BASE_URL`, `ELOPG_ELO_USER`, `ELOPG_ELO_PASSWORD`,
-`ELOPG_TLS_VERIFY`. If a variable is unset (or empty), it falls back to the
-values for a stock local ELO test box: `Administrator` / `elo` on
-`http://localhost:9090/ix-Repository1`. So a snippet copied into your own
-project runs as-is against a local ELO, and you override any of it by setting
-the `ELOPG_*` variables.
+Every snippet starts by defining them, for a stock local ELO test box:
+
+```python
+ELO_USER = "Administrator"
+ELO_PASS = "elo"
+elo = connect(user=ELO_USER, password=ELO_PASS)
+```
+
+`connect()` also accepts `base_url` (`baseUrl` in Node) and `verify`. For each
+of those four the order is: **the explicit argument -> the matching `ELOPG_*`
+environment variable -> the built-in default** (`Administrator` / `elo` /
+`http://localhost:9090/ix-Repository1`). So `connect()` with no arguments still
+works, and setting `ELOPG_ELO_USER` / `ELOPG_ELO_PASSWORD` / `ELOPG_ELO_BASE_URL`
+overrides whatever the snippet hard-codes.
 
 When you press **Run** in the playground, the connection form's values are
-passed through as `ELOPG_*` for that one run - so whatever you type in the form
-wins over the defaults. The form itself pre-fills from your local `.env`
-(`ELOPG_ELO_PASSWORD=...`), and *Remember password* keeps it in this browser.
+passed through as `ELOPG_*` for that one run, so the form wins over the
+snippet's constants. The form pre-fills from your local `.env`
+(`ELOPG_ELO_PASSWORD=...`); *Remember password* keeps it in this browser.
 
 ## The static demo (GitHub Pages) - what runs?
 

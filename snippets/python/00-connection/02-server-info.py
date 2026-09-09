@@ -5,7 +5,11 @@
 
 from elo_playground import connect
 
-elo = connect()                              # env vars + login() already done
+# --- local ELO test box (override with ELOPG_* env vars or a .env) ---
+ELO_USER = "Administrator"
+ELO_PASS = "elo"
+
+elo = connect(user=ELO_USER, password=ELO_PASS)  # env vars + login() already done
 
 info = elo.call("getServerInfo", {})         # -> POST .../getServerInfo
 server = (info.get("indexServers") or [{}])[0]

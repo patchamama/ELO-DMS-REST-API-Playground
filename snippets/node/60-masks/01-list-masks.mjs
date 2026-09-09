@@ -5,7 +5,11 @@
 
 import { connect } from "elo-playground";
 
-const elo = await connect();
+// --- local ELO test box (override with ELOPG_* env vars or a .env) ---
+const ELO_USER = "Administrator";
+const ELO_PASS = "elo";
+
+const elo = await connect({ user: ELO_USER, password: ELO_PASS });
 
 // DocMaskLine.type -> readable kind (ELO 25 DOC_MASK_LINE constants, abridged)
 const KINDS = { 3000: "text", 3001: "date", 3002: "number", 3004: "iso-date",

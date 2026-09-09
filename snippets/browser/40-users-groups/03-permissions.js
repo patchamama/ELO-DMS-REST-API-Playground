@@ -4,7 +4,11 @@
 // category: Users & groups
 // id:       users.permissions
 
-const elo = await connect();
+// --- local ELO test box (override with ELOPG_* env vars or a .env) ---
+const ELO_USER = "Administrator";
+const ELO_PASS = "elo";
+
+const elo = await connect({ user: ELO_USER, password: ELO_PASS });
 const ACCESS = [
   [1, "main administrator (all rights)"], [8, "edit documents"],
   [256, "start workflows"], [536870912, "author"],
