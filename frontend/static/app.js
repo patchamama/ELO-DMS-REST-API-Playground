@@ -98,7 +98,7 @@
     return { base_url: c.base_url, user: c.user, password: c.password, tls_verify: c.tls_verify };
   }
   function isMock() {
-    return STATIC || $("#conn").mock.checked;
+    return $("#conn").mock.checked;
   }
   function saveConn() {
     const c = readConn();
@@ -190,13 +190,14 @@
     if (metaEl) metaEl.textContent = "";
 
     if (STATIC) {
-      const cached = cacheKey && RUN_CACHE[cacheKey + "|" + language];
-      if (cached) renderRunResult(cached, outputEl, metaEl);
-      else {
-        outputEl.textContent = tr("static.noRun");
+      const cached = isMock() && cacheKey && RUN_CACHE[cacheKey + "|" + language];
+      if (cached) {
+        renderRunResult(cached, outputEl, metaEl);
+        if (metaEl) metaEl.textContent += " · " + tr("static.precomputed");
+      } else {
+        outputEl.textContent = isMock() ? tr("static.noRun") : tr("static.backendOnly");
         outputEl.classList.add("err");
       }
-      if (metaEl && cached) metaEl.textContent += " · " + tr("static.precomputed");
       if (btn) {
         btn.disabled = false;
         btn.textContent = label;
@@ -270,13 +271,15 @@
     if (metaEl) metaEl.textContent = "";
 
     const clientSrc = await loadBrowserClientSrc();
+    const mock = isMock();
     const config = {
       proxyUrl: CFG.proxyUrl,
-      credentials: isMock() ? null : creds(),
-      mock: isMock(),
+      credentials: mock ? null : creds(),
+      mock,
       topicId: topicId || null,
-      // static demo: the browser client resolves calls against this locally
-      mockData: STATIC ? CURRENT_MOCK : null,
+      // static demo: mock -> resolve locally; not mock -> call the given ELO directly
+      mockData: STATIC && mock ? CURRENT_MOCK : null,
+      directUrl: STATIC && !mock ? (creds().base_url || null) : null,
     };
     const srcdoc = buildIframeDoc(clientSrc, config, code);
 
@@ -854,18 +857,28 @@ ${snippet}
   }
 
   async function enterStaticMode() {
-    // hide the connection form, show a banner, load the pre-computed run cache
-    const conn = $("#conn");
-    if (conn) conn.hidden = true;
+    // no backend: load the pre-computed run cache, keep the connection form
+    // visible (default = Mock), drop the controls that need the backend.
     try {
       RUN_CACHE = await getJSON("api/run-cache.json");
     } catch (e) {
       RUN_CACHE = {};
     }
+    const conn = $("#conn");
+    if (conn) {
+      const check = $("#conn-check");
+      if (check) check.hidden = true; // login-check needs the backend
+      conn.querySelectorAll("label.chk").forEach((l) => {
+        if (/remember|tls_verify/.test(l.querySelector("input")?.name || "")) l.hidden = true;
+      });
+      const base = conn.base_url;
+      if (base && !base.value) base.placeholder = "https://your-elo-host/ix-Repository1  (needs CORS)";
+    }
     const bar = document.querySelector(".topbar");
     if (bar && !bar.querySelector(".static-badge")) {
       const b = document.createElement("span");
       b.className = "static-badge";
+      b.title = tr("static.help");
       b.textContent = tr("static.badge");
       bar.appendChild(b);
     }
