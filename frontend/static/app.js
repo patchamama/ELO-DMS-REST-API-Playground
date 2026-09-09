@@ -618,11 +618,14 @@ ${snippet}
     return out;
   }
 
-  function renderFnRefs(wrap, code, language) {
+  // (re)fill a .fn-refs host with the "functions used in this snippet" list
+  function renderFnRefs(hostEl, code, language) {
     const refs = refsFromCode(code, language);
-    if (!refs.length) return;
-    const box = document.createElement("div");
-    box.className = "fn-refs";
+    hostEl.hidden = !refs.length;
+    if (!refs.length) {
+      hostEl.innerHTML = "";
+      return;
+    }
     const item = (r) => {
       if (r.kind === "elo-op")
         return `<button class="fn-ref link" data-op="IXServicePortIF_${esc(r.target)}">${esc(r.label)}</button>`;
@@ -630,26 +633,27 @@ ${snippet}
       const href = r.kind === "py" ? "https://docs.python.org/3/library/" + r.target : r.target;
       return `<a class="fn-ref" href="${esc(href)}" target="_blank" rel="noopener">${esc(r.label)}</a>`;
     };
-    box.innerHTML =
+    hostEl.innerHTML =
       `<span class="fn-refs-label">${esc(tr("topic.fnRefs"))}</span> ` +
       refs.map(item).join(' <span class="fn-sep">·</span> ');
-    box.querySelectorAll("[data-op]").forEach((b) =>
+    hostEl.querySelectorAll("[data-op]").forEach((b) =>
       b.addEventListener("click", () => {
         $('.tab[data-view="spec"]').click();
         openOperation(b.dataset.op);
       })
     );
-    box.querySelectorAll("[data-lib]").forEach((b) =>
+    hostEl.querySelectorAll("[data-lib]").forEach((b) =>
       b.addEventListener("click", () => {
         $('.tab[data-view="catalog"]').click();
         openClientLib();
       })
     );
-    wrap.appendChild(box);
   }
 
-  // one code block + Copy + Run + output panel
+  // one EDITABLE code block + Copy + Reset + Run + output panel
   function makeRunner(language, code, topicId, cacheKey) {
+    const original = code;
+    const cmMode = language === "python" ? "python" : "javascript";
     const wrap = document.createElement("div");
     wrap.className = "runner";
     wrap.innerHTML = `
@@ -657,22 +661,75 @@ ${snippet}
         <span class="lang-badge">${esc(language)}</span>
         <button class="run">${esc(tr("run.button"))}</button>
         <button class="copy" data-t-title="action.copy" title="Copy">${esc(tr("action.copy"))}</button>
+        <button class="reset" title="${esc(tr("action.reset"))}" hidden>${esc(tr("action.reset"))}</button>
+        <span class="edited-flag" hidden>${esc(tr("code.edited"))}</span>
         <span class="warn-inline">${language !== "browser" ? esc(tr("warn.localOnly")) : ""}</span>
       </div>
-      <pre class="code"><code class="language-${language === "python" ? "python" : "javascript"}">${esc(code)}</code></pre>
+      <div class="code-edit"></div>
       <div class="output-wrap">
         <div class="output-head"><span>${esc(tr("topic.output"))}</span><span class="meta"></span></div>
         <pre class="output"></pre>
-      </div>`;
-    if (window.hljs) window.hljs.highlightElement(wrap.querySelector("code"));
+      </div>
+      <div class="fn-refs" hidden></div>`;
+
+    const editHost = wrap.querySelector(".code-edit");
     const btn = wrap.querySelector(".run");
     const copyBtn = wrap.querySelector(".copy");
+    const resetBtn = wrap.querySelector(".reset");
+    const editedFlag = wrap.querySelector(".edited-flag");
     const out = wrap.querySelector(".output");
     const meta = wrap.querySelector(".meta");
-    btn.addEventListener("click", () => runAny(language, code, topicId, out, meta, btn, cacheKey));
+    const fnHost = wrap.querySelector(".fn-refs");
+
+    // --- the editor: CodeMirror when available, <textarea> otherwise -----
+    let getCode;
+    let setCode;
+    let cm = null;
+    if (window.CodeMirror) {
+      cm = window.CodeMirror(editHost, {
+        value: code,
+        mode: cmMode,
+        lineNumbers: true,
+        indentUnit: 2,
+        tabSize: 2,
+        viewportMargin: Infinity, // grow to fit the snippet
+      });
+      getCode = () => cm.getValue();
+      setCode = (v) => cm.setValue(v);
+    } else {
+      const ta = document.createElement("textarea");
+      ta.className = "code code-textarea";
+      ta.spellcheck = false;
+      ta.value = code;
+      ta.rows = Math.min(30, code.split("\n").length + 1);
+      editHost.appendChild(ta);
+      getCode = () => ta.value;
+      setCode = (v) => {
+        ta.value = v;
+        ta.rows = Math.min(30, v.split("\n").length + 1);
+      };
+    }
+    const isEdited = () => getCode() !== original;
+
+    let refsTimer = 0;
+    function refreshMeta() {
+      const edited = isEdited();
+      resetBtn.hidden = !edited;
+      editedFlag.hidden = !edited;
+      clearTimeout(refsTimer);
+      refsTimer = setTimeout(() => renderFnRefs(fnHost, getCode(), language), 300);
+    }
+    if (cm) cm.on("change", refreshMeta);
+    else editHost.querySelector("textarea").addEventListener("input", refreshMeta);
+
+    // --- buttons -------------------------------------------------------
+    btn.addEventListener("click", () =>
+      // a pre-computed static result only matches the ORIGINAL snippet
+      runAny(language, getCode(), topicId, out, meta, btn, isEdited() ? null : cacheKey)
+    );
     copyBtn.addEventListener("click", async () => {
       try {
-        await navigator.clipboard.writeText(code);
+        await navigator.clipboard.writeText(getCode());
         const prev = copyBtn.textContent;
         copyBtn.textContent = tr("action.copied");
         setTimeout(() => (copyBtn.textContent = prev), 1200);
@@ -680,7 +737,14 @@ ${snippet}
         /* clipboard blocked - ignore */
       }
     });
-    renderFnRefs(wrap, code, language);
+    resetBtn.addEventListener("click", () => {
+      setCode(original);
+      if (cm) cm.refresh();
+      refreshMeta();
+    });
+
+    renderFnRefs(fnHost, code, language);
+    if (cm) setTimeout(() => cm.refresh(), 0); // settle layout when first shown
     return wrap;
   }
 

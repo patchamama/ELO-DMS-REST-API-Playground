@@ -40,6 +40,8 @@
   "run.running": "Läuft…",
   "action.copy": "Kopieren",
   "action.copied": "Kopiert",
+  "action.reset": "Zurücksetzen",
+  "code.edited": "geändert",
   "tab.python": "Python",
   "tab.node": "Node.js",
   "tab.browser": "Browser-JS",
