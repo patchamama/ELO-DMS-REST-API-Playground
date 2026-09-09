@@ -5,7 +5,11 @@
 
 from elo_playground import connect
 
-elo = connect()
+# --- local ELO test box (override with ELOPG_* env vars or a .env) ---
+ELO_USER = "Administrator"
+ELO_PASS = "elo"
+
+elo = connect(user=ELO_USER, password=ELO_PASS)
 
 # find_all() runs findFirstSords -> findNextSords -> findClose for us.
 rows = elo.find_all(

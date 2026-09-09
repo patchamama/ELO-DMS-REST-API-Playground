@@ -47,7 +47,11 @@ snippets:
   python: |
     from elo_playground import connect
 
-    elo = connect()
+    # --- local ELO test box (override with ELOPG_* env vars or a .env) ---
+    ELO_USER = "Administrator"
+    ELO_PASS = "elo"
+
+    elo = connect(user=ELO_USER, password=ELO_PASS)
 
     # objId can be an int id OR a "(GUID)" copied from the ELO client.
     # 2 is a real folder on a stock repository, so this runs anywhere.
@@ -69,7 +73,11 @@ snippets:
   node: |
     import { connect } from "elo-playground";
 
-    const elo = await connect();
+    // --- local ELO test box (override with ELOPG_* env vars or a .env) ---
+    const ELO_USER = "Administrator";
+    const ELO_PASS = "elo";
+
+    const elo = await connect({ user: ELO_USER, password: ELO_PASS });
 
     // objId can be an int id OR a "(GUID)" copied from the ELO client.
     // 2 is a real folder on a stock repository, so this runs anywhere.
@@ -89,7 +97,11 @@ snippets:
     console.log(`${kind}: ${sord.name}  (id ${sord.id}, mask: ${sord.maskName})`);
 
   browser: |
-    const elo = await connect();
+    // --- local ELO test box (override with ELOPG_* env vars or a .env) ---
+    const ELO_USER = "Administrator";
+    const ELO_PASS = "elo";
+
+    const elo = await connect({ user: ELO_USER, password: ELO_PASS });
     const objId = 2; // an int id or a "(GUID)" from the ELO client
 
     const res = await elo.call("checkoutSord", {

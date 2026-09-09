@@ -10,7 +10,11 @@ pattern plus "documents only".
 ```python
 from elo_playground import connect
 
-elo = connect()
+# --- local ELO test box (override with ELOPG_* env vars or a .env) ---
+ELO_USER = "Administrator"
+ELO_PASS = "elo"
+
+elo = connect(user=ELO_USER, password=ELO_PASS)
 
 rows = elo.find_all(
     "findFirstSords", "findNextSords", "sords",
@@ -34,7 +38,11 @@ print(f"{len(rows)} invoice documents")
 ```js
 import { connect } from "elo-playground";
 
-const elo = await connect();
+// --- local ELO test box (override with ELOPG_* env vars or a .env) ---
+const ELO_USER = "Administrator";
+const ELO_PASS = "elo";
+
+const elo = await connect({ user: ELO_USER, password: ELO_PASS });
 
 const rows = await elo.findAll("findFirstSords", "findNextSords", "sords", {
   findInfo: {
@@ -54,7 +62,11 @@ Fetch one small page and read `moreResults` instead of streaming everything.
 ```python
 from elo_playground import connect
 
-elo = connect()
+# --- local ELO test box (override with ELOPG_* env vars or a .env) ---
+ELO_USER = "Administrator"
+ELO_PASS = "elo"
+
+elo = connect(user=ELO_USER, password=ELO_PASS)
 
 head = elo.call("findFirstSords", {
     "findInfo": {"findByIndex": {"name": "Invoice*"}},

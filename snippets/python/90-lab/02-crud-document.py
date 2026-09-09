@@ -5,7 +5,11 @@
 
 from elo_playground import connect
 
-elo = connect()
+# --- local ELO test box (override with ELOPG_* env vars or a .env) ---
+ELO_USER = "Administrator"
+ELO_PASS = "elo"
+
+elo = connect(user=ELO_USER, password=ELO_PASS)
 ALL = "449304431574384639"
 
 PARENT = 1          # the folder to file the object under (its "path")

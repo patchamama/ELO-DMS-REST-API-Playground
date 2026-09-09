@@ -5,7 +5,11 @@
 
 import { connect } from "elo-playground";
 
-const elo = await connect();
+// --- local ELO test box (override with ELOPG_* env vars or a .env) ---
+const ELO_USER = "Administrator";
+const ELO_PASS = "elo";
+
+const elo = await connect({ user: ELO_USER, password: ELO_PASS });
 
 // 1) find "*.config.json" documents (type >= 254 is a document)
 const hits = await elo.findAll("findFirstSords", "findNextSords", "sords", {

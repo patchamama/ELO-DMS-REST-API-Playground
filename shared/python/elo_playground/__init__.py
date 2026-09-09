@@ -4,12 +4,14 @@ Typical use inside a snippet::
 
     from elo_playground import connect
 
-    elo = connect()                        # reads connection settings from the environment
-    info = elo.call("getServerInfo", {})   # one RPC call
+    elo = connect(user="Administrator", password="elo")   # or just connect()
+    info = elo.call("getServerInfo", {})                  # one RPC call
     print(info["version"])
 
 ``connect()`` returns a real :class:`EloClient` - or a :class:`MockEloClient`
-when ``ELOPG_MOCK`` is set - and has already called ``login()`` for you.
+when ``ELOPG_MOCK`` is set - and has already called ``login()`` for you. For
+each of ``base_url`` / ``user`` / ``password`` / ``verify`` the order is:
+**explicit argument -> ELOPG_* environment variable -> built-in default**.
 """
 from __future__ import annotations
 
@@ -32,16 +34,24 @@ _DEFAULT_USER = "Administrator"
 _DEFAULT_PASSWORD = "elo"
 
 
-def connect(*, login: bool = True) -> "EloClient | MockEloClient":
-    """Build a client from environment variables and (by default) log in.
+def connect(
+    base_url: str | None = None,
+    user: str | None = None,
+    password: str | None = None,
+    *,
+    verify: bool | None = None,
+    login: bool = True,
+) -> "EloClient | MockEloClient":
+    """Build a client and (by default) log in.
 
-    Environment - all optional, with sensible defaults for a local ELO:
+    Each of ``base_url`` / ``user`` / ``password`` / ``verify`` is taken from,
+    in order: the explicit argument, then the matching ``ELOPG_*`` environment
+    variable, then the built-in default for a stock local ELO test box
+    (``http://localhost:9090/ix-Repository1`` / ``Administrator`` / ``elo``).
 
       ELOPG_MOCK           "1" / "true"   -> return a MockEloClient
       ELOPG_MOCK_DATA      path to the JSON mock map (the playground sets this)
-      ELOPG_ELO_BASE_URL   default http://localhost:9090/ix-Repository1
-      ELOPG_ELO_USER       default "Administrator"
-      ELOPG_ELO_PASSWORD   default "elo"  (the stock local test password)
+      ELOPG_ELO_BASE_URL   ELOPG_ELO_USER   ELOPG_ELO_PASSWORD
       ELOPG_TLS_VERIFY     "0" -> skip TLS verification (self-signed ELO certs)
     """
     if _truthy(os.environ.get("ELOPG_MOCK")):
@@ -55,10 +65,10 @@ def connect(*, login: bool = True) -> "EloClient | MockEloClient":
         return client
 
     client = EloClient(
-        base_url=os.environ.get("ELOPG_ELO_BASE_URL") or _DEFAULT_BASE_URL,
-        user=os.environ.get("ELOPG_ELO_USER") or _DEFAULT_USER,
-        password=os.environ.get("ELOPG_ELO_PASSWORD") or _DEFAULT_PASSWORD,
-        verify=not _falsy(os.environ.get("ELOPG_TLS_VERIFY")),
+        base_url=base_url or os.environ.get("ELOPG_ELO_BASE_URL") or _DEFAULT_BASE_URL,
+        user=user or os.environ.get("ELOPG_ELO_USER") or _DEFAULT_USER,
+        password=password or os.environ.get("ELOPG_ELO_PASSWORD") or _DEFAULT_PASSWORD,
+        verify=(verify if verify is not None else not _falsy(os.environ.get("ELOPG_TLS_VERIFY"))),
     )
     if login:
         client.login()

@@ -14,8 +14,10 @@ re-run.
 
 ## Credentials
 
-`connect()` takes no arguments. It reads `ELOPG_*` from the environment and
-falls back to a stock local ELO test box when they are unset **or** empty:
+Each snippet defines them at the top (`ELO_USER` / `ELO_PASS`) and passes them
+to `connect(user=..., password=...)`. `connect()` also accepts `base_url` and
+`verify`. For each of those the order is: **explicit argument -> `ELOPG_*`
+environment variable -> built-in default** for a stock local ELO test box:
 
 | variable | default |
 |---|---|
@@ -23,8 +25,8 @@ falls back to a stock local ELO test box when they are unset **or** empty:
 | `ELOPG_ELO_USER` | `Administrator` |
 | `ELOPG_ELO_PASSWORD` | `elo` |
 
-Point it elsewhere by exporting those variables or putting them in the repo's
-`.env` (copied from `env.sample`).
+So editing the constants, exporting `ELOPG_*`, or a repo `.env` (copied from
+`env.sample`) all point it elsewhere - the env var wins over the constant.
 
 ## What the errors mean
 

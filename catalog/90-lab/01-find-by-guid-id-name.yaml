@@ -54,7 +54,11 @@ snippets:
   python: |
     from elo_playground import connect
 
-    elo = connect()
+    # --- local ELO test box (override with ELOPG_* env vars or a .env) ---
+    ELO_USER = "Administrator"
+    ELO_PASS = "elo"
+
+    elo = connect(user=ELO_USER, password=ELO_PASS)
     ALL = "449304431574384639"          # "give me every Sord field" bitset
 
     # --- by integer id --------------------------------------------------
@@ -86,7 +90,11 @@ snippets:
   node: |
     import { connect } from "elo-playground";
 
-    const elo = await connect();
+    // --- local ELO test box (override with ELOPG_* env vars or a .env) ---
+    const ELO_USER = "Administrator";
+    const ELO_PASS = "elo";
+
+    const elo = await connect({ user: ELO_USER, password: ELO_PASS });
     const ALL = "449304431574384639";
 
     // --- by integer id ---------------------------------------------
@@ -115,7 +123,11 @@ snippets:
     // For CONTENT search use findByFulltext (iSearch / Elasticsearch).
 
   browser: |
-    const elo = await connect();
+    // --- local ELO test box (override with ELOPG_* env vars or a .env) ---
+    const ELO_USER = "Administrator";
+    const ELO_PASS = "elo";
+
+    const elo = await connect({ user: ELO_USER, password: ELO_PASS });
     const ALL = "449304431574384639";
 
     const byId = (await elo.call("checkoutSord", {

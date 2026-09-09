@@ -40,7 +40,11 @@ snippets:
   python: |
     from elo_playground import connect
 
-    elo = connect()                              # env vars + login() already done
+    # --- local ELO test box (override with ELOPG_* env vars or a .env) ---
+    ELO_USER = "Administrator"
+    ELO_PASS = "elo"
+
+    elo = connect(user=ELO_USER, password=ELO_PASS)  # env vars + login() already done
 
     info = elo.call("getServerInfo", {})         # -> POST .../getServerInfo
     server = (info.get("indexServers") or [{}])[0]
@@ -54,7 +58,11 @@ snippets:
   node: |
     import { connect } from "elo-playground";
 
-    const elo = await connect();                 // env vars + login() already done
+    // --- local ELO test box (override with ELOPG_* env vars or a .env) ---
+    const ELO_USER = "Administrator";
+    const ELO_PASS = "elo";
+
+    const elo = await connect({ user: ELO_USER, password: ELO_PASS });  // env vars + login() already done
 
     const info = await elo.call("getServerInfo", {});
     const server = (info.indexServers || [{}])[0];
@@ -66,7 +74,11 @@ snippets:
     console.log("product    :", lic.product, "/ users:", lic.usercount1);
 
   browser: |
-    const elo = await connect();
+    // --- local ELO test box (override with ELOPG_* env vars or a .env) ---
+    const ELO_USER = "Administrator";
+    const ELO_PASS = "elo";
+
+    const elo = await connect({ user: ELO_USER, password: ELO_PASS });
 
     const info = await elo.call("getServerInfo", {});
     const server = (info.indexServers || [{}])[0];

@@ -257,7 +257,10 @@ def generate(detail: dict, language: str) -> str:
             body = "{\n" + inner + "\n    }"
         return (
             "from elo_playground import connect\n\n"
-            "elo = connect()\n\n"
+            "# --- local ELO test box (override with ELOPG_* env vars or a .env) ---\n"
+            'ELO_USER = "Administrator"\n'
+            'ELO_PASS = "elo"\n\n'
+            "elo = connect(user=ELO_USER, password=ELO_PASS)\n\n"
             f'# {detail["http_method"]} {detail["path"]}\n'
             f'result = elo.call("{method}", {body}{svc_arg})\n'
             "print(result)\n"
@@ -271,7 +274,11 @@ def generate(detail: dict, language: str) -> str:
         body = "{\n" + inner + "\n}"
     head = 'import { connect } from "elo-playground";\n\n' if language == "node" else ""
     return (
-        f"{head}const elo = await connect();\n\n"
+        f"{head}"
+        "// --- local ELO test box (override with ELOPG_* env vars or a .env) ---\n"
+        'const ELO_USER = "Administrator";\n'
+        'const ELO_PASS = "elo";\n\n'
+        "const elo = await connect({ user: ELO_USER, password: ELO_PASS });\n\n"
         f'// {detail["http_method"]} {detail["path"]}\n'
         f'const result = await elo.call("{method}", {body}{svc_arg});\n'
         "console.log(result);\n"

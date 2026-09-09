@@ -5,7 +5,11 @@
 
 from elo_playground import connect, EloError
 
-elo = connect()
+# --- local ELO test box (override with ELOPG_* env vars or a .env) ---
+ELO_USER = "Administrator"
+ELO_PASS = "elo"
+
+elo = connect(user=ELO_USER, password=ELO_PASS)
 USER, GROUP = "pg.demo.user", "pg.demo.group"
 
 def drop(*names):

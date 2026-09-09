@@ -64,11 +64,13 @@ def test_z_selector_gets_a_bset_placeholder():
 def test_generate_python_and_node():
     d = openapi_ref.operation_detail(SPEC, "IXServicePortIF_login")
     py = openapi_ref.generate(d, "python")
-    assert 'elo.call("login"' in py and "userName" in py and "connect()" in py
+    assert 'elo.call("login"' in py and "userName" in py
+    assert "connect(user=ELO_USER, password=ELO_PASS)" in py
     node = openapi_ref.generate(d, "node")
     assert 'await elo.call("login"' in node and 'import { connect }' in node
     browser = openapi_ref.generate(d, "browser")
-    assert "import" not in browser and "await connect()" in browser
+    assert "import" not in browser
+    assert "await connect({ user: ELO_USER, password: ELO_PASS })" in browser
 
 
 def test_non_default_service_adds_service_arg():

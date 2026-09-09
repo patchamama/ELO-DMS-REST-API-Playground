@@ -4,9 +4,13 @@
 // category: Testing lab
 // id:       lab.share-link
 
+// --- local ELO test box (override with ELOPG_* env vars or a .env) ---
+const ELO_USER = "Administrator";
+const ELO_PASS = "elo";
+
 // Uploading a document is not available from the browser (the connector is
 // on another origin). Run this one from the Python or Node tab.
-const elo = await connect();
+const elo = await connect({ user: ELO_USER, password: ELO_PASS });
 const objId = "5570"; // an existing document's id
 
 try {
