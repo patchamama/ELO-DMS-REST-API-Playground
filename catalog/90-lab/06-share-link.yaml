@@ -1,0 +1,195 @@
+id: lab.share-link
+order: 6
+category:
+  en: Testing lab
+  de: Testlabor
+  es: Laboratorio de pruebas
+title:
+  en: Create a public share link for a document
+  de: Einen öffentlichen Freigabe-Link für ein Dokument erstellen
+  es: Crear un enlace público para compartir un documento
+summary:
+  en: >
+    `insertPublicDownload` mints a tokenised download URL for a document that
+    anyone can use, without an ELO login. Pass `opts.objId` and optionally
+    `remaining` (a download budget), `expiration`, `fileNameFromSordName` and
+    `contentDispositionAttachment`. It returns a `PublicDownload`
+    ({ id, url, fileName, remaining, ... }). `getPublicDownloads` lists the
+    links for an object; `terminatePublicDownloadUrls` revokes them (by
+    `opts.objId` for all of an object's, or `opts.downloadIds` for specific
+    ones). The URL points at the document connector (`:9093`). The snippet
+    uploads its own throwaway document and removes it. This WRITES.
+    (Verified live.)
+  de: "`insertPublicDownload` erzeugt eine tokenisierte Download-URL für ein Dokument, die jeder ohne ELO-Anmeldung nutzen kann. `opts.objId` übergeben und optional `remaining` (ein Download-Budget), `expiration`, `fileNameFromSordName` und `contentDispositionAttachment`. Zurück kommt ein `PublicDownload` ({ id, url, fileName, remaining, ... }). `getPublicDownloads` listet die Links eines Objekts; `terminatePublicDownloadUrls` widerruft sie (über `opts.objId` für alle eines Objekts oder `opts.downloadIds` für einzelne). Die URL zeigt auf den Dokument-Connector (`:9093`). Das Snippet lädt sein eigenes Wegwerf-Dokument hoch und entfernt es. Das SCHREIBT. (Live bestätigt.)"
+  es: "`insertPublicDownload` genera una URL de descarga con token para un documento que cualquiera puede usar, sin iniciar sesión en ELO. Se pasa `opts.objId` y opcionalmente `remaining` (un presupuesto de descargas), `expiration`, `fileNameFromSordName` y `contentDispositionAttachment`. Devuelve un `PublicDownload` ({ id, url, fileName, remaining, ... }). `getPublicDownloads` lista los enlaces de un objeto; `terminatePublicDownloadUrls` los revoca (por `opts.objId` todos los de un objeto, o `opts.downloadIds` los puntuales). La URL apunta al conector de documentos (`:9093`). El snippet sube su propio documento desechable y lo elimina. Esto ESCRIBE. (Verificado en vivo.)"
+
+elo_api:
+  - method: insertPublicDownload
+    rpc: POST /rest/IXServicePortIF/insertPublicDownload
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/insertPublicDownload
+    notes:
+      en: 'Body { opts: { objId, remaining?, expiration?, fileNameFromSordName?, contentDispositionAttachment? } }. Returns a PublicDownload with a .url.'
+      de: 'Body { opts: { objId, remaining?, expiration?, fileNameFromSordName?, contentDispositionAttachment? } }. Liefert ein PublicDownload mit .url.'
+      es: 'Cuerpo { opts: { objId, remaining?, expiration?, fileNameFromSordName?, contentDispositionAttachment? } }. Devuelve un PublicDownload con .url.'
+  - method: getPublicDownloads
+    rpc: POST /rest/IXServicePortIF/getPublicDownloads
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/getPublicDownloads
+    notes:
+      en: 'Body { opts: { objId } } -> [PublicDownload]. Empty opts lists every public download you can see.'
+      de: 'Body { opts: { objId } } -> [PublicDownload]. Leere opts listet alle sichtbaren öffentlichen Downloads.'
+      es: 'Cuerpo { opts: { objId } } -> [PublicDownload]. opts vacío lista todas las descargas públicas visibles.'
+  - method: terminatePublicDownloadUrls
+    rpc: POST /rest/IXServicePortIF/terminatePublicDownloadUrls
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/terminatePublicDownloadUrls
+    notes:
+      en: 'Body { opts: { objId } } revokes all of an object''s links; { opts: { downloadIds: [id] } } revokes specific ones.'
+      de: 'Body { opts: { objId } } widerruft alle Links eines Objekts; { opts: { downloadIds: [id] } } widerruft einzelne.'
+      es: 'Cuerpo { opts: { objId } } revoca todos los enlaces de un objeto; { opts: { downloadIds: [id] } } revoca los puntuales.'
+
+result_shape: |
+  uploaded doc 5570
+  share url : https://your-elo-host:9093/ix-Repository1/ix?cmd=readdoc1&downloadid=(37542D34-...)&fname=pg-share.txt.txt
+  remaining : 5
+  links now : 1
+  after revoke: 0
+  cleaned up
+
+snippets:
+  python: |
+    from elo_playground import connect, EloError
+
+    elo = connect()
+    ALL = "449304431574384639"
+
+    # --- provision: upload a throwaway document ---
+    body = b"public share demo\n"
+    sord = elo.call("createDoc", {"parentId": 1, "maskId": 0,
+                                  "editInfoZ": {"bset": "1", "sordZ": {"bset": ALL}}})["sord"]
+    sord["name"] = "pg-share.txt"
+    doc = elo.call("checkinDocBegin", {"sord": sord, "document": {"docs": [{"ext": "txt"}]}})
+    doc["docs"][0]["uploadResult"] = elo.upload(doc["docs"][0]["url"], body)
+    obj_id = str(elo.call("checkinDocEnd", {"sord": sord, "document": doc,
+                                            "sordZ": {"bset": ALL}, "unlockZ": {"bset": "1"}})["objId"])
+    print("uploaded doc", obj_id)
+
+    try:
+        # 1) mint a public download link (5 downloads, no expiry)
+        pd = elo.call("insertPublicDownload", {"opts": {
+            "objId": obj_id, "remaining": 5, "fileNameFromSordName": True,
+        }})
+        print("share url :", pd.get("url"))
+        print("remaining :", pd.get("remaining"))
+
+        # 2) list the links for this object
+        links = elo.call("getPublicDownloads", {"opts": {"objId": obj_id}})
+        print("links now :", len(links))
+
+        # 3) revoke them
+        elo.call("terminatePublicDownloadUrls", {"opts": {"objId": obj_id}})
+        print("after revoke:", len(elo.call("getPublicDownloads", {"opts": {"objId": obj_id}})))
+    except EloError as exc:
+        print("share-link operation failed:", exc)
+    finally:
+        for step in (False, True):
+            try:
+                elo.call("deleteSord", {"objId": obj_id, "parentId": "1",
+                                        "deleteOptions": {"deleteFinally": step}})
+            except EloError:
+                pass
+        print("cleaned up")
+        elo.close()
+
+  node: |
+    import { connect, EloError } from "elo-playground";
+
+    const elo = await connect();
+    const ALL = "449304431574384639";
+
+    // --- provision: upload a throwaway document ---
+    const body = Buffer.from("public share demo\n", "utf-8");
+    const sord = (await elo.call("createDoc", {
+      parentId: 1, maskId: 0, editInfoZ: { bset: "1", sordZ: { bset: ALL } },
+    })).sord;
+    sord.name = "pg-share.txt";
+    const doc = await elo.call("checkinDocBegin", { sord, document: { docs: [{ ext: "txt" }] } });
+    doc.docs[0].uploadResult = await elo.upload(doc.docs[0].url, body);
+    const objId = String((await elo.call("checkinDocEnd", {
+      sord, document: doc, sordZ: { bset: ALL }, unlockZ: { bset: "1" },
+    })).objId);
+    console.log("uploaded doc", objId);
+
+    try {
+      // 1) mint a public download link
+      const pd = await elo.call("insertPublicDownload", {
+        opts: { objId, remaining: 5, fileNameFromSordName: true },
+      });
+      console.log("share url :", pd.url);
+      console.log("remaining :", pd.remaining);
+
+      // 2) list the links for this object
+      const links = await elo.call("getPublicDownloads", { opts: { objId } });
+      console.log("links now :", links.length);
+
+      // 3) revoke them
+      await elo.call("terminatePublicDownloadUrls", { opts: { objId } });
+      console.log("after revoke:", (await elo.call("getPublicDownloads", { opts: { objId } })).length);
+    } catch (exc) {
+      if (exc instanceof EloError) console.log("share-link operation failed:", exc.message);
+      else throw exc;
+    } finally {
+      for (const step of [false, true]) {
+        try {
+          await elo.call("deleteSord", { objId, parentId: "1", deleteOptions: { deleteFinally: step } });
+        } catch (e) { /* best effort */ }
+      }
+      console.log("cleaned up");
+      elo.close();
+    }
+
+  browser: |
+    // Uploading a document is not available from the browser (the connector is
+    // on another origin). Run this one from the Python or Node tab.
+    const elo = await connect();
+    const objId = "5570"; // an existing document's id
+
+    try {
+      const pd = await elo.call("insertPublicDownload", {
+        opts: { objId, remaining: 5, fileNameFromSordName: true },
+      });
+      console.log("share url :", pd.url);
+      const links = await elo.call("getPublicDownloads", { opts: { objId } });
+      console.log("links now :", links.length);
+      await elo.call("terminatePublicDownloadUrls", { opts: { objId } });
+      console.log("revoked");
+    } catch (exc) {
+      console.log("share-link operation failed:", exc.message);
+    }
+
+mock:
+  createDoc:
+    sord: { id: 0, name: "", parentId: 1 }
+  checkinDocBegin:
+    docs:
+      - { url: "mock://writedoc/1", ext: "txt" }
+  checkinDocEnd:
+    objId: 5570
+  insertPublicDownload:
+    id: "(37542D34-1284-2799-EA1B-94D56E760AD6)"
+    objId: 5570
+    remaining: 5
+    expiration: ""
+    fileName: "pg-share.txt.txt"
+    attachmentCode: "attachment"
+    url: "https://your-elo-host:9093/ix-Repository1/ix?cmd=readdoc1&downloadid=(37542D34-1284-2799-EA1B-94D56E760AD6)&fname=pg-share.txt.txt"
+  getPublicDownloads:
+    - result:
+        - id: "(37542D34-1284-2799-EA1B-94D56E760AD6)"
+          objId: 5570
+          remaining: 5
+          url: "https://your-elo-host:9093/ix-Repository1/ix?cmd=readdoc1&downloadid=(37542D34-1284-2799-EA1B-94D56E760AD6)&fname=pg-share.txt.txt"
+    - result: []
+  terminatePublicDownloadUrls: {}
+  deleteSord: {}
