@@ -3,7 +3,7 @@ import base64
 import textwrap
 
 from app.models import Attachment, RunRequest
-from app.runner import mock_data, run_python
+from app.runner import _run_command, mock_data, run, run_python
 
 
 def _run(code: str, topic_id: str | None = None, attachment: Attachment | None = None) -> object:
@@ -70,3 +70,44 @@ def test_mock_data_merges_default_and_topic():
     data = mock_data("connection.server-info")
     assert "login" in data              # from fixtures/ix/default.json
     assert "getServerInfo" in data      # from the topic's mock: block
+
+
+def test_new_runtime_dispatches_to_compiled_runner(monkeypatch):
+    """Go, PHP and Java use the isolated runner rather than the browser path."""
+    from app import runner as runner_mod
+
+    seen: list[str] = []
+
+    def fake_compiled(req, language):
+        seen.append(language)
+        return runner_mod.RunResult(ok=True, stdout=language)
+
+    monkeypatch.setattr(runner_mod, "run_compiled", fake_compiled)
+    for language in ("go", "php", "java"):
+        result = run(RunRequest(language=language, code="ignored", mock=True))
+        assert result.ok
+    assert seen == ["go", "php", "java"]
+
+
+def test_run_request_accepts_only_registered_new_runtime_names():
+    for language in ("go", "php", "java", "rhino"):
+        assert RunRequest(language=language, code="", mock=True).language == language
+
+
+def test_missing_toolchain_is_an_explicit_runner_error():
+    result = _run_command(
+        RunRequest(language="go", code="", mock=True),
+        ["elopg-definitely-not-installed"],
+        "snippet.go",
+    )
+    assert not result.ok
+    assert result.exit_code is None
+    assert "toolchain not installed: elopg-definitely-not-installed" == result.detail
+
+
+def test_rhino_is_not_executed_as_browser_or_local_code():
+    result = run(RunRequest(language="rhino", code="throw 'must not run'", mock=True))
+    assert not result.ok
+    assert result.exit_code is None
+    assert "IndexServer script artifacts" in result.detail
+    assert "Web Client injection" in result.detail

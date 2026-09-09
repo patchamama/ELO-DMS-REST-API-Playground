@@ -5,6 +5,7 @@ Python  -> pyflakes over snippets/python/ and every fenced ```python block in
 Node / browser -> scripts/check_snippets_js.mjs (acorn-based; also covers the
            ```js blocks in the deep dives).
 """
+import os
 import re
 import shutil
 import subprocess
@@ -62,3 +63,20 @@ def test_node_and_browser_snippets_have_no_undefined_names():
         pytest.skip("node or check_snippets_js.mjs unavailable")
     proc = subprocess.run([node, str(_JS_CHECK)], capture_output=True, text=True, cwd=_ROOT, check=False)
     assert proc.returncode == 0, proc.stdout + proc.stderr
+
+
+def test_go_mock_snippet_runs_against_canonical_fixture():
+    """A representative generated Go sample proves fixture wiring and syntax.
+
+    The full runtime matrix is intentionally left to CI/toolchain jobs; this is
+    a narrow offline check and never calls a live ELO endpoint.
+    """
+    go = shutil.which("go")
+    if not go:
+        pytest.skip("Go toolchain unavailable")
+    snippet = _ROOT / "snippets" / "go" / "00-connection" / "02-server-info.go"
+    fixture = _ROOT / "fixtures" / "ix" / "default.json"
+    env = {"PATH": os.environ.get("PATH", ""), "ELOPG_MOCK": "1", "ELOPG_MOCK_DATA": str(fixture)}
+    proc = subprocess.run([go, "run", str(snippet)], capture_output=True, text=True, cwd=_ROOT, env=env, check=False)
+    assert proc.returncode == 0, proc.stderr
+    assert "25.00.001.003" in proc.stdout

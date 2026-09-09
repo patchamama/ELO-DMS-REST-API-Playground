@@ -248,6 +248,32 @@ def generate(detail: dict, language: str) -> str:
         if p["name"] not in _SKIP_PROPS
     ]
 
+    if language == "go":
+        return (
+            "// Requires the shared/go teaching client or your own IX REST transport.\n"
+            'client := &elo.Client{BaseURL: "http://localhost:9090/ix-Repository1", User: "Administrator", Password: os.Getenv("ELOPG_ELO_PASSWORD")}\n'
+            "var result map[string]any\n"
+            f'if err := client.Call("{method}", map[string]any{{}}, &result); err != nil {{ panic(err) }}\n'
+            "fmt.Println(result)\n"
+        )
+    if language == "php":
+        return (
+            "require_once 'EloClient.php';\n"
+            '$elo = new EloClient("http://localhost:9090/ix-Repository1", "Administrator", getenv("ELOPG_ELO_PASSWORD") ?: "");\n'
+            f'print_r($elo->call("{method}", []));\n'
+        )
+    if language == "java":
+        return (
+            "// Requires shared/java/EloClient.java on the classpath.\n"
+            'var elo = new EloClient("http://localhost:9090/ix-Repository1", "Administrator", System.getenv("ELOPG_ELO_PASSWORD"));\n'
+            f'System.out.println(elo.call("{method}", "{{}}"));\n'
+        )
+    if language == "rhino":
+        return (
+            "// Deploy a reviewed server-side Rhino function, then call it through IXServicePortIF.executeScript.\n"
+            "// Never inject this code into Web Client and never accept arbitrary script names or code.\n"
+            'var result = ixConnect.ix().executeScript("RF_playground_readMetadata", { objId: "<object-id>" });\n'
+        )
     if language == "python":
         svc_arg = "" if service == "IXServicePortIF" else f', service="{service}"'
         if not body_lines:

@@ -168,7 +168,7 @@ def api_spec_op(operation_id: str, mock: bool = True, base_url: str | None = Non
     detail = openapi_ref.operation_detail(_spec(mock, base_url), operation_id)
     if detail is None:
         raise HTTPException(404, f"unknown operation: {operation_id}")
-    detail["snippets"] = {lang: openapi_ref.generate(detail, lang) for lang in ("python", "node", "browser")}
+    detail["snippets"] = {lang: openapi_ref.generate(detail, lang) for lang in ("python", "node", "browser", "go", "php", "java", "rhino")}
     return detail
 
 

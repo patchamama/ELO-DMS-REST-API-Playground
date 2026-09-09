@@ -6,6 +6,6 @@ from pathlib import Path
 _BACKEND = Path(__file__).resolve().parent
 _SHARED_PY = _BACKEND.parent / "shared" / "python"
 
-for p in (_BACKEND, _SHARED_PY):
+for p in (_BACKEND, _SHARED_PY, _BACKEND.parent):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))

@@ -15,17 +15,20 @@ from pathlib import Path
 
 import yaml
 
+from multiruntime import EXTENSIONS as _EXT, generate as _generate_multiruntime
+
 ROOT = Path(__file__).resolve().parent.parent
 CATALOG = ROOT / "catalog"
 SNIPPETS = ROOT / "snippets"
 
-_EXT = {"python": "py", "node": "mjs", "browser": "js"}
 _IMPORT_HINT = {
     "python": "# import the shared client:  from elo_playground import connect",
     "node": '// import the shared client:  import { connect } from "elo-playground";',
     "browser": '// in a real page:  import { connect } from "./eloClient.browser.js"\n'
     "// (in the playground run-sandbox, connect() is already a global)",
 }
+
+_COMMENT_PREFIX = {"python": "# ", "php": "// ", "go": "// ", "java": "// ", "rhino": "// ", "node": "// ", "browser": "// "}
 
 
 def _pick(value: object) -> str:
@@ -35,17 +38,20 @@ def _pick(value: object) -> str:
 
 
 def _render(topic: dict, language: str) -> str:
-    body = ((topic.get("snippets") or {}).get(language) or "").strip("\n")
+    body = ((topic.get("snippets") or {}).get(language) or _generate_multiruntime(topic, language)).strip("\n")
     if not body:
         return ""
+    # New runtimes are self-contained standard-library examples; unlike the
+    # legacy snippets they do not need an import banner.
+    if language in ("go", "php", "java", "rhino"):
+        return body + "\n"
+    prefix = _COMMENT_PREFIX[language]
     header = (
-        f"{_IMPORT_HINT[language]}\n"
-        f"# topic:    {_pick(topic.get('title'))}\n"
-        f"# category: {_pick(topic.get('category'))}\n"
-        f"# id:       {topic.get('id')}\n"
+        f"{_IMPORT_HINT.get(language, prefix + 'standalone offline mock example')}\n"
+        f"{prefix}topic:    {_pick(topic.get('title'))}\n"
+        f"{prefix}category: {_pick(topic.get('category'))}\n"
+        f"{prefix}id:       {topic.get('id')}\n"
     )
-    if language != "python":
-        header = header.replace("# ", "// ")
     return header + "\n" + body + "\n"
 
 

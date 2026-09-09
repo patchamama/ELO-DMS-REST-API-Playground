@@ -73,6 +73,19 @@ def test_generate_python_and_node():
     assert "await connect({ baseUrl: ELO_BASE_URL, user: ELO_USER, password: ELO_PASS })" in browser
 
 
+def test_generate_new_runtime_templates_and_safe_rhino_contract():
+    d = openapi_ref.operation_detail(SPEC, "IXServicePortIF_login")
+    go = openapi_ref.generate(d, "go")
+    php = openapi_ref.generate(d, "php")
+    java = openapi_ref.generate(d, "java")
+    rhino = openapi_ref.generate(d, "rhino")
+    assert 'client.Call("login"' in go
+    assert '$elo->call("login"' in php
+    assert 'elo.call("login", "{}")' in java
+    assert "executeScript" in rhino
+    assert "Never inject" in rhino
+
+
 def test_non_default_service_adds_service_arg():
     ops = openapi_ref.operations(SPEC)
     non_ix = next((o for o in ops if o["service"] != "IXServicePortIF"), None)
@@ -98,7 +111,7 @@ def test_spec_operations_endpoint():
 def test_spec_op_endpoint_returns_snippets():
     r = client.get("/api/spec/op/IXServicePortIF_login?mock=1")
     d = r.json()
-    assert set(d["snippets"]) == {"python", "node", "browser"}
+    assert set(d["snippets"]) == {"python", "node", "browser", "go", "php", "java", "rhino"}
     assert client.get("/api/spec/op/Nope_nope?mock=1").status_code == 404
 
 

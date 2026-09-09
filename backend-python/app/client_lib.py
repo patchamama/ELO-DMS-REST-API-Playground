@@ -12,12 +12,16 @@ _FILES = [
     ("python", "elo_playground/mock.py", "shared/python/elo_playground/mock.py"),
     ("node", "eloClient.mjs", "shared/node/eloClient.mjs"),
     ("browser", "eloClient.browser.js", "shared/browser/eloClient.browser.js"),
+    ("go", "elo.go", "shared/go/elo.go"),
+    ("php", "EloClient.php", "shared/php/EloClient.php"),
+    ("java", "EloClient.java", "shared/java/EloClient.java"),
+    ("rhino", "README.md", "catalog/90-lab/_rhino.md"),
 ]
 
 
 def client_lib() -> dict[str, list[dict[str, str]]]:
     root = get_settings().project_root
-    out: dict[str, list[dict[str, str]]] = {"python": [], "node": [], "browser": []}
+    out: dict[str, list[dict[str, str]]] = {"python": [], "node": [], "browser": [], "go": [], "php": [], "java": [], "rhino": []}
     for runtime, title, rel in _FILES:
         path = root / rel
         if path.is_file():

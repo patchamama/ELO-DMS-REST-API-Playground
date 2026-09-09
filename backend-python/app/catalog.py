@@ -21,6 +21,7 @@ import yaml
 
 from .config import get_settings
 from .models import ApiRef, Snippets, Topic
+from .multiruntime import generate as generate_multiruntime
 
 
 def _pick(value: Any, lang: str) -> str:
@@ -70,6 +71,10 @@ def load_topics(lang: str = "en") -> list[Topic]:
                     python=snip.get("python", "").strip("\n"),
                     node=snip.get("node", "").strip("\n"),
                     browser=snip.get("browser", "").strip("\n"),
+                    go=snip.get("go", generate_multiruntime(d, "go")).strip("\n"),
+                    php=snip.get("php", generate_multiruntime(d, "php")).strip("\n"),
+                    java=snip.get("java", generate_multiruntime(d, "java")).strip("\n"),
+                    rhino=snip.get("rhino", generate_multiruntime(d, "rhino")).strip("\n"),
                 ),
                 mock=d.get("mock") or {},
                 attach_file=bool(d.get("attach_file", False)),

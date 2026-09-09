@@ -15,7 +15,7 @@
     conn: "elopg.conn.v1",
     lang: "elopg.lang",
     topic: "elopg.topic", // "t:<id>" or "d:<categoryId>"
-    sub: "elopg.sublang", // last used snippet tab (python|node|browser)
+    sub: "elopg.sublang", // last used snippet tab
   };
   const $ = (sel, root) => (root || document).querySelector(sel);
   const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
@@ -41,6 +41,7 @@
   let T = {}; // i18n dictionary
   let LANG = store.get(LS.lang, "en");
   if (!["en", "de", "es"].includes(LANG)) LANG = "en";
+  const RUNTIMES = ["python", "node", "browser", "go", "php", "java", "rhino"];
   let BROWSER_CLIENT_SRC = null; // cached source of eloClient.browser.js
 
   // "static demo" mode: no backend - baked JSON under ./api/ and a run cache
@@ -882,7 +883,7 @@ ${snippet}
       )
       .join("");
 
-    const langs = ["python", "node", "browser"].filter((k) => (topic.snippets || {})[k]);
+    const langs = RUNTIMES.filter((k) => (topic.snippets || {})[k]);
     const tabs = langs
       .map((k) => `<button class="sub" data-lang="${k}">${esc(tr("tab." + k))}</button>`)
       .join("");
@@ -1111,7 +1112,7 @@ ${snippet}
   function makeRunner(language, code, topicId, cacheKey, getAttach) {
     code = applyCreds(code, language); // seed the ELO_* constants from the form
     let original = code;
-    const cmMode = language === "python" ? "python" : "javascript";
+    const cmMode = language === "python" ? "python" : (["node", "browser", "rhino"].includes(language) ? "javascript" : null);
     const wrap = document.createElement("div");
     wrap.className = "runner";
     wrap.innerHTML = `
@@ -1269,7 +1270,7 @@ ${snippet}
       host.innerHTML = `<p class="err">${esc(String(e))}</p>`;
       return;
     }
-    const langs = ["python", "node", "browser"].filter((k) => (data[k] || []).length);
+    const langs = RUNTIMES.filter((k) => (data[k] || []).length);
     const tabs = langs.map((k) => `<button class="sub" data-lang="${k}">${esc(tr("tab." + k))}</button>`).join("");
     const row = (m, d) => `<tr><td><code>${esc(m)}</code></td><td>${esc(tr(d))}</td></tr>`;
     host.innerHTML = `
@@ -1438,7 +1439,7 @@ ${snippet}
       host.innerHTML = `<p class="err">${esc(String(e))}</p>`;
       return;
     }
-    const langs = ["python", "node", "browser"];
+    const langs = RUNTIMES;
     const tabs = langs.map((k) => `<button class="sub" data-lang="${k}">${esc(tr("tab." + k))}</button>`).join("");
     const usedBy = (d.used_by || [])
       .map((u) => `<button class="link xref" data-topic="${esc(u.id)}">${esc(u.title)}</button>`)
@@ -1551,7 +1552,7 @@ ${snippet}
         'const elo = await connect({ baseUrl: ELO_BASE_URL, user: ELO_USER, password: ELO_PASS });\n' +
         'console.log((await elo.call("getServerInfo", {})).version);\n',
     };
-    const cmMode = (lang) => (lang === "python" ? "python" : "javascript");
+      const cmMode = (lang) => (lang === "python" ? "python" : (["node", "browser", "rhino"].includes(lang) ? "javascript" : null));
 
     let touched = false;
     let getCode = () => codeEl.value;

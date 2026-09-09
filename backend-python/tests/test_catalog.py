@@ -13,6 +13,13 @@ def test_topics_load_and_have_required_fields():
         assert t.category_id.startswith(tuple("0123456789"))
         # at least one runnable snippet
         assert t.snippets.python or t.snippets.node or t.snippets.browser
+        # Every catalogue entry also gets standard-library mock examples for
+        # backend runtimes and a reviewed server-side Rhino artifact.
+        assert t.snippets.go and t.snippets.php and t.snippets.java and t.snippets.rhino
+        assert "ELOPG_MOCK_DATA" in t.snippets.go
+        assert "ELOPG_MOCK_DATA" in t.snippets.php
+        assert "ELOPG_MOCK_DATA" in t.snippets.java
+        assert "NOT Web Client injection" in t.snippets.rhino
 
 
 def test_every_api_ref_points_somewhere():
