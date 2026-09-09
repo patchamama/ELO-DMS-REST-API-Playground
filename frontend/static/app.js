@@ -383,15 +383,21 @@ const post = (level, args) => parent.postMessage({ __elopg: true, level, text: a
   const orig = console[k] ? console[k].bind(console) : function(){};
   console[k] = (...a) => { orig(...a); post(k === "info" ? "log" : k, a); };
 });
+// show the message, not just the stack (Firefox's err.stack has no message line)
+const errText = (err) => {
+  if (!err) return String(err);
+  if (err.message) return (err.name || "Error") + ": " + err.message;
+  return String(err.stack || err);
+};
 window.addEventListener("error", (e) => post("error", [e.message]));
-window.addEventListener("unhandledrejection", (e) => post("error", [String(e.reason && e.reason.stack || e.reason)]));
+window.addEventListener("unhandledrejection", (e) => post("error", [errText(e.reason)]));
 ${clientSrc}
 (async () => {
   try {
 ${snippet}
     parent.postMessage({ __elopg: true, done: true, ok: true }, "*");
   } catch (err) {
-    post("error", [String(err && err.stack || err)]);
+    post("error", [errText(err)]);
     parent.postMessage({ __elopg: true, done: true, ok: false }, "*");
   }
 })();

@@ -77,3 +77,20 @@ def test_proxy_returns_mock_result():
 def test_proxy_reports_missing_mock_method_as_error():
     r = client.post("/api/elo/proxy", json={"method": "nonExistentCall", "mock": True})
     assert "error" in r.json()
+
+
+def test_proxy_login_returns_the_session_user_without_re_calling_ix():
+    # a browser snippet's elo.login() must NOT forward a body-less "login" RPC
+    # (IX rejects it); the proxy answers from the already-logged-in session.
+    r = client.post(
+        "/api/elo/proxy",
+        json={"method": "login", "body": {}, "mock": True, "topic_id": "connection.login"},
+    )
+    body = r.json()
+    assert "error" not in body
+    assert body["result"]["user"]["name"] == "Administrator"
+
+
+def test_proxy_logout_is_a_noop():
+    r = client.post("/api/elo/proxy", json={"method": "logout", "body": {}, "mock": True})
+    assert r.json() == {"result": {}}
