@@ -1,0 +1,156 @@
+id: lab.find
+order: 1
+category:
+  en: Testing lab
+  de: Testlabor
+  es: Laboratorio de pruebas
+title:
+  en: Find an object by GUID, id or name
+  de: Ein Objekt über GUID, ID oder Name finden
+  es: Buscar un objeto por GUID, ID o nombre
+summary:
+  en: >
+    Three ways into the archive. `checkoutSord` resolves a single object by its
+    integer id OR by the parenthesised `(GUID)` ELO shows in its UI.
+    `findFirstSords` with `findByIndex.name` matches on the short-name index and
+    accepts `*` wildcards. For words INSIDE documents use `findByFulltext` -
+    that is the iSearch / Elasticsearch index (see the Search category).
+    (Verified live.)
+  de: "Drei Wege ins Archiv. `checkoutSord` löst ein einzelnes Objekt über seine Ganzzahl-ID ODER über die geklammerte `(GUID)` aus der ELO-Oberfläche auf. `findFirstSords` mit `findByIndex.name` sucht über den Kurznamen-Index und erlaubt `*`-Platzhalter. Für Wörter INNERHALB von Dokumenten dient `findByFulltext` - das ist der iSearch-/Elasticsearch-Index (siehe Kategorie Suche). (Live bestätigt.)"
+  es: "Tres formas de entrar al archivo. `checkoutSord` resuelve un objeto por su id entero O por el `(GUID)` entre paréntesis que ELO muestra en su interfaz. `findFirstSords` con `findByIndex.name` busca sobre el índice de nombre corto y acepta comodines `*`. Para palabras DENTRO de los documentos se usa `findByFulltext` - ese es el índice iSearch / Elasticsearch (ver la categoría Búsqueda). (Verificado en vivo.)"
+
+elo_api:
+  - method: checkoutSord
+    rpc: POST /rest/IXServicePortIF/checkoutSord
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/checkoutSord
+    notes:
+      en: 'objId takes an int id or "(GUID)". sordZ goes INSIDE editInfoZ, editInfoZ.bset "1" (mbSord) fills result.sord.'
+      de: 'objId nimmt eine int-ID oder "(GUID)". sordZ gehört IN editInfoZ, editInfoZ.bset "1" (mbSord) füllt result.sord.'
+      es: 'objId toma un id entero o "(GUID)". sordZ va DENTRO de editInfoZ; editInfoZ.bset "1" (mbSord) llena result.sord.'
+  - method: findFirstSords
+    rpc: POST /rest/IXServicePortIF/findFirstSords
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/findFirstSords
+    notes:
+      en: 'findInfo.findByIndex.name searches the name index; "*" is a wildcard. Pair with findByFulltext for content.'
+      de: 'findInfo.findByIndex.name durchsucht den Namensindex; "*" ist ein Platzhalter. Für Inhalt mit findByFulltext kombinieren.'
+      es: 'findInfo.findByIndex.name busca en el índice de nombre; "*" es comodín. Combinar con findByFulltext para el contenido.'
+  - method: findClose
+    rpc: POST /rest/IXServicePortIF/findClose
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/findClose
+    notes:
+      en: 'Always release the searchId when you stop reading pages.'
+      de: 'Die searchId immer freigeben, wenn keine Seiten mehr gelesen werden.'
+      es: 'Liberá siempre el searchId cuando dejás de leer páginas.'
+
+result_shape: |
+  by id 2   -> Administration  guid (E10E1000-E100-E100-E100-E10E10E10E00)
+  by guid   -> Administration  (id 2)
+  by name   -> [(2, 'Administration'), (38, 'Administration Spaces')]
+
+snippets:
+  python: |
+    from elo_playground import connect
+
+    elo = connect()
+    ALL = "449304431574384639"          # "give me every Sord field" bitset
+
+    # --- by integer id --------------------------------------------------
+    by_id = elo.call("checkoutSord", {
+        "objId": 2,                                  # "Administration" on any repo
+        "editInfoZ": {"bset": "1", "sordZ": {"bset": ALL}},
+    })["sord"]
+    print(f"by id 2   -> {by_id['name']}  guid {by_id['guid']}")
+
+    # --- by GUID (same call - objId also accepts a "(GUID)") ----------
+    by_guid = elo.call("checkoutSord", {
+        "objId": by_id["guid"],
+        "editInfoZ": {"bset": "1", "sordZ": {"bset": ALL}},
+    })["sord"]
+    print(f"by guid   -> {by_guid['name']}  (id {by_guid['id']})")
+
+    # --- by name (findByIndex.name, '*' wildcards allowed) -----------
+    res = elo.call("findFirstSords", {
+        "findInfo": {"findByIndex": {"name": "Administration*"}},
+        "max": 10,
+        "sordZ": {"bset": ALL},
+    })
+    print("by name   ->", [(s["id"], s["name"]) for s in res.get("sords", [])])
+    elo.call("findClose", {"searchId": res.get("searchId")})
+
+    # For CONTENT (words inside documents) use findByFulltext - the
+    # iSearch / Elasticsearch index. See the "Search" category.
+
+  node: |
+    import { connect } from "elo-playground";
+
+    const elo = await connect();
+    const ALL = "449304431574384639";
+
+    // --- by integer id ---------------------------------------------
+    const byId = (await elo.call("checkoutSord", {
+      objId: 2,                                    // "Administration" on any repo
+      editInfoZ: { bset: "1", sordZ: { bset: ALL } },
+    })).sord;
+    console.log(`by id 2   -> ${byId.name}  guid ${byId.guid}`);
+
+    // --- by GUID (objId also accepts a "(GUID)") -----------------
+    const byGuid = (await elo.call("checkoutSord", {
+      objId: byId.guid,
+      editInfoZ: { bset: "1", sordZ: { bset: ALL } },
+    })).sord;
+    console.log(`by guid   -> ${byGuid.name}  (id ${byGuid.id})`);
+
+    // --- by name (findByIndex.name, '*' wildcards) --------------
+    const res = await elo.call("findFirstSords", {
+      findInfo: { findByIndex: { name: "Administration*" } },
+      max: 10,
+      sordZ: { bset: ALL },
+    });
+    console.log("by name   ->", (res.sords || []).map((s) => [s.id, s.name]));
+    await elo.call("findClose", { searchId: res.searchId });
+
+    // For CONTENT search use findByFulltext (iSearch / Elasticsearch).
+
+  browser: |
+    const elo = await connect();
+    const ALL = "449304431574384639";
+
+    const byId = (await elo.call("checkoutSord", {
+      objId: 2, editInfoZ: { bset: "1", sordZ: { bset: ALL } },
+    })).sord;
+    console.log("by id 2 ->", byId.name, byId.guid);
+
+    const byGuid = (await elo.call("checkoutSord", {
+      objId: byId.guid, editInfoZ: { bset: "1", sordZ: { bset: ALL } },
+    })).sord;
+    console.log("by guid ->", byGuid.name, "(id " + byGuid.id + ")");
+
+    const res = await elo.call("findFirstSords", {
+      findInfo: { findByIndex: { name: "Administration*" } },
+      max: 10, sordZ: { bset: ALL },
+    });
+    console.log("by name ->", (res.sords || []).map((s) => [s.id, s.name]));
+    await elo.call("findClose", { searchId: res.searchId });
+
+mock:
+  checkoutSord:
+    - sord:
+        id: 2
+        name: "Administration"
+        guid: "(E10E1000-E100-E100-E100-E10E10E10E00)"
+        type: 1
+    - sord:
+        id: 2
+        name: "Administration"
+        guid: "(E10E1000-E100-E100-E100-E10E10E10E00)"
+        type: 1
+  findFirstSords:
+    searchId: "(MOCK-LAB-FIND)"
+    moreResults: false
+    sords:
+      - { id: 2, name: "Administration" }
+      - { id: 38, name: "Administration Spaces" }
+  findClose: {}

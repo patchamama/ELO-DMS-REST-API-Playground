@@ -1,0 +1,168 @@
+id: lab.owner-color-acl
+order: 3
+category:
+  en: Testing lab
+  de: Testlabor
+  es: Laboratorio de pruebas
+title:
+  en: Change owner, colour and permissions
+  de: Eigentümer, Farbe und Berechtigungen ändern
+  es: Cambiar dueño, color y permisos
+summary:
+  en: >
+    All three live on the Sord and are written the same way: check out, edit,
+    `checkinSord` with a full write bitset. `sord.kind` IS the colour id -
+    `checkoutColors` lists the palette. `sord.ownerId` is the owner (reassigning
+    to another user needs a main-administrator; `ownerName` is read-only).
+    `sord.aclItems` is the permission list: each entry is `{id, type, access}`
+    where `access` is a bitmask (1 R, 2 W, 4 D, 8 edit-rights, 16 L, 32 P;
+    63 = full). This WRITES. (Colour + ACL entry verified live on a scratch
+    folder, then deleted.)
+  de: "Alle drei liegen am Sord und werden gleich geschrieben: auschecken, ändern, `checkinSord` mit vollem Schreib-Bitset. `sord.kind` IST die Farb-ID - `checkoutColors` listet die Palette. `sord.ownerId` ist der Eigentümer (Neuzuweisung an einen anderen Benutzer erfordert einen Hauptadministrator; `ownerName` ist schreibgeschützt). `sord.aclItems` ist die Berechtigungsliste: jeder Eintrag ist `{id, type, access}`, wobei `access` eine Bitmaske ist (1 R, 2 W, 4 D, 8 Rechte, 16 L, 32 P; 63 = voll). Das SCHREIBT. (Farbe + ACL-Eintrag live an einem Wegwerf-Ordner bestätigt und wieder gelöscht.)"
+  es: "Los tres viven en el Sord y se escriben igual: hacer checkout, editar, `checkinSord` con un bitset de escritura completo. `sord.kind` ES el id de color - `checkoutColors` lista la paleta. `sord.ownerId` es el dueño (reasignarlo a otro usuario requiere un administrador principal; `ownerName` es de solo lectura). `sord.aclItems` es la lista de permisos: cada entrada es `{id, type, access}`, donde `access` es una máscara de bits (1 R, 2 W, 4 D, 8 derechos, 16 L, 32 P; 63 = total). Esto ESCRIBE. (Color + entrada ACL verificados en vivo sobre una carpeta desechable y luego borrada.)"
+
+elo_api:
+  - method: checkoutColors
+    rpc: POST /rest/IXServicePortIF/checkoutColors
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/checkoutColors
+    notes:
+      en: 'Body { checkoutInfo: {} }. Returns the colour palette: [{ id, name, RGB, displayName }].'
+      de: 'Body { checkoutInfo: {} }. Liefert die Farbpalette: [{ id, name, RGB, displayName }].'
+      es: 'Cuerpo { checkoutInfo: {} }. Devuelve la paleta de colores: [{ id, name, RGB, displayName }].'
+  - method: checkoutSord
+    rpc: POST /rest/IXServicePortIF/checkoutSord
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/checkoutSord
+    notes:
+      en: 'Read the current kind / ownerId / aclItems before changing them.'
+      de: 'Aktuelles kind / ownerId / aclItems vor dem Ändern lesen.'
+      es: 'Leé el kind / ownerId / aclItems actual antes de cambiarlo.'
+  - method: checkinSord
+    rpc: POST /rest/IXServicePortIF/checkinSord
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/checkinSord
+    notes:
+      en: 'sordZ must be the full write bitset or the ACL / kind / owner change is dropped silently.'
+      de: 'sordZ muss das volle Schreib-Bitset sein, sonst wird die ACL-/kind-/Eigentümer-Änderung stillschweigend verworfen.'
+      es: 'sordZ debe ser el bitset de escritura completo o el cambio de ACL / kind / dueño se descarta en silencio.'
+
+result_shape: |
+  palette: [(0, 'ELO.COLOR.SYSTEM'), (1, 'Red'), (2, 'Yellow'), (3, 'Green')]
+  colour id: 2   owner: Administrator
+  acl: [('Jeder', 63), ('Administratoren', 17)]
+
+snippets:
+  python: |
+    from elo_playground import connect
+
+    elo = connect()
+    ALL = "449304431574384639"
+
+    obj_id = "5500"          # a throwaway object
+
+    # the colour palette (id -> name); colours are administered under Administration
+    palette = elo.call("checkoutColors", {"checkoutInfo": {}})
+    print("palette:", [(c["id"], c["name"]) for c in palette[:4]])
+
+    # read / modify / write
+    sord = elo.call("checkoutSord", {
+        "objId": obj_id, "editInfoZ": {"bset": "1", "sordZ": {"bset": ALL}},
+    })["sord"]
+
+    sord["kind"] = 2                       # 'kind' == colour id from the palette
+
+    # owner: an int user id. Reassigning needs a main-admin; ownerName is read-only.
+    # sord["ownerId"] = 123
+
+    # permissions: append an ACL entry {id, type, access}
+    #   type 0 = user/group id ;  access bits: 1 R  2 W  4 D  8 rights  16 L  32 P
+    sord.setdefault("aclItems", []).append({"id": 9998, "type": 0, "access": 1 + 16})
+
+    elo.call("checkinSord", {"sord": sord, "sordZ": {"bset": ALL}, "unlockZ": {"bset": "1"}})
+
+    after = elo.call("checkoutSord", {
+        "objId": obj_id, "editInfoZ": {"bset": "1", "sordZ": {"bset": ALL}},
+    })["sord"]
+    print("colour id:", after["kind"], "  owner:", after.get("ownerName"))
+    print("acl:", [(a["name"], a["access"]) for a in after.get("aclItems", [])])
+
+  node: |
+    import { connect } from "elo-playground";
+
+    const elo = await connect();
+    const ALL = "449304431574384639";
+
+    const objId = "5500"; // a throwaway object
+
+    // the colour palette (id -> name)
+    const palette = await elo.call("checkoutColors", { checkoutInfo: {} });
+    console.log("palette:", palette.slice(0, 4).map((c) => [c.id, c.name]));
+
+    // read / modify / write
+    const sord = (await elo.call("checkoutSord", {
+      objId, editInfoZ: { bset: "1", sordZ: { bset: ALL } },
+    })).sord;
+
+    sord.kind = 2; // 'kind' == colour id from the palette
+
+    // owner: an int user id. Reassigning needs a main-admin; ownerName is read-only.
+    // sord.ownerId = 123;
+
+    // permissions: append an ACL entry { id, type, access }
+    //   type 0 = user/group id ; access bits: 1 R  2 W  4 D  8 rights  16 L  32 P
+    (sord.aclItems ||= []).push({ id: 9998, type: 0, access: 1 + 16 });
+
+    await elo.call("checkinSord", { sord, sordZ: { bset: ALL }, unlockZ: { bset: "1" } });
+
+    const after = (await elo.call("checkoutSord", {
+      objId, editInfoZ: { bset: "1", sordZ: { bset: ALL } },
+    })).sord;
+    console.log("colour id:", after.kind, "  owner:", after.ownerName);
+    console.log("acl:", (after.aclItems || []).map((a) => [a.name, a.access]));
+
+  browser: |
+    const elo = await connect();
+    const ALL = "449304431574384639";
+    const objId = "5500";
+
+    const palette = await elo.call("checkoutColors", { checkoutInfo: {} });
+    console.log("palette:", palette.slice(0, 4).map((c) => [c.id, c.name]));
+
+    const sord = (await elo.call("checkoutSord", {
+      objId, editInfoZ: { bset: "1", sordZ: { bset: ALL } },
+    })).sord;
+    sord.kind = 2;
+    (sord.aclItems ||= []).push({ id: 9998, type: 0, access: 1 + 16 });
+    await elo.call("checkinSord", { sord, sordZ: { bset: ALL }, unlockZ: { bset: "1" } });
+
+    const after = (await elo.call("checkoutSord", {
+      objId, editInfoZ: { bset: "1", sordZ: { bset: ALL } },
+    })).sord;
+    console.log("colour id:", after.kind, "owner:", after.ownerName);
+    console.log("acl:", (after.aclItems || []).map((a) => [a.name, a.access]));
+
+mock:
+  checkoutColors:
+    result:
+      - { id: 0, name: "ELO.COLOR.SYSTEM", RGB: 0, displayName: "System color" }
+      - { id: 1, name: "Red", RGB: 16711680, displayName: "Red" }
+      - { id: 2, name: "Yellow", RGB: 16776960, displayName: "Yellow" }
+      - { id: 3, name: "Green", RGB: 65280, displayName: "Green" }
+  checkoutSord:
+    - sord:
+        id: 5500
+        name: "pg-lab-crud"
+        kind: 0
+        ownerName: "Administrator"
+        aclItems:
+          - { id: 9999, type: 0, name: "Jeder", access: 63 }
+    - sord:
+        id: 5500
+        name: "pg-lab-crud"
+        kind: 2
+        ownerName: "Administrator"
+        aclItems:
+          - { id: 9999, type: 0, name: "Jeder", access: 63 }
+          - { id: 9998, type: 0, name: "Administratoren", access: 17 }
+  checkinSord: 5500
