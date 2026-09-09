@@ -37,24 +37,9 @@ if not exist "%ROOT%\.env" if exist "%ROOT%\env.sample" (
     echo [playground] Created .env from env.sample - review it if needed.
 )
 
-rem --- if the API port is busy, don't spawn a doomed second server -------
-netstat -ano | findstr /r /c:"LISTENING" | findstr /c:":%APIPORT% " >nul 2>&1
-if not errorlevel 1 (
-    set "PGRUNNING="
-    for /f "delims=" %%R in ('curl -s -m 2 "http://127.0.0.1:%APIPORT%/health" 2^>nul ^| findstr /c:"backend-python"') do set "PGRUNNING=1"
-    if defined PGRUNNING (
-        echo [playground] Already running on port %APIPORT% - opening the browser.
-        start "" "http://127.0.0.1:%APIPORT%"
-        endlocal
-        exit /b 0
-    )
-    echo.
-    echo [playground] ERROR: port %APIPORT% is in use by another program.
-    echo             Close it, or set ELOPG_PORT in .env to a free port, then re-run.
-    echo.
-    pause
-    exit /b 1
-)
+rem --- free the API port if something is already on it -------------------
+call :free_port %APIPORT%
+call :free_port %NODEPORT%
 
 echo [playground] Starting Node runner   -> http://127.0.0.1:%NODEPORT%
 start "playground-node" cmd /k "cd /d "%ROOT%" && node backend-node\src\server.mjs"
@@ -68,3 +53,19 @@ timeout /t 3 /nobreak >nul
 start "" "http://127.0.0.1:%APIPORT%"
 
 endlocal
+exit /b 0
+
+rem ====================================================================
+rem :free_port <port>  - if a process is LISTENING on <port>, kill it so
+rem this launch can take the port over. Uses Get-NetTCPConnection so it is
+rem independent of the (localized) netstat state column.
+:free_port
+set "_PORT=%~1"
+for /f "usebackq tokens=*" %%P in (`powershell -NoProfile -Command "(Get-NetTCPConnection -LocalPort %_PORT% -State Listen -ErrorAction SilentlyContinue).OwningProcess | Select-Object -Unique"`) do (
+    if not "%%P"=="" if not "%%P"=="0" (
+        echo [playground] port %_PORT% is in use by PID %%P - stopping it...
+        taskkill /F /PID %%P >nul 2>&1
+    )
+)
+timeout /t 1 /nobreak >nul
+goto :eof

@@ -146,10 +146,10 @@
     const f = $("#conn");
     f.base_url.value = blob.base_url || CFG.defaultBaseUrl || "";
     f.port.value = blob.port || CFG.defaultPort || DEFAULT_PORT;
-    f.user.value = blob.user || CFG.defaultUser || "";
-    // password: a remembered one wins; otherwise pre-fill from a local .env
-    // (ELOPG_ELO_PASSWORD) if the server sent one - never in the static demo.
-    f.password.value = blob.password || CFG.defaultPassword || "";
+    f.user.value = blob.user || CFG.defaultUser || "Administrator";
+    // password: a remembered one wins; then a local .env (ELOPG_ELO_PASSWORD);
+    // then the stock local test password. Overridden by whatever you type.
+    f.password.value = blob.password || CFG.defaultPassword || "elo";
     f.tls_verify.checked = blob.tls_verify !== false;
     f.mock.checked = blob.mock != null ? !!blob.mock : !!CFG.mockDefault;
     f.remember.checked = !!blob.remember;

@@ -24,7 +24,12 @@ from .mock import MockEloClient
 
 __all__ = ["EloClient", "MockEloClient", "EloError", "connect"]
 
+# Defaults for a stock local ELO test install. Any ELOPG_* env var overrides
+# these, so real deployments never rely on them - but a copied snippet still
+# runs out of the box.
 _DEFAULT_BASE_URL = "http://localhost:9090/ix-Repository1"
+_DEFAULT_USER = "Administrator"
+_DEFAULT_PASSWORD = "elo"
 
 
 def connect(*, login: bool = True) -> "EloClient | MockEloClient":
@@ -36,7 +41,7 @@ def connect(*, login: bool = True) -> "EloClient | MockEloClient":
       ELOPG_MOCK_DATA      path to the JSON mock map (the playground sets this)
       ELOPG_ELO_BASE_URL   default http://localhost:9090/ix-Repository1
       ELOPG_ELO_USER       default "Administrator"
-      ELOPG_ELO_PASSWORD   default ""  (empty)
+      ELOPG_ELO_PASSWORD   default "elo"  (the stock local test password)
       ELOPG_TLS_VERIFY     "0" -> skip TLS verification (self-signed ELO certs)
     """
     if _truthy(os.environ.get("ELOPG_MOCK")):
@@ -50,9 +55,9 @@ def connect(*, login: bool = True) -> "EloClient | MockEloClient":
         return client
 
     client = EloClient(
-        base_url=os.environ.get("ELOPG_ELO_BASE_URL", _DEFAULT_BASE_URL),
-        user=os.environ.get("ELOPG_ELO_USER", "Administrator"),
-        password=os.environ.get("ELOPG_ELO_PASSWORD", ""),
+        base_url=os.environ.get("ELOPG_ELO_BASE_URL") or _DEFAULT_BASE_URL,
+        user=os.environ.get("ELOPG_ELO_USER") or _DEFAULT_USER,
+        password=os.environ.get("ELOPG_ELO_PASSWORD") or _DEFAULT_PASSWORD,
         verify=not _falsy(os.environ.get("ELOPG_TLS_VERIFY")),
     )
     if login:

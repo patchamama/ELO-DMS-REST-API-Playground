@@ -51,17 +51,16 @@ read almost identically. The differences are:
 
 `connect()` reads the connection from **environment variables** -
 `ELOPG_ELO_BASE_URL`, `ELOPG_ELO_USER`, `ELOPG_ELO_PASSWORD`,
-`ELOPG_TLS_VERIFY` - with sensible defaults (`Administrator` on
-`http://localhost:9090/ix-Repository1`, password empty). When you press **Run**,
-the playground sets those from the connection form for the child process, so the
-snippet gets your real credentials without any hard-coded in it.
+`ELOPG_TLS_VERIFY`. If a variable is unset (or empty), it falls back to the
+values for a stock local ELO test box: `Administrator` / `elo` on
+`http://localhost:9090/ix-Repository1`. So a snippet copied into your own
+project runs as-is against a local ELO, and you override any of it by setting
+the `ELOPG_*` variables.
 
-The password is deliberately **not** in the snippets or defaults: this is a
-public repo, and a real password committed to it would be a leak. Put it in a
-local `.env` (`ELOPG_ELO_PASSWORD=...`, copied from `env.sample`) and the
-connection form pre-fills it; or tick *Remember password* to keep it in this
-browser. Copy a snippet into your own project and it works the same way - set
-the `ELOPG_*` variables in your environment.
+When you press **Run** in the playground, the connection form's values are
+passed through as `ELOPG_*` for that one run - so whatever you type in the form
+wins over the defaults. The form itself pre-fills from your local `.env`
+(`ELOPG_ELO_PASSWORD=...`), and *Remember password* keeps it in this browser.
 
 ## The static demo (GitHub Pages) - what runs?
 
