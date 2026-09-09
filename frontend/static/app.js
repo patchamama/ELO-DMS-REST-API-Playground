@@ -94,6 +94,28 @@
     return raw.replace(/\/+$/, "");
   }
 
+  // Rewrite a snippet's ELO_BASE_URL / ELO_USER / ELO_PASS constants from the
+  // current connection form. A blank form field keeps the snippet's built-in
+  // default. Only those three assignment lines are touched.
+  function applyCreds(code, language) {
+    const f = $("#conn");
+    if (!f || !code) return code;
+    const q = (v) => String(v).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+    const isPy = language === "python";
+    const set = (src, name, value) => {
+      if (!value) return src; // empty field -> leave the snippet's own default
+      const re = isPy
+        ? new RegExp('^([ \\t]*)' + name + '\\s*=\\s*"[^"]*"', "m")
+        : new RegExp('^([ \\t]*)const ' + name + '\\s*=\\s*"[^"]*"', "m");
+      const rep = isPy ? '$1' + name + ' = "' + q(value) + '"' : '$1const ' + name + ' = "' + q(value) + '"';
+      return src.replace(re, rep);
+    };
+    let out = set(code, "ELO_BASE_URL", effectiveBaseUrl());
+    out = set(out, "ELO_USER", (f.user.value || "").trim());
+    out = set(out, "ELO_PASS", f.password.value || "");
+    return out;
+  }
+
   function readConn() {
     const f = $("#conn");
     return {
@@ -1071,7 +1093,8 @@ ${snippet}
 
   // one EDITABLE code block + Copy + Reset + Run + output panel
   function makeRunner(language, code, topicId, cacheKey, getAttach) {
-    const original = code;
+    code = applyCreds(code, language); // seed the ELO_* constants from the form
+    let original = code;
     const cmMode = language === "python" ? "python" : "javascript";
     const wrap = document.createElement("div");
     wrap.className = "runner";
@@ -1141,6 +1164,19 @@ ${snippet}
     }
     if (cm) cm.on("change", refreshMeta);
     else editHost.querySelector("textarea").addEventListener("input", refreshMeta);
+
+    // re-sync the ELO_* constants when the connection form changes. Only those
+    // three lines move; the user's other edits (and the "edited" flag) survive.
+    wrap._syncCreds = () => {
+      const before = getCode();
+      const after = applyCreds(before, language);
+      original = applyCreds(original, language);
+      if (after !== before) {
+        setCode(after);
+        if (cm) cm.refresh();
+      }
+      refreshMeta();
+    };
 
     // --- buttons -------------------------------------------------------
     btn.addEventListener("click", () => {
@@ -1555,10 +1591,25 @@ ${snippet}
     btn.textContent = isHttps ? "→ http" : "→ https";
   }
 
+  // push the current form user / password / Base URL into every open runner's
+  // ELO_* constants (debounced)
+  let credSyncTimer = 0;
+  function syncOpenRunnersCreds() {
+    clearTimeout(credSyncTimer);
+    credSyncTimer = setTimeout(() => {
+      $$("#topic-host .runner, #spec-host .runner").forEach((r) => {
+        if (typeof r._syncCreds === "function") r._syncCreds();
+      });
+    }, 200);
+  }
+
   function wireConn() {
     const f = $("#conn");
     f.addEventListener("change", saveConn);
     f.base_url.addEventListener("input", updateSchemeBtn);
+    ["base_url", "user", "password"].forEach((n) =>
+      f[n].addEventListener("input", syncOpenRunnersCreds)
+    );
     $("#conn-check").addEventListener("click", runConnCheck);
 
     // flip the Base URL between http:// and https:// and re-test. ELO's default
@@ -1588,6 +1639,7 @@ ${snippet}
       f.base_url.value = u.toString().replace(/\/$/, "");
       updateSchemeBtn();
       saveConn();
+      syncOpenRunnersCreds();
       runConnCheck();
     });
     updateSchemeBtn();
