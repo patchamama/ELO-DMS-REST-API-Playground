@@ -11,7 +11,6 @@ or ``python -m app.main``.
 from __future__ import annotations
 
 import hashlib
-from urllib.parse import urlsplit
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -73,10 +72,6 @@ def _static_version() -> str:
     return hashlib.sha1(str(newest).encode()).hexdigest()[:8]
 
 
-def _default_port() -> str:
-    return str(urlsplit(settings.elo_base_url).port or 9090)
-
-
 # ---- page ------------------------------------------------------------- #
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request):
@@ -86,7 +81,6 @@ def index(request: Request):
         {
             "static_v": _static_version(),
             "default_base_url": settings.elo_base_url,
-            "default_port": _default_port(),
             "default_user": settings.elo_user,
             # pre-fill the password only from a LOCAL .env (never baked into the
             # static build); empty by default so nothing is shipped.
@@ -208,7 +202,7 @@ def api_proxy(req: ProxyRequest):
 def _lab_client(creds: EloCreds | None):
     if not creds or not creds.base_url:
         raise EloError(
-            "live mode required - untick Mock, fill in the connection form and press Check connection"
+            "live mode required - untick Mock, fill in the connection form and press Test"
         )
     return get_client(creds.base_url, creds.user, creds.password, verify=creds.tls_verify)
 

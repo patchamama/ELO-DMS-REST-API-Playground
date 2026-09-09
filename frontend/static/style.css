@@ -43,6 +43,11 @@ code, pre, textarea, .code { font-family: "SFMono-Regular", Consolas, "Liberatio
   padding: 7px 12px; font-size: 13px; cursor: pointer;
 }
 .conn button:hover { background: var(--blue-d); }
+#conn-scheme {
+  background: none; color: var(--blue); border: 1px solid var(--line);
+  font-family: "SFMono-Regular", Consolas, monospace; font-size: 12px; padding: 6px 10px;
+}
+#conn-scheme:hover { background: var(--panel); color: var(--blue-d); }
 .conn-status { font-size: 12px; color: var(--muted); }
 .conn-status.ok { color: var(--ok); }
 .conn-status.err { color: var(--err); }
@@ -272,4 +277,3 @@ button.fn-ref { background: none; border: 0; padding: 0; color: var(--blue); cur
 }
 
 .version { font-size: 10px; color: var(--muted); margin-top: 1px; }
-.conn label.port input { min-width: 64px; width: 64px; }

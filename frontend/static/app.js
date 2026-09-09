@@ -85,30 +85,19 @@
   }
 
   // ---- connection state -------------------------------------------- //
-  const DEFAULT_PORT = "9090"; // ELO Indexserver default (HTTP)
-
-  // combine the "Base URL" field with the separate "Port" field
+  // the ELO port lives in the Base URL itself (e.g. .../ix-Repository1 on :9090,
+  // or an https reverse proxy on :443) - there is no separate Port field.
   function effectiveBaseUrl() {
-    const f = $("#conn");
-    let raw = (f.base_url.value || "").trim();
+    let raw = ($("#conn").base_url.value || "").trim();
     if (!raw) return "";
     if (!/^https?:\/\//i.test(raw)) raw = "http://" + raw;
-    let u;
-    try {
-      u = new URL(raw);
-    } catch (e) {
-      return raw;
-    }
-    const port = (f.port.value || "").trim();
-    if (port) u.port = port;
-    return `${u.protocol}//${u.hostname}${u.port ? ":" + u.port : ""}${u.pathname}`.replace(/\/$/, "");
+    return raw.replace(/\/+$/, "");
   }
 
   function readConn() {
     const f = $("#conn");
     return {
       base_url: effectiveBaseUrl(),
-      port: (f.port.value || "").trim(),
       user: f.user.value.trim(),
       password: f.password.value,
       tls_verify: f.tls_verify.checked,
@@ -128,7 +117,6 @@
     const c = readConn();
     const blob = {
       base_url: f.base_url.value.trim(), // store what the user typed, not the assembled URL
-      port: c.port,
       user: c.user,
       tls_verify: c.tls_verify,
       mock: c.mock,
@@ -146,7 +134,6 @@
     }
     const f = $("#conn");
     f.base_url.value = blob.base_url || CFG.defaultBaseUrl || "";
-    f.port.value = blob.port || CFG.defaultPort || DEFAULT_PORT;
     f.user.value = blob.user || CFG.defaultUser || "Administrator";
     // password: a remembered one wins; then a local .env (ELOPG_ELO_PASSWORD);
     // then the stock local test password. Overridden by whatever you type.
@@ -174,6 +161,7 @@
       const v = T[el.dataset.tTitle];
       if (v) el.title = v;
     });
+    updateSchemeBtn();
   }
   const tr = (k) => T[k] || k;
 
@@ -1443,22 +1431,59 @@ ${snippet}
     runBtn.addEventListener("click", () => runAny(langSel.value, getCode(), null, out, meta, runBtn));
   }
 
+  async function runConnCheck() {
+    const status = $("#conn-status");
+    if (isMock()) {
+      status.textContent = tr("conn.mockOn");
+      status.className = "conn-status ok";
+      return;
+    }
+    if (STATIC) {
+      status.textContent = tr("static.backendOnly");
+      status.className = "conn-status err";
+      return;
+    }
+    status.textContent = tr("conn.checking");
+    status.className = "conn-status";
+    const res = await postJSON("/api/elo/login-check", creds());
+    status.textContent = res.detail || (res.ok ? "ok" : "failed");
+    status.className = "conn-status " + (res.ok ? "ok" : "err");
+  }
+
+  // label the http/https toggle with the scheme it will switch TO
+  function updateSchemeBtn() {
+    const btn = $("#conn-scheme");
+    if (!btn) return;
+    const isHttps = /^https:\/\//i.test(($("#conn").base_url.value || "").trim());
+    btn.textContent = isHttps ? "→ http" : "→ https";
+  }
+
   function wireConn() {
     const f = $("#conn");
     f.addEventListener("change", saveConn);
-    $("#conn-check").addEventListener("click", async () => {
-      const status = $("#conn-status");
-      if (isMock()) {
-        status.textContent = tr("conn.mockOn");
-        status.className = "conn-status ok";
-        return;
+    f.base_url.addEventListener("input", updateSchemeBtn);
+    $("#conn-check").addEventListener("click", runConnCheck);
+
+    // flip the Base URL between http:// and https:// and re-test. Switching to
+    // https on a local ELO usually means a self-signed cert, so drop TLS verify.
+    $("#conn-scheme").addEventListener("click", () => {
+      let raw = (f.base_url.value || "").trim();
+      if (!raw) raw = "http://localhost:9090/ix-Repository1";
+      if (/^https:\/\//i.test(raw)) {
+        raw = raw.replace(/^https:\/\//i, "http://");
+      } else if (/^http:\/\//i.test(raw)) {
+        raw = raw.replace(/^http:\/\//i, "https://");
+        f.tls_verify.checked = false;
+      } else {
+        raw = "https://" + raw;
+        f.tls_verify.checked = false;
       }
-      status.textContent = tr("conn.checking");
-      status.className = "conn-status";
-      const res = await postJSON("/api/elo/login-check", creds());
-      status.textContent = res.detail || (res.ok ? "ok" : "failed");
-      status.className = "conn-status " + (res.ok ? "ok" : "err");
+      f.base_url.value = raw;
+      updateSchemeBtn();
+      saveConn();
+      runConnCheck();
     });
+    updateSchemeBtn();
   }
 
   async function enterStaticMode() {
@@ -1471,8 +1496,10 @@ ${snippet}
     }
     const conn = $("#conn");
     if (conn) {
-      const check = $("#conn-check");
-      if (check) check.hidden = true; // login-check needs the backend
+      ["#conn-check", "#conn-scheme"].forEach((s) => {
+        const b = $(s);
+        if (b) b.hidden = true; // both need the backend to test
+      });
       conn.querySelectorAll("label.chk").forEach((l) => {
         if (/remember|tls_verify/.test(l.querySelector("input")?.name || "")) l.hidden = true;
       });

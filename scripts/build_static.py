@@ -110,8 +110,7 @@ def main() -> int:
     env = jinja2.Environment(loader=jinja2.FileSystemLoader(str(ROOT / "frontend" / "templates")), autoescape=True)
     build_id = format(int(time.time()), "x")[-8:]
     html = env.get_template("index.html").render(
-        static_v=build_id, default_base_url="", default_port="9090",
-        default_user="", mock_default=True,
+        static_v=build_id, default_base_url="", default_user="", mock_default=True,
     )
     html = (
         html.replace('href="/vendor/', 'href="vendor/')
