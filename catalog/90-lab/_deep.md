@@ -79,38 +79,7 @@ await elo.call("deleteSord", { parentId: String(PARENT), objId, deleteOptions: {
 console.log("deleted:", objId);
 ```
 
-## 3. Copy a GRP (index) field value into a MAP field
+## 3. Where to go next
 
-`sord.objKeys` holds the mask's indexed fields; a MAP field is free-form
-key/value storage on the same object. Read one, write the other.
-
-```python
-from elo_playground import connect
-
-elo = connect()
-ALL = "449304431574384639"
-
-obj_id = "4711"   # a document with indexed fields
-
-sord = elo.call("checkoutSord", {"objId": obj_id,
-                                 "editInfoZ": {"bset": "1", "sordZ": {"bset": ALL}}})["sord"]
-
-# pull one GRP field by its group name (objKeys entries are {name, data:[...]})
-grp = {k["name"]: (k.get("data") or [None])[0] for k in sord.get("objKeys", [])}
-invoice_no = grp.get("INVOICE_NO")
-print("GRP INVOICE_NO =", invoice_no)
-
-# write it into a MAP field (checkinMap: data = list of {key, value}; int objId)
-elo.call("checkinMap", {"mapId": "objId", "id": int(obj_id),
-                        "items": None,
-                        "data": [{"key": "copy_of_invoice_no", "value": str(invoice_no)}]})
-print("wrote MAP copy_of_invoice_no")
-
-# read the MAP back
-back = elo.call("checkoutMap", {"mapId": "objId", "id": int(obj_id), "keys": ["copy_of_invoice_no"]})
-print("MAP now:", back)
-```
-
-> `checkinMap` on this test box accepts the write but `checkoutMap` can read
-> back empty unless a MAP domain is registered for the object type - treat this
-> block as the shape, not a guarantee.
+Copying a GRP (index) field into a MAP field, symmetric links between objects,
+and public share URLs each have their own topic in this category.

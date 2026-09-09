@@ -1,0 +1,72 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>
+endobj
+4 0 obj
+<< /Length 659 >>
+stream
+BT
+/F1 11 Tf
+16 TL
+56 786 Td
+(INVOICE) Tj
+T*
+() Tj
+T*
+(Globex Corporation  -  742 Evergreen Terrace  -  Springfield) Tj
+T*
+(VAT: GB987654321) Tj
+T*
+() Tj
+T*
+(Invoice no.: 2026-0043) Tj
+T*
+(Invoice date: 2026-03-01) Tj
+T*
+(Purchase order: PO-55210) Tj
+T*
+() Tj
+T*
+(Item  Description                       Qty     Unit price       Amount) Tj
+T*
+(1     Cloud storage \(TB / month\)        5       19.00 USD     95.00 USD) Tj
+T*
+(2     Support plan \(Gold\)               1      450.00 USD    450.00 USD) Tj
+T*
+() Tj
+T*
+(Subtotal:      545.00 USD) Tj
+T*
+(Tax \(0%\):        0.00 USD) Tj
+T*
+(Total due:     545.00 USD) Tj
+T*
+() Tj
+T*
+(Payment terms: net 30.) Tj
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000121 00000 n 
+0000000247 00000 n 
+0000000957 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1054
+%%EOF

@@ -23,7 +23,5 @@
     "sords": [{ "id": 5600, "name": "pg-lab-e2e-js" }]
   },
   "findClose": {},
-  "deleteSord": {},
-  "checkinMap": {},
-  "checkoutMap": { "items": [{ "key": "copy_of_invoice_no", "value": "2026-0042" }] }
+  "deleteSord": {}
 }

@@ -1,0 +1,158 @@
+id: ocr.extract
+order: 1
+category:
+  en: OCR & text extraction
+  de: OCR & Textextraktion
+  es: OCR y extracción de texto
+title:
+  en: OCR a file and show the recognised text
+  de: Eine Datei per OCR erkennen und den Text anzeigen
+  es: Aplicar OCR a un archivo y mostrar el texto reconocido
+summary:
+  en: >
+    `processOcr` hands a file to ELO's OCR engine (the "Textreader") and returns
+    the recognised text. Send the bytes in `ocrInfo.recognizeFile.imageData`
+    ({ data: base64, contentType }); set `outputFormat` 0 (OcrInfoC.TEXT) for
+    plain text. The text comes back in `recognizeFile.text`; `recognizeFile` is
+    absent and `exception` is set on failure. Ready-made scans live in
+    `examples/invoices/` (run `python scripts/make_sample_invoices.py`) - point
+    `contentType` at "pdf" or "tiff" for those. NOTE: needs the ELO OCR /
+    Textreader module; without it the call fails with
+    `[ELOIX:10] ... Unknown ticket`. Shaped from `openapi.json` and the mock.
+  de: "`processOcr` übergibt eine Datei an die OCR-Engine von ELO (den „Textreader“) und liefert den erkannten Text. Die Bytes in `ocrInfo.recognizeFile.imageData` senden ({ data: base64, contentType }); `outputFormat` 0 (OcrInfoC.TEXT) für reinen Text setzen. Der Text steht in `recognizeFile.text`; bei einem Fehler fehlt `recognizeFile` und `exception` ist gesetzt. Fertige Scans liegen in `examples/invoices/` (`python scripts/make_sample_invoices.py` ausführen) - `contentType` dafür auf „pdf“ oder „tiff“ setzen. HINWEIS: benötigt das ELO-OCR-/Textreader-Modul; ohne dieses schlägt der Aufruf mit `[ELOIX:10] ... Unknown ticket` fehl. Aus `openapi.json` und dem Mock abgeleitet."
+  es: "`processOcr` entrega un archivo al motor OCR de ELO (el «Textreader») y devuelve el texto reconocido. Enviá los bytes en `ocrInfo.recognizeFile.imageData` ({ data: base64, contentType }); poné `outputFormat` 0 (OcrInfoC.TEXT) para texto plano. El texto vuelve en `recognizeFile.text`; ante un fallo falta `recognizeFile` y `exception` queda seteado. Hay escaneos listos en `examples/invoices/` (ejecutá `python scripts/make_sample_invoices.py`) - para esos poné `contentType` en «pdf» o «tiff». NOTA: necesita el módulo OCR / Textreader de ELO; sin él la llamada falla con `[ELOIX:10] ... Unknown ticket`. Armado desde `openapi.json` y el mock."
+
+elo_api:
+  - method: processOcr
+    rpc: POST /rest/IXServicePortIF/processOcr
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/processOcr
+    notes:
+      en: 'ocrInfo.recognizeFile: imageData {data: base64, contentType} OR objId; outputFormat 0 = TEXT; pageNo -1 = all pages.'
+      de: 'ocrInfo.recognizeFile: imageData {data: base64, contentType} ODER objId; outputFormat 0 = TEXT; pageNo -1 = alle Seiten.'
+      es: 'ocrInfo.recognizeFile: imageData {data: base64, contentType} O objId; outputFormat 0 = TEXT; pageNo -1 = todas las páginas.'
+
+result_shape: |
+  --- recognised text ---
+  INVOICE 2026-0042
+  Acme GmbH
+  Net:   1,234.56 EUR
+  VAT 19%: 234.57 EUR
+  Total: 1,469.13 EUR
+
+snippets:
+  python: |
+    import base64
+    from elo_playground import connect, EloError
+
+    elo = connect()
+
+    # A tiny "invoice" as plain-text bytes so this snippet is self-contained.
+    # For a real scan: open("examples/invoices/invoice-2026-0042-acme.pdf","rb")
+    # .read() and set contentType to "pdf".
+    payload = (
+        "INVOICE 2026-0042\n"
+        "Acme GmbH\n"
+        "Net:   1,234.56 EUR\n"
+        "VAT 19%: 234.57 EUR\n"
+        "Total: 1,469.13 EUR\n"
+    ).encode("utf-8")
+
+    try:
+        res = elo.call("processOcr", {"ocrInfo": {
+            "recognizeFile": {
+                "imageData": {
+                    "data": base64.b64encode(payload).decode("ascii"),
+                    "contentType": "txt",        # "pdf" / "tiff" for a real scan
+                },
+                "outputFormat": 0,               # OcrInfoC.TEXT
+                "pageNo": -1,                     # -1 = every page
+            },
+        }})
+    except EloError as exc:
+        # e.g. "[ELOIX:10] ... Unknown ticket" when the OCR module is not running
+        print("OCR call failed:", exc)
+    else:
+        rf = res.get("recognizeFile")
+        if not rf or res.get("exception"):
+            print("OCR returned no text:", res.get("exception") or "(empty result)")
+        else:
+            print("--- recognised text ---")
+            print((rf.get("text") or "").strip())
+    finally:
+        elo.close()
+
+  node: |
+    import { connect, EloError } from "elo-playground";
+
+    const elo = await connect();
+
+    // A tiny "invoice" as plain-text bytes so this snippet is self-contained.
+    // For a real scan: read examples/invoices/invoice-2026-0042-acme.pdf and
+    // set contentType to "pdf".
+    const payload = Buffer.from(
+      "INVOICE 2026-0042\n" +
+        "Acme GmbH\n" +
+        "Net:   1,234.56 EUR\n" +
+        "VAT 19%: 234.57 EUR\n" +
+        "Total: 1,469.13 EUR\n",
+      "utf-8"
+    );
+
+    try {
+      const res = await elo.call("processOcr", {
+        ocrInfo: {
+          recognizeFile: {
+            imageData: { data: payload.toString("base64"), contentType: "txt" },
+            outputFormat: 0, // OcrInfoC.TEXT
+            pageNo: -1, // every page
+          },
+        },
+      });
+      const rf = res.recognizeFile;
+      if (!rf || res.exception) {
+        console.log("OCR returned no text:", res.exception || "(empty result)");
+      } else {
+        console.log("--- recognised text ---");
+        console.log((rf.text || "").trim());
+      }
+    } catch (exc) {
+      if (exc instanceof EloError) console.log("OCR call failed:", exc.message);
+      else throw exc;
+    } finally {
+      elo.close();
+    }
+
+  browser: |
+    // btoa() needs a binary string; TextEncoder + a byte-wise map keeps it
+    // correct for non-ASCII.
+    const bytes = new TextEncoder().encode(
+      "INVOICE 2026-0042\nAcme GmbH\nNet:   1,234.56 EUR\nVAT 19%: 234.57 EUR\nTotal: 1,469.13 EUR\n"
+    );
+    const b64 = btoa(String.fromCharCode(...bytes));
+
+    const elo = await connect();
+    try {
+      const res = await elo.call("processOcr", {
+        ocrInfo: {
+          recognizeFile: {
+            imageData: { data: b64, contentType: "txt" },
+            outputFormat: 0,
+            pageNo: -1,
+          },
+        },
+      });
+      const rf = res.recognizeFile;
+      if (!rf || res.exception) console.log("OCR returned no text:", res.exception || "(empty)");
+      else {
+        console.log("--- recognised text ---");
+        console.log((rf.text || "").trim());
+      }
+    } catch (exc) {
+      console.log("OCR call failed:", exc.message);
+    }
+
+mock:
+  processOcr:
+    recognizeFile:
+      text: "INVOICE 2026-0042\nAcme GmbH\nNet:   1,234.56 EUR\nVAT 19%: 234.57 EUR\nTotal: 1,469.13 EUR\n"
