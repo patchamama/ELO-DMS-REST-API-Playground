@@ -11,9 +11,22 @@ const ELO_PASS = "elo";
 
 // connect() is preloaded by the playground; in the browser the call goes
 // to the playground backend, which forwards the RPC (or answers from mock
-// data). login:false lets us call login() ourselves below.
+// data). login:false lets us call login() ourselves below and handle a failure.
 const elo = await connect({ baseUrl: ELO_BASE_URL, user: ELO_USER, password: ELO_PASS, login: false });
 
-const user = await elo.login();    // -> POST /api/elo/proxy -> IX login
-console.log("logged in as:", user.name, `(id ${user.id})`);
-console.log("member of groups:", user.groupList);
+try {
+  const user = await elo.login();  // -> POST /api/elo/proxy -> IX login
+  console.log("logged in as:", user.name, `(id ${user.id})`);
+  console.log("member of groups:", user.groupList);
+} catch (exc) {
+  const msg = (exc && exc.message) || String(exc);
+  if (/ELOIX:3008|authentication failed|HTTP 401|HTTP 403/.test(msg)) {
+    console.log("login failed: wrong user or password -", msg);
+  } else if (/request failed|fetch failed|Failed to fetch|NetworkError/.test(msg)) {
+    console.log("login failed: cannot reach the server -", msg);
+  } else if (/HTTP 404/.test(msg)) {
+    console.log("login failed: the repository path in ELO_BASE_URL looks wrong -", msg.split(" - ")[0]);
+  } else {
+    console.log("login failed:", msg);
+  }
+}

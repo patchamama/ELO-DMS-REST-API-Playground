@@ -13,10 +13,12 @@ summary:
     Every IX call needs HTTP Basic auth, but you still start with `login`: it
     allocates the server-side session (licence slot, session options, the
     search-id space used by every `findFirst*`). The shared client keeps one
-    connection alive so the session cookie rides along afterwards.
+    connection alive so the session cookie rides along afterwards. The snippet
+    catches a wrong Base URL / user / password and prints a clear message
+    instead of a stack trace.
 
-  de: "Jeder IX-Aufruf braucht HTTP-Basic-Auth, trotzdem beginnt man mit `login`: das reserviert die serverseitige Sitzung (Lizenzplatz, Sitzungsoptionen, den von jedem `findFirst*` genutzten Such-ID-Bereich). Der gemeinsame Client hält eine Verbindung offen, damit das Sitzungscookie danach mitgeschickt wird."
-  es: "Cada llamada a IX necesita autenticación HTTP Basic, pero igual se empieza por `login`: reserva la sesión del lado del servidor (plaza de licencia, opciones de sesión, el espacio de ids de búsqueda que usa cada `findFirst*`). El cliente compartido mantiene una conexión viva para que la cookie de sesión viaje después."
+  de: "Jeder IX-Aufruf braucht HTTP-Basic-Auth, trotzdem beginnt man mit `login`: das reserviert die serverseitige Sitzung (Lizenzplatz, Sitzungsoptionen, den von jedem `findFirst*` genutzten Such-ID-Bereich). Der gemeinsame Client hält eine Verbindung offen, damit das Sitzungscookie danach mitgeschickt wird. Das Snippet fängt eine falsche Basis-URL / Benutzer / Kennwort ab und gibt eine klare Meldung statt eines Stacktraces aus."
+  es: "Cada llamada a IX necesita autenticación HTTP Basic, pero igual se empieza por `login`: reserva la sesión del lado del servidor (plaza de licencia, opciones de sesión, el espacio de ids de búsqueda que usa cada `findFirst*`). El cliente compartido mantiene una conexión viva para que la cookie de sesión viaje después. El snippet captura una URL base / usuario / contraseña equivocados y muestra un mensaje claro en lugar de un stack trace."
 
 elo_api:
 - method: login
@@ -43,7 +45,7 @@ result_shape: |
 
 snippets:
   python: |
-    from elo_playground import connect
+    from elo_playground import connect, EloError
 
     # --- local ELO test box (override with ELOPG_* env vars or a .env) ---
     ELO_BASE_URL = "http://localhost:9090/ix-Repository1"
@@ -51,17 +53,28 @@ snippets:
     ELO_PASS = "elo"
 
     # login=False builds the client but does NOT log in yet, so we can call
-    # login() ourselves below and read what it returns.
+    # login() ourselves below, read what it returns and handle a failure.
     elo = connect(base_url=ELO_BASE_URL, user=ELO_USER, password=ELO_PASS, login=False)
 
-    user = elo.login()                 # -> POST /rest/IXServicePortIF/login
-    print("logged in as:", user["name"], "(id " + str(user["id"]) + ")")
-    print("member of groups:", user.get("groupList"))
-
-    elo.close()                        # release the connection pool
+    try:
+        user = elo.login()             # -> POST /rest/IXServicePortIF/login
+        print("logged in as:", user["name"], "(id " + str(user["id"]) + ")")
+        print("member of groups:", user.get("groupList"))
+    except EloError as exc:
+        msg = str(exc)
+        if "ELOIX:3008" in msg or "authentication failed" in msg or "HTTP 401" in msg or "HTTP 403" in msg:
+            print("login failed: wrong user or password -", msg)
+        elif "request failed" in msg:
+            print("login failed: cannot reach the server, check the host/port in ELO_BASE_URL -", msg)
+        elif "HTTP 404" in msg:
+            print("login failed: the repository path in ELO_BASE_URL looks wrong -", msg.split(" - ")[0])
+        else:
+            print("login failed:", msg)
+    finally:
+        elo.close()                    # release the connection pool
 
   node: |
-    import { connect } from "elo-playground";
+    import { connect, EloError } from "elo-playground";
 
     // --- local ELO test box (override with ELOPG_* env vars or a .env) ---
     const ELO_BASE_URL = "http://localhost:9090/ix-Repository1";
@@ -69,14 +82,28 @@ snippets:
     const ELO_PASS = "elo";
 
     // login:false builds the client but does NOT log in yet, so we can call
-    // login() ourselves below and read what it returns.
+    // login() ourselves below, read what it returns and handle a failure.
     const elo = await connect({ baseUrl: ELO_BASE_URL, user: ELO_USER, password: ELO_PASS, login: false });
 
-    const user = await elo.login();    // -> POST /rest/IXServicePortIF/login
-    console.log("logged in as:", user.name, `(id ${user.id})`);
-    console.log("member of groups:", user.groupList);
-
-    elo.close();
+    try {
+      const user = await elo.login();  // -> POST /rest/IXServicePortIF/login
+      console.log("logged in as:", user.name, `(id ${user.id})`);
+      console.log("member of groups:", user.groupList);
+    } catch (exc) {
+      if (!(exc instanceof EloError)) throw exc;
+      const msg = exc.message;
+      if (/ELOIX:3008|authentication failed|HTTP 401|HTTP 403/.test(msg)) {
+        console.log("login failed: wrong user or password -", msg);
+      } else if (/request failed/.test(msg)) {
+        console.log("login failed: cannot reach the server, check the host/port in ELO_BASE_URL -", msg);
+      } else if (/HTTP 404/.test(msg)) {
+        console.log("login failed: the repository path in ELO_BASE_URL looks wrong -", msg.split(" - ")[0]);
+      } else {
+        console.log("login failed:", msg);
+      }
+    } finally {
+      elo.close();
+    }
 
   browser: |
     // --- local ELO test box (override with ELOPG_* env vars or a .env) ---
@@ -86,12 +113,25 @@ snippets:
 
     // connect() is preloaded by the playground; in the browser the call goes
     // to the playground backend, which forwards the RPC (or answers from mock
-    // data). login:false lets us call login() ourselves below.
+    // data). login:false lets us call login() ourselves below and handle a failure.
     const elo = await connect({ baseUrl: ELO_BASE_URL, user: ELO_USER, password: ELO_PASS, login: false });
 
-    const user = await elo.login();    // -> POST /api/elo/proxy -> IX login
-    console.log("logged in as:", user.name, `(id ${user.id})`);
-    console.log("member of groups:", user.groupList);
+    try {
+      const user = await elo.login();  // -> POST /api/elo/proxy -> IX login
+      console.log("logged in as:", user.name, `(id ${user.id})`);
+      console.log("member of groups:", user.groupList);
+    } catch (exc) {
+      const msg = (exc && exc.message) || String(exc);
+      if (/ELOIX:3008|authentication failed|HTTP 401|HTTP 403/.test(msg)) {
+        console.log("login failed: wrong user or password -", msg);
+      } else if (/request failed|fetch failed|Failed to fetch|NetworkError/.test(msg)) {
+        console.log("login failed: cannot reach the server -", msg);
+      } else if (/HTTP 404/.test(msg)) {
+        console.log("login failed: the repository path in ELO_BASE_URL looks wrong -", msg.split(" - ")[0]);
+      } else {
+        console.log("login failed:", msg);
+      }
+    }
 
 mock:
   login:
