@@ -10,7 +10,8 @@ def test_index_page_renders():
     r = client.get("/")
     assert r.status_code == 200
     assert "ELO API Playground" in r.text
-    assert 'name="port"' in r.text
+    assert 'name="port"' not in r.text          # the port lives in the Base URL now
+    assert 'id="conn-scheme"' in r.text          # the http/https toggle button
     assert 'data-view="faq"' in r.text
 
 

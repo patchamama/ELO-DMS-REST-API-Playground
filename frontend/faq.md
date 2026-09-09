@@ -43,9 +43,10 @@ read almost identically. The differences are:
 
 - **Mock** (default): calls are answered from `fixtures/ix/default.json` plus the
   topic's own `mock:` block. No ELO needed. Great for reading the shapes.
-- **Live**: untick *Mock*, fill in Base URL + Port + user + password, press
-  *Check connection*, then *Run*. Python and Node then call your ELO directly;
-  browser snippets go through the backend proxy.
+- **Live**: untick *Mock*, fill in Base URL (the port is part of it, e.g.
+  `http://localhost:9090/ix-Repository1`) + user + password, press *Test*, then
+  *Run*. Python and Node then call your ELO directly; browser snippets go through
+  the backend proxy.
 
 ## Where does `connect()` get the credentials?
 
@@ -116,11 +117,14 @@ The published demo has no backend. It behaves like the app, defaulting to Mock:
   snippets call that server directly - it must send CORS headers for the demo's
   origin, which most ELO installs do not by default.
 
-## Base URL and Port
+## Base URL (and the http/https toggle)
 
-The connection form has a **Port** field (default **9090**, the ELO Indexserver
-HTTP port). It is spliced into the Base URL for every call and doc link, so you
-can point at a different port without rewriting the URL.
+There is no separate Port field - the port is part of the **Base URL**
+(`http://localhost:9090/ix-Repository1`, or `https://elo.example/ix-Repository1`
+behind a reverse proxy on 443). The **`→ https` / `→ http`** button next to
+*Test* flips the scheme of the Base URL and re-tests in one click; switching to
+https also unticks *Verify TLS certificate*, since a local ELO's IX/HTTPS and its
+document connector (`:9093`) use a self-signed certificate.
 
 ## Versioning
 

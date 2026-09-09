@@ -16,9 +16,6 @@
     <label><span data-t="conn.baseUrl">Base URL</span>
       <input name="base_url" type="text" spellcheck="false" />
     </label>
-    <label class="port"><span data-t="conn.port">Port</span>
-      <input name="port" type="text" inputmode="numeric" spellcheck="false" size="5" />
-    </label>
     <label><span data-t="conn.user">User</span>
       <input name="user" type="text" spellcheck="false" />
     </label>
@@ -31,7 +28,8 @@
       <span data-t="conn.remember">Remember password</span></label>
     <label class="chk mock"><input name="mock" type="checkbox" />
       <span data-t="conn.mock">Mock mode</span></label>
-    <button type="button" id="conn-check" data-t="conn.check">Check connection</button>
+    <button type="button" id="conn-check" data-t="conn.check">Test</button>
+    <button type="button" id="conn-scheme" data-t="conn.scheme" data-t-title="conn.schemeTitle" title="Switch http/https and test">http/https</button>
     <span id="conn-status" class="conn-status"></span>
   </form>
 </header>
@@ -99,7 +97,6 @@ print(elo.call("getServerInfo", {}).get("version"))
 <script>
   window.__PLAYGROUND__ = {
     defaultBaseUrl: {{ default_base_url | tojson }},
-    defaultPort: {{ default_port | tojson }},
     defaultUser: {{ default_user | tojson }},
     defaultPassword: {{ default_password | default("") | tojson }},
     mockDefault: {{ mock_default | tojson }},
