@@ -60,7 +60,7 @@ result_shape: |
 
 snippets:
   python: |
-    from elo_playground import connect
+    from elo_playground import connect, EloError
 
     elo = connect()
     ALL = "449304431574384639"
@@ -82,17 +82,28 @@ snippets:
     # 4) commit
     res = elo.call("checkinDocEnd", {"sord": sord, "document": doc,
                                      "sordZ": {"bset": ALL}, "unlockZ": {"bset": "1"}})
-    doc_id = int(res["objId"])
+    doc_id = str(res["objId"])
     print("uploaded doc id:", doc_id)
 
-    # --- read it back ---
-    info = elo.call("checkoutDoc", {"objId": str(doc_id),
-                                    "editInfoZ": {"bset": "320", "sordZ": {"bset": "0"}}})
-    url = info["document"]["docs"][0]["url"]
-    print("round-trip content:", elo.download(url).decode().strip())
+    try:
+        # --- read it back ---
+        info = elo.call("checkoutDoc", {"objId": doc_id,
+                                        "editInfoZ": {"bset": "320", "sordZ": {"bset": "0"}}})
+        url = info["document"]["docs"][0]["url"]
+        print("round-trip content:", elo.download(url).decode().strip())
+    except EloError as exc:
+        print("download failed:", exc)
+    finally:
+        for step in (False, True):
+            try:
+                elo.call("deleteSord", {"objId": doc_id, "parentId": "1",
+                                        "deleteOptions": {"deleteFinally": step}})
+            except EloError:
+                pass
+        elo.close()
 
   node: |
-    import { connect } from "elo-playground";
+    import { connect, EloError } from "elo-playground";
 
     const elo = await connect();
     const ALL = "449304431574384639";
@@ -116,14 +127,26 @@ snippets:
     const res = await elo.call("checkinDocEnd", {
       sord, document: doc, sordZ: { bset: ALL }, unlockZ: { bset: "1" },
     });
-    const docId = Number(res.objId);
+    const docId = String(res.objId);
     console.log("uploaded doc id:", docId);
 
-    // --- read it back ---
-    const info = await elo.call("checkoutDoc", {
-      objId: String(docId), editInfoZ: { bset: "320", sordZ: { bset: "0" } },
-    });
-    console.log("round-trip content:", (await elo.download(info.document.docs[0].url)).trim());
+    try {
+      // --- read it back ---
+      const info = await elo.call("checkoutDoc", {
+        objId: docId, editInfoZ: { bset: "320", sordZ: { bset: "0" } },
+      });
+      console.log("round-trip content:", (await elo.download(info.document.docs[0].url)).trim());
+    } catch (exc) {
+      if (exc instanceof EloError) console.log("download failed:", exc.message);
+      else throw exc;
+    } finally {
+      for (const step of [false, true]) {
+        try {
+          await elo.call("deleteSord", { objId: docId, parentId: "1", deleteOptions: { deleteFinally: step } });
+        } catch (e) { /* best effort */ }
+      }
+      elo.close();
+    }
 
   browser: |
     // Uploading and downloading document bytes talks to ELO's document
@@ -147,3 +170,4 @@ mock:
       docs:
         - { url: "https://elo.example.local:9093/ix-Repository1/download/pg-hello.txt" }
   _download: "hello from the playground\n"
+  deleteSord: {}

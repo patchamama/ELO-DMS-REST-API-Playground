@@ -41,72 +41,123 @@ result_shape: |
 
 snippets:
   python: |
-    from elo_playground import connect
+    from elo_playground import connect, EloError
 
     elo = connect()
     ALL = "449304431574384639"
 
-    obj_id = 5390        # a throwaway object's id
+    # Provision a throwaway folder so this snippet is self-contained.
+    tpl = elo.call("createSord", {"parentId": "1", "maskId": 0,
+                                  "editInfoZ": {"bset": "1", "sordZ": {"bset": ALL}}})["sord"]
+    tpl["name"] = "playground old name"
+    obj_id = str(elo.call("checkinSord", {"sord": tpl, "sordZ": {"bset": ALL},
+                                          "unlockZ": {"bset": "1"}}))
 
-    # 1) check it out (with a lock)
-    sord = elo.call("checkoutSord", {
-        "objId": obj_id,
-        "editInfoZ": {"bset": "1", "sordZ": {"bset": ALL}, "lockZ": {"bset": "1"}},
-    })["sord"]
-    print("before:", sord["name"])
+    try:
+        # 1) check it out (with a lock)
+        sord = elo.call("checkoutSord", {
+            "objId": obj_id,
+            "editInfoZ": {"bset": "1", "sordZ": {"bset": ALL}, "lockZ": {"bset": "1"}},
+        })["sord"]
+        print("before:", sord["name"])
 
-    # 2) change the name
-    sord["name"] = "playground new name"
+        # 2) change the name, 3) check it back in and release the lock
+        sord["name"] = "playground new name"
+        elo.call("checkinSord", {"sord": sord, "sordZ": {"bset": ALL}, "unlockZ": {"bset": "1"}})
 
-    # 3) check it back in and release the lock
-    elo.call("checkinSord", {"sord": sord, "sordZ": {"bset": ALL}, "unlockZ": {"bset": "1"}})
-
-    after = elo.call("checkoutSord", {
-        "objId": obj_id, "editInfoZ": {"bset": "1", "sordZ": {"bset": ALL}},
-    })["sord"]
-    print("after: ", after["name"])
+        after = elo.call("checkoutSord", {
+            "objId": obj_id, "editInfoZ": {"bset": "1", "sordZ": {"bset": ALL}},
+        })["sord"]
+        print("after: ", after["name"])
+    except EloError as exc:
+        print("rename failed:", exc)
+    finally:
+        # tidy up the scratch folder
+        try:
+            elo.call("deleteSord", {"objId": obj_id, "parentId": "1",
+                                    "deleteOptions": {"deleteFinally": False}})
+            elo.call("deleteSord", {"objId": obj_id, "parentId": "1",
+                                    "deleteOptions": {"deleteFinally": True}})
+        except EloError:
+            pass
+        elo.close()
 
   node: |
-    import { connect } from "elo-playground";
+    import { connect, EloError } from "elo-playground";
 
     const elo = await connect();
     const ALL = "449304431574384639";
 
-    const objId = 5390; // a throwaway object's id
-
-    // 1) check it out (with a lock)
-    const sord = (await elo.call("checkoutSord", {
-      objId,
-      editInfoZ: { bset: "1", sordZ: { bset: ALL }, lockZ: { bset: "1" } },
+    // Provision a throwaway folder so this snippet is self-contained.
+    const tpl = (await elo.call("createSord", {
+      parentId: "1", maskId: 0, editInfoZ: { bset: "1", sordZ: { bset: ALL } },
     })).sord;
-    console.log("before:", sord.name);
+    tpl.name = "playground old name";
+    const objId = String(await elo.call("checkinSord", {
+      sord: tpl, sordZ: { bset: ALL }, unlockZ: { bset: "1" },
+    }));
 
-    // 2) change the name
-    sord.name = "playground new name";
+    try {
+      // 1) check it out (with a lock)
+      const sord = (await elo.call("checkoutSord", {
+        objId,
+        editInfoZ: { bset: "1", sordZ: { bset: ALL }, lockZ: { bset: "1" } },
+      })).sord;
+      console.log("before:", sord.name);
 
-    // 3) check it back in and release the lock
-    await elo.call("checkinSord", { sord, sordZ: { bset: ALL }, unlockZ: { bset: "1" } });
+      // 2) change the name, 3) check it back in and release the lock
+      sord.name = "playground new name";
+      await elo.call("checkinSord", { sord, sordZ: { bset: ALL }, unlockZ: { bset: "1" } });
 
-    const after = (await elo.call("checkoutSord", {
-      objId, editInfoZ: { bset: "1", sordZ: { bset: ALL } },
-    })).sord;
-    console.log("after: ", after.name);
+      const after = (await elo.call("checkoutSord", {
+        objId, editInfoZ: { bset: "1", sordZ: { bset: ALL } },
+      })).sord;
+      console.log("after: ", after.name);
+    } catch (exc) {
+      if (exc instanceof EloError) console.log("rename failed:", exc.message);
+      else throw exc;
+    } finally {
+      try {
+        await elo.call("deleteSord", { objId, parentId: "1", deleteOptions: { deleteFinally: false } });
+        await elo.call("deleteSord", { objId, parentId: "1", deleteOptions: { deleteFinally: true } });
+      } catch (e) { /* best effort */ }
+      elo.close();
+    }
 
   browser: |
     const elo = await connect();
     const ALL = "449304431574384639";
-    const objId = 5390;
 
-    const sord = (await elo.call("checkoutSord", {
-      objId, editInfoZ: { bset: "1", sordZ: { bset: ALL }, lockZ: { bset: "1" } },
+    const tpl = (await elo.call("createSord", {
+      parentId: "1", maskId: 0, editInfoZ: { bset: "1", sordZ: { bset: ALL } },
     })).sord;
-    console.log("before:", sord.name);
-    sord.name = "playground new name";
-    await elo.call("checkinSord", { sord, sordZ: { bset: ALL }, unlockZ: { bset: "1" } });
-    console.log("renamed");
+    tpl.name = "playground old name";
+    const objId = String(await elo.call("checkinSord", {
+      sord: tpl, sordZ: { bset: ALL }, unlockZ: { bset: "1" },
+    }));
+
+    try {
+      const sord = (await elo.call("checkoutSord", {
+        objId, editInfoZ: { bset: "1", sordZ: { bset: ALL }, lockZ: { bset: "1" } },
+      })).sord;
+      console.log("before:", sord.name);
+      sord.name = "playground new name";
+      await elo.call("checkinSord", { sord, sordZ: { bset: ALL }, unlockZ: { bset: "1" } });
+      console.log("renamed");
+    } catch (exc) {
+      console.log("rename failed:", exc.message);
+    } finally {
+      try {
+        await elo.call("deleteSord", { objId, parentId: "1", deleteOptions: { deleteFinally: false } });
+        await elo.call("deleteSord", { objId, parentId: "1", deleteOptions: { deleteFinally: true } });
+      } catch (e) { /* best effort */ }
+    }
 
 mock:
+  createSord:
+    sord: { id: 0, name: "", parentId: 1 }
   checkoutSord:
     - sord: { id: 5390, name: "playground old name", parentId: 1, maskName: "Ordner" }
     - sord: { id: 5390, name: "playground new name", parentId: 1, maskName: "Ordner" }
   checkinSord: 5390
+  deleteSord: {}

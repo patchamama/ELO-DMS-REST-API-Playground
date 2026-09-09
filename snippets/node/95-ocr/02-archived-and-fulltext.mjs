@@ -1,5 +1,5 @@
 // import the shared client:  import { connect } from "elo-playground";
-// topic:    Get the text of a document already in the archive
+// topic:    Get the text of a document that is in the archive
 // category: OCR & text extraction
 // id:       ocr.archived
 
@@ -8,44 +8,48 @@ import { connect, EloError } from "elo-playground";
 const elo = await connect();
 const ALL = "449304431574384639";
 
+// --- provision: upload a throwaway text document ---
+const body = Buffer.from("INVOICE 2026-0042\nAcme GmbH\nTotal: 1,469.13 EUR\n", "utf-8");
+const sord = (await elo.call("createDoc", {
+  parentId: 1, maskId: 0, editInfoZ: { bset: "1", sordZ: { bset: ALL } },
+})).sord;
+sord.name = "pg-ocr-doc.txt";
+const doc = await elo.call("checkinDocBegin", { sord, document: { docs: [{ ext: "txt" }] } });
+doc.docs[0].uploadResult = await elo.upload(doc.docs[0].url, body);
+const objId = String((await elo.call("checkinDocEnd", {
+  sord, document: doc, sordZ: { bset: ALL }, unlockZ: { bset: "1" },
+})).objId);
+console.log("uploaded doc", objId);
+
 try {
-  // 1) find the first document in the archive to work on
-  const res = await elo.call("findFirstSords", {
-    findInfo: { findByType: { typeMin: 254, typeMax: 998 } },
-    max: 1, sordZ: { bset: ALL },
-  });
-  const docs = res.sords || [];
-  if (res.searchId) await elo.call("findClose", { searchId: res.searchId });
-
-  if (!docs.length) {
-    console.log("no documents in this archive - nothing to OCR");
-  } else {
-    const objId = String(docs[0].id);
-    console.log(`working on document ${objId}  "${docs[0].name}"`);
-
-    // 2) OCR it now
-    try {
-      const ocr = await elo.call("processOcr", {
-        ocrInfo: { recognizeFile: { objId, outputFormat: 0, pageNo: -1 } },
-      });
-      const text = ((ocr.recognizeFile || {}).text || "").trim();
-      console.log("OCR text (first 120 chars):", text.slice(0, 120) || "(empty)");
-    } catch (exc) {
-      if (exc instanceof EloError) console.log("processOcr failed:", exc.message);
-      else throw exc;
-    }
-
-    // 3) or read the text the fulltext pipeline already extracted
-    const doc = await elo.call("checkoutDoc", {
-      objId, editInfoZ: { bset: "1", sordZ: { bset: "0" } },
+  // 1) OCR it now
+  try {
+    const ocr = await elo.call("processOcr", {
+      ocrInfo: { recognizeFile: { objId, outputFormat: 0, pageNo: -1 } },
     });
-    const versions = ((doc.document || {}).docs) || [];
-    const ftc = versions.length ? versions[0].fulltextContent : null;
-    console.log(
-      "fulltext index text     :",
-      (ftc && typeof ftc === "object" ? ftc.data : null) || "(not indexed on this archive)"
-    );
+    const text = (((ocr.recognizeFile || {}).text) || "").split(/\s+/).join(" ").trim();
+    console.log("OCR text (first 120):", text.slice(0, 120) || "(empty)");
+  } catch (exc) {
+    if (exc instanceof EloError) console.log("processOcr failed:", exc.message);
+    else throw exc;
   }
+
+  // 2) or read the already-extracted fulltext
+  const info = await elo.call("checkoutDoc", {
+    objId, editInfoZ: { bset: "320", sordZ: { bset: "0" } },
+  });
+  const docs = ((info.document || {}).docs) || [];
+  const ftc = docs.length ? docs[0].fulltextContent : null;
+  console.log(
+    "fulltext index text :",
+    (ftc && typeof ftc === "object" ? ftc.data : null) || "(not indexed on this archive)"
+  );
 } finally {
+  for (const step of [false, true]) {
+    try {
+      await elo.call("deleteSord", { objId, parentId: "1", deleteOptions: { deleteFinally: step } });
+    } catch (e) { /* best effort */ }
+  }
+  console.log("cleaned up");
   elo.close();
 }

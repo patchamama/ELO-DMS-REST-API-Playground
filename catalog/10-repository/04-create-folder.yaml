@@ -44,10 +44,11 @@ elo_api:
 
 result_shape: |
   created folder id: 5357
+  removed the test folder again
 
 snippets:
   python: |
-    from elo_playground import connect
+    from elo_playground import connect, EloError
 
     elo = connect()
     ALL = "449304431574384639"   # SordC.mbAllIndex
@@ -63,15 +64,26 @@ snippets:
     sord["name"] = "Playground test folder"
 
     # 2) persist it - sordZ here is the WRITE mask, so use a full bitset
-    new_id = elo.call("checkinSord", {
+    new_id = str(elo.call("checkinSord", {
         "sord": sord,
         "sordZ": {"bset": ALL},
         "unlockZ": {"bset": "1"},
-    })
+    }))
     print("created folder id:", new_id)
 
+    # 3) clean up so re-running this stays tidy (see repository.delete-sord)
+    try:
+        for step in (False, True):
+            elo.call("deleteSord", {"objId": new_id, "parentId": "1",
+                                    "deleteOptions": {"deleteFinally": step}})
+        print("removed the test folder again")
+    except EloError as exc:
+        print("could not remove the test folder:", exc)
+    finally:
+        elo.close()
+
   node: |
-    import { connect } from "elo-playground";
+    import { connect, EloError } from "elo-playground";
 
     const elo = await connect();
     const ALL = "449304431574384639"; // SordC.mbAllIndex
@@ -87,12 +99,25 @@ snippets:
     sord.name = "Playground test folder";
 
     // 2) persist it - sordZ here is the WRITE mask, so use a full bitset
-    const newId = await elo.call("checkinSord", {
+    const newId = String(await elo.call("checkinSord", {
       sord,
       sordZ: { bset: ALL },
       unlockZ: { bset: "1" },
-    });
+    }));
     console.log("created folder id:", newId);
+
+    // 3) clean up so re-running this stays tidy (see repository.delete-sord)
+    try {
+      for (const step of [false, true]) {
+        await elo.call("deleteSord", { objId: newId, parentId: "1", deleteOptions: { deleteFinally: step } });
+      }
+      console.log("removed the test folder again");
+    } catch (exc) {
+      if (exc instanceof EloError) console.log("could not remove the test folder:", exc.message);
+      else throw exc;
+    } finally {
+      elo.close();
+    }
 
   browser: |
     const elo = await connect();
@@ -104,8 +129,17 @@ snippets:
     });
     const sord = tmpl.sord;
     sord.name = "Playground test folder";
-    const newId = await elo.call("checkinSord", { sord, sordZ: { bset: ALL }, unlockZ: { bset: "1" } });
+    const newId = String(await elo.call("checkinSord", { sord, sordZ: { bset: ALL }, unlockZ: { bset: "1" } }));
     console.log("created folder id:", newId);
+
+    try {
+      for (const step of [false, true]) {
+        await elo.call("deleteSord", { objId: newId, parentId: "1", deleteOptions: { deleteFinally: step } });
+      }
+      console.log("removed the test folder again");
+    } catch (exc) {
+      console.log("could not remove the test folder:", exc.message);
+    }
 
 mock:
   createSord:
@@ -116,3 +150,4 @@ mock:
       type: 1
       name: null
   checkinSord: 5357
+  deleteSord: {}

@@ -43,62 +43,137 @@ result_shape: |
 
 snippets:
   python: |
-    from elo_playground import connect
+    from elo_playground import connect, EloError
 
     elo = connect()
     ALL = "449304431574384639"
 
-    obj_id = 4711            # the object to reference
-    old_parent = 1           # a folder it is already in
-    new_parent = 4712        # the folder to also file it under
+    def make_folder(name):
+        tpl = elo.call("createSord", {"parentId": "1", "maskId": 0,
+                                      "editInfoZ": {"bset": "1", "sordZ": {"bset": ALL}}})["sord"]
+        tpl["name"] = name
+        return str(elo.call("checkinSord", {"sord": tpl, "sordZ": {"bset": ALL},
+                                            "unlockZ": {"bset": "1"}}))
 
-    elo.call("refSord", {
-        "objId": str(obj_id),
-        "oldParentId": str(old_parent),
-        "newParentId": str(new_parent),
-    })
-    print("reference added")
+    obj_id = old_parent = new_parent = None
+    try:
+        old_parent = make_folder("pg-ref-source")
+        new_parent = make_folder("pg-ref-target")
+        obj_id = make_folder("pg-ref-object")            # lives under old_parent's sibling; parent is 1
 
-    kids = elo.call("findFirstSords", {
-        "findInfo": {"findChildren": {"parentId": new_parent, "mainParent": False, "endLevel": 1}},
-        "max": 20,
-        "sordZ": {"bset": ALL},
-    }).get("sords", [])
-    print("new parent now contains:", [k["name"] for k in kids])
+        try:
+            elo.call("refSord", {"objId": obj_id, "oldParentId": "1", "newParentId": new_parent})
+            print("reference added")
+        except EloError as exc:
+            # refSord needs the "reference" right; some repositories deny it
+            print("refSord not permitted here:", exc)
+
+        kids = elo.call("findFirstSords", {
+            "findInfo": {"findChildren": {"parentId": new_parent, "mainParent": False, "endLevel": 1}},
+            "max": 20, "sordZ": {"bset": ALL},
+        }).get("sords", [])
+        print("target folder now contains:", [k["name"] for k in kids])
+    finally:
+        for oid in (obj_id, old_parent, new_parent):
+            if oid:
+                try:
+                    elo.call("deleteSord", {"objId": oid, "parentId": "1",
+                                            "deleteOptions": {"deleteFinally": False}})
+                    elo.call("deleteSord", {"objId": oid, "parentId": "1",
+                                            "deleteOptions": {"deleteFinally": True}})
+                except EloError:
+                    pass
+        elo.close()
 
   node: |
-    import { connect } from "elo-playground";
+    import { connect, EloError } from "elo-playground";
 
     const elo = await connect();
     const ALL = "449304431574384639";
 
-    const objId = 4711;      // the object to reference
-    const oldParent = 1;     // a folder it is already in
-    const newParent = 4712;  // the folder to also file it under
+    const makeFolder = async (name) => {
+      const tpl = (await elo.call("createSord", {
+        parentId: "1", maskId: 0, editInfoZ: { bset: "1", sordZ: { bset: ALL } },
+      })).sord;
+      tpl.name = name;
+      return String(await elo.call("checkinSord", {
+        sord: tpl, sordZ: { bset: ALL }, unlockZ: { bset: "1" },
+      }));
+    };
 
-    await elo.call("refSord", {
-      objId: String(objId),
-      oldParentId: String(oldParent),
-      newParentId: String(newParent),
-    });
-    console.log("reference added");
+    let objId = null;
+    let target = null;
+    try {
+      target = await makeFolder("pg-ref-target");
+      objId = await makeFolder("pg-ref-object");
 
-    const kids = (await elo.call("findFirstSords", {
-      findInfo: { findChildren: { parentId: newParent, mainParent: false, endLevel: 1 } },
-      max: 20,
-      sordZ: { bset: ALL },
-    })).sords || [];
-    console.log("new parent now contains:", kids.map((k) => k.name));
+      try {
+        await elo.call("refSord", { objId, oldParentId: "1", newParentId: target });
+        console.log("reference added");
+      } catch (exc) {
+        if (exc instanceof EloError) console.log("refSord not permitted here:", exc.message);
+        else throw exc;
+      }
+
+      const kids = (await elo.call("findFirstSords", {
+        findInfo: { findChildren: { parentId: target, mainParent: false, endLevel: 1 } },
+        max: 20, sordZ: { bset: ALL },
+      })).sords || [];
+      console.log("target folder now contains:", kids.map((k) => k.name));
+    } finally {
+      for (const oid of [objId, target]) {
+        if (!oid) continue;
+        try {
+          await elo.call("deleteSord", { objId: oid, parentId: "1", deleteOptions: { deleteFinally: false } });
+          await elo.call("deleteSord", { objId: oid, parentId: "1", deleteOptions: { deleteFinally: true } });
+        } catch (e) { /* best effort */ }
+      }
+      elo.close();
+    }
 
   browser: |
     const elo = await connect();
-    await elo.call("refSord", { objId: "4711", oldParentId: "1", newParentId: "4712" });
-    console.log("reference added");
+    const ALL = "449304431574384639";
+
+    const makeFolder = async (name) => {
+      const tpl = (await elo.call("createSord", {
+        parentId: "1", maskId: 0, editInfoZ: { bset: "1", sordZ: { bset: ALL } },
+      })).sord;
+      tpl.name = name;
+      return String(await elo.call("checkinSord", {
+        sord: tpl, sordZ: { bset: ALL }, unlockZ: { bset: "1" },
+      }));
+    };
+
+    let objId = null;
+    let target = null;
+    try {
+      target = await makeFolder("pg-ref-target");
+      objId = await makeFolder("pg-ref-object");
+      try {
+        await elo.call("refSord", { objId, oldParentId: "1", newParentId: target });
+        console.log("reference added");
+      } catch (exc) {
+        console.log("refSord not permitted here:", exc.message);
+      }
+    } finally {
+      for (const oid of [objId, target]) {
+        if (!oid) continue;
+        try {
+          await elo.call("deleteSord", { objId: oid, parentId: "1", deleteOptions: { deleteFinally: false } });
+          await elo.call("deleteSord", { objId: oid, parentId: "1", deleteOptions: { deleteFinally: true } });
+        } catch (e) { /* best effort */ }
+      }
+    }
 
 mock:
+  createSord:
+    sord: { id: 0, name: "", parentId: 1 }
+  checkinSord: [4712, 4711, 4713]
   refSord: {}
+  deleteSord: {}
   findFirstSords:
     moreResults: false
     searchId: "(MOCK-REF)"
     sords:
-      - { id: 4711, name: "Quarterly report.pdf", type: 254 }
+      - { id: 4711, name: "pg-ref-object", type: 1 }

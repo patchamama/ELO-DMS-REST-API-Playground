@@ -1,5 +1,5 @@
 # import the shared client:  from elo_playground import connect
-# topic:    Get the text of a document already in the archive
+# topic:    Get the text of a document that is in the archive
 # category: OCR & text extraction
 # id:       ocr.archived
 
@@ -8,39 +8,41 @@ from elo_playground import connect, EloError
 elo = connect()
 ALL = "449304431574384639"
 
+# --- provision: upload a throwaway text document ---
+body = b"INVOICE 2026-0042\nAcme GmbH\nTotal: 1,469.13 EUR\n"
+sord = elo.call("createDoc", {"parentId": 1, "maskId": 0,
+                              "editInfoZ": {"bset": "1", "sordZ": {"bset": ALL}}})["sord"]
+sord["name"] = "pg-ocr-doc.txt"
+doc = elo.call("checkinDocBegin", {"sord": sord, "document": {"docs": [{"ext": "txt"}]}})
+doc["docs"][0]["uploadResult"] = elo.upload(doc["docs"][0]["url"], body)
+obj_id = str(elo.call("checkinDocEnd", {"sord": sord, "document": doc,
+                                        "sordZ": {"bset": ALL}, "unlockZ": {"bset": "1"}})["objId"])
+print("uploaded doc", obj_id)
+
 try:
-    # 1) find the first document in the archive to work on
-    res = elo.call("findFirstSords", {
-        "findInfo": {"findByType": {"typeMin": 254, "typeMax": 998}},
-        "max": 1, "sordZ": {"bset": ALL},
-    })
-    docs = res.get("sords") or []
-    if res.get("searchId"):
-        elo.call("findClose", {"searchId": res["searchId"]})
-    if not docs:
-        print("no documents in this archive - nothing to OCR")
-    else:
-        obj_id = str(docs[0]["id"])
-        print(f'working on document {obj_id}  "{docs[0].get("name")}"')
+    # 1) OCR it now
+    try:
+        ocr = elo.call("processOcr", {"ocrInfo": {
+            "recognizeFile": {"objId": obj_id, "outputFormat": 0, "pageNo": -1},
+        }})
+        text = " ".join(((ocr.get("recognizeFile") or {}).get("text") or "").split())
+        print("OCR text (first 120):", text[:120] or "(empty)")
+    except EloError as exc:
+        print("processOcr failed:", exc)
 
-        # 2) OCR it now
-        try:
-            ocr = elo.call("processOcr", {"ocrInfo": {
-                "recognizeFile": {"objId": obj_id, "outputFormat": 0, "pageNo": -1},
-            }})
-            text = ((ocr.get("recognizeFile") or {}).get("text") or "").strip()
-            print("OCR text (first 120 chars):", text[:120] or "(empty)")
-        except EloError as exc:
-            print("processOcr failed:", exc)
-
-        # 3) or read the text the fulltext pipeline already extracted
-        doc = elo.call("checkoutDoc", {
-            "objId": obj_id,
-            "editInfoZ": {"bset": "1", "sordZ": {"bset": "0"}},
-        })
-        versions = ((doc.get("document") or {}).get("docs")) or []
-        ftc = versions[0].get("fulltextContent") if versions else None
-        print("fulltext index text     :",
-              (ftc.get("data") if isinstance(ftc, dict) else None) or "(not indexed on this archive)")
+    # 2) or read the already-extracted fulltext
+    info = elo.call("checkoutDoc", {"objId": obj_id,
+                                    "editInfoZ": {"bset": "320", "sordZ": {"bset": "0"}}})
+    docs = ((info.get("document") or {}).get("docs")) or []
+    ftc = docs[0].get("fulltextContent") if docs else None
+    print("fulltext index text :",
+          (ftc.get("data") if isinstance(ftc, dict) else None) or "(not indexed on this archive)")
 finally:
+    for step in (False, True):
+        try:
+            elo.call("deleteSord", {"objId": obj_id, "parentId": "1",
+                                    "deleteOptions": {"deleteFinally": step}})
+        except EloError:
+            pass
+    print("cleaned up")
     elo.close()

@@ -3,7 +3,7 @@
 // category: Repository & objects
 // id:       repository.upload-download
 
-import { connect } from "elo-playground";
+import { connect, EloError } from "elo-playground";
 
 const elo = await connect();
 const ALL = "449304431574384639";
@@ -27,11 +27,23 @@ doc.docs[0].uploadResult = await elo.upload(doc.docs[0].url, payload);
 const res = await elo.call("checkinDocEnd", {
   sord, document: doc, sordZ: { bset: ALL }, unlockZ: { bset: "1" },
 });
-const docId = Number(res.objId);
+const docId = String(res.objId);
 console.log("uploaded doc id:", docId);
 
-// --- read it back ---
-const info = await elo.call("checkoutDoc", {
-  objId: String(docId), editInfoZ: { bset: "320", sordZ: { bset: "0" } },
-});
-console.log("round-trip content:", (await elo.download(info.document.docs[0].url)).trim());
+try {
+  // --- read it back ---
+  const info = await elo.call("checkoutDoc", {
+    objId: docId, editInfoZ: { bset: "320", sordZ: { bset: "0" } },
+  });
+  console.log("round-trip content:", (await elo.download(info.document.docs[0].url)).trim());
+} catch (exc) {
+  if (exc instanceof EloError) console.log("download failed:", exc.message);
+  else throw exc;
+} finally {
+  for (const step of [false, true]) {
+    try {
+      await elo.call("deleteSord", { objId: docId, parentId: "1", deleteOptions: { deleteFinally: step } });
+    } catch (e) { /* best effort */ }
+  }
+  elo.close();
+}

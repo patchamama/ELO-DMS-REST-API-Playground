@@ -6,26 +6,33 @@
 from elo_playground import connect, EloError
 
 elo = connect()
+ALL = "449304431574384639"
 
-obj_id = "5361"   # a throwaway object's id (e.g. one from repository.create-folder)
+# Provision a throwaway folder so this snippet is self-contained.
+tpl = elo.call("createSord", {"parentId": "1", "maskId": 0,
+                              "editInfoZ": {"bset": "1", "sordZ": {"bset": ALL}}})["sord"]
+tpl["name"] = "pg-delete-me"
+obj_id = str(elo.call("checkinSord", {"sord": tpl, "sordZ": {"bset": ALL},
+                                      "unlockZ": {"bset": "1"}}))
+print("scratch folder:", obj_id)
 
-# step 1 - move it to the recycle bin
-elo.call("deleteSord", {
-    "objId": obj_id, "parentId": "1",
-    "deleteOptions": {"deleteFinally": False},
-})
-print("step 1 (to recycle bin): ok")
-
-# step 2 - purge it for good
-elo.call("deleteSord", {
-    "objId": obj_id, "parentId": "1",
-    "deleteOptions": {"deleteFinally": True},
-})
-print("step 2 (purge):          ok")
-
-# confirm it is gone
 try:
-    elo.call("checkoutSord", {"objId": obj_id, "editInfoZ": {"bset": "1", "sordZ": {"bset": "0"}}})
-    print("gone: False")
-except EloError:
-    print("gone: True")
+    # step 1 - move it to the recycle bin
+    elo.call("deleteSord", {"objId": obj_id, "parentId": "1",
+                            "deleteOptions": {"deleteFinally": False}})
+    print("step 1 (to recycle bin): ok")
+
+    # step 2 - purge it for good
+    elo.call("deleteSord", {"objId": obj_id, "parentId": "1",
+                            "deleteOptions": {"deleteFinally": True}})
+    print("step 2 (purge):          ok")
+
+    # confirm it is gone
+    try:
+        elo.call("checkoutSord", {"objId": obj_id,
+                                  "editInfoZ": {"bset": "1", "sordZ": {"bset": "0"}}})
+        print("gone: False")
+    except EloError:
+        print("gone: True")
+finally:
+    elo.close()

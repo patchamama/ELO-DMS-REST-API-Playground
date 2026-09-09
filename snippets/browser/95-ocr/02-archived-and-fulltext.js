@@ -1,31 +1,19 @@
 // in a real page:  import { connect } from "./eloClient.browser.js"
 // (in the playground run-sandbox, connect() is already a global)
-// topic:    Get the text of a document already in the archive
+// topic:    Get the text of a document that is in the archive
 // category: OCR & text extraction
 // id:       ocr.archived
 
+// Uploading a document is not available from the browser (the connector is
+// on another origin). Run this one from the Python or Node tab; the browser
+// client would throw on elo.upload().
 const elo = await connect();
-const ALL = "449304431574384639";
-
-const res = await elo.call("findFirstSords", {
-  findInfo: { findByType: { typeMin: 254, typeMax: 998 } },
-  max: 1, sordZ: { bset: ALL },
-});
-const docs = res.sords || [];
-if (res.searchId) await elo.call("findClose", { searchId: res.searchId });
-
-if (!docs.length) {
-  console.log("no documents in this archive - nothing to OCR");
-} else {
-  const objId = String(docs[0].id);
-  console.log(`working on document ${objId}  "${docs[0].name}"`);
-  try {
-    const ocr = await elo.call("processOcr", {
-      ocrInfo: { recognizeFile: { objId, outputFormat: 0, pageNo: -1 } },
-    });
-    const text = ((ocr.recognizeFile || {}).text || "").trim();
-    console.log("OCR text (first 120 chars):", text.slice(0, 120) || "(empty)");
-  } catch (exc) {
-    console.log("processOcr failed:", exc.message);
-  }
+try {
+  const ocr = await elo.call("processOcr", {
+    ocrInfo: { recognizeFile: { objId: "5001", outputFormat: 0, pageNo: -1 } },
+  });
+  const text = (((ocr.recognizeFile || {}).text) || "").split(/\s+/).join(" ").trim();
+  console.log("OCR text (first 120):", text.slice(0, 120) || "(empty)");
+} catch (exc) {
+  console.log("processOcr failed:", exc.message);
 }
