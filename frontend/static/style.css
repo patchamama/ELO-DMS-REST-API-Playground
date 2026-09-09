@@ -202,6 +202,8 @@ textarea.code-textarea {
 .output-head .fmt:hover { background: #fff; color: var(--ink); }
 pre.output { margin: 0; padding: 10px 14px; min-height: 34px; max-height: 320px; overflow: auto; font-size: 12.5px; white-space: pre-wrap; }
 pre.output.err { color: var(--err); }
+/* highlight.js wraps its output in <code class="hljs">; keep it flush inside our padded <pre> */
+pre.output code.hljs, pre.output.hljs { display: block; padding: 0; background: none; white-space: inherit; }
 
 /* "functions used in this snippet" list, under the output panel */
 .fn-refs { border-top: 1px solid var(--line); padding: 8px 12px; background: var(--panel); font-size: 12px; line-height: 2; }
