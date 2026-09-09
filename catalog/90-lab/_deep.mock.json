@@ -1,0 +1,29 @@
+{
+  "_comment": "Mock responses for the runnable blocks in 90-lab/_deep.md (topic_id = category id '90-lab').",
+  "createSord": { "sord": { "id": 0, "name": "", "parentId": 1, "maskName": "Ordner" } },
+  "checkinSord": 5600,
+  "checkoutSord": {
+    "sord": {
+      "id": 5600,
+      "name": "pg-lab-e2e",
+      "kind": 2,
+      "parentId": 1,
+      "aclItems": [
+        { "id": 9999, "type": 0, "name": "Jeder", "access": 63 },
+        { "id": 9998, "type": 0, "name": "Administratoren", "access": 17 }
+      ],
+      "objKeys": [
+        { "name": "INVOICE_NO", "data": ["2026-0042"] }
+      ]
+    }
+  },
+  "findFirstSords": {
+    "searchId": "(MOCK-LAB-DEEP)",
+    "moreResults": false,
+    "sords": [{ "id": 5600, "name": "pg-lab-e2e-js" }]
+  },
+  "findClose": {},
+  "deleteSord": {},
+  "checkinMap": {},
+  "checkoutMap": { "items": [{ "key": "copy_of_invoice_no", "value": "2026-0042" }] }
+}

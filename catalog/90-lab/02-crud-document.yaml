@@ -1,0 +1,189 @@
+id: lab.crud
+order: 2
+category:
+  en: Testing lab
+  de: Testlabor
+  es: Laboratorio de pruebas
+title:
+  en: "CRUD Operations: create, read, update, delete an object"
+  de: "CRUD-Operationen: Objekt anlegen, lesen, ändern, löschen"
+  es: "Operaciones CRUD: crear, leer, actualizar, borrar un objeto"
+summary:
+  en: >
+    The full lifecycle on one Sord. CREATE = `createSord` (a template) then
+    `checkinSord` (persist, get the new id). READ = `checkoutSord`. UPDATE = the
+    same read / modify / `checkinSord` cycle - there is no `updateSord`. DELETE
+    = `deleteSord` twice: first to the recycle bin, then `deleteFinally` to
+    purge. Filed under `parentId` (the "path"). To store a real FILE with
+    content, swap the CREATE step for `createDoc` + `checkinDocBegin` / `End`
+    (see Repository -> Upload and download). This WRITES. (Verified live on a
+    scratch folder, then deleted.)
+  de: "Der komplette Lebenszyklus an einem Sord. CREATE = `createSord` (Vorlage), dann `checkinSord` (speichern, neue ID holen). READ = `checkoutSord`. UPDATE = derselbe Lesen/Ändern/`checkinSord`-Zyklus - ein `updateSord` gibt es nicht. DELETE = `deleteSord` zweimal: zuerst in den Papierkorb, dann `deleteFinally` zum endgültigen Entfernen. Abgelegt unter `parentId` (der „Pfad“). Für eine echte DATEI mit Inhalt den CREATE-Schritt durch `createDoc` + `checkinDocBegin` / `End` ersetzen (siehe Archiv -> Hoch- und Herunterladen). Das SCHREIBT. (Live an einem Wegwerf-Ordner bestätigt und wieder gelöscht.)"
+  es: "El ciclo de vida completo sobre un Sord. CREATE = `createSord` (una plantilla) y luego `checkinSord` (persistir, obtener el id nuevo). READ = `checkoutSord`. UPDATE = el mismo ciclo leer / modificar / `checkinSord` - no existe `updateSord`. DELETE = `deleteSord` dos veces: primero a la papelera, luego `deleteFinally` para purgar. Archivado bajo `parentId` (el «path»). Para guardar un ARCHIVO real con contenido, cambiá el paso CREATE por `createDoc` + `checkinDocBegin` / `End` (ver Repositorio -> Subir y descargar). Esto ESCRIBE. (Verificado en vivo sobre una carpeta desechable y luego borrado.)"
+
+elo_api:
+  - method: createSord
+    rpc: POST /rest/IXServicePortIF/createSord
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/createSord
+    notes:
+      en: 'Body { parentId, maskId, editInfoZ }. maskId 0 = generic. Returns an EditInfo with a blank sord template.'
+      de: 'Body { parentId, maskId, editInfoZ }. maskId 0 = generisch. Liefert ein EditInfo mit leerer sord-Vorlage.'
+      es: 'Cuerpo { parentId, maskId, editInfoZ }. maskId 0 = genérica. Devuelve un EditInfo con una plantilla de sord vacía.'
+  - method: checkinSord
+    rpc: POST /rest/IXServicePortIF/checkinSord
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/checkinSord
+    notes:
+      en: 'sordZ = full write bitset (449304431574384639); "0" writes nothing. Returns the object id (int).'
+      de: 'sordZ = volles Schreib-Bitset (449304431574384639); "0" schreibt nichts. Liefert die Objekt-ID (int).'
+      es: 'sordZ = bitset de escritura completo (449304431574384639); "0" no escribe nada. Devuelve el id de objeto (int).'
+  - method: checkoutSord
+    rpc: POST /rest/IXServicePortIF/checkoutSord
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/checkoutSord
+    notes:
+      en: 'editInfoZ.bset "1" + sordZ inside it. Add lockZ {bset:"1"} to lock while editing.'
+      de: 'editInfoZ.bset "1" + sordZ darin. lockZ {bset:"1"} ergänzen, um beim Bearbeiten zu sperren.'
+      es: 'editInfoZ.bset "1" + sordZ dentro. Agregá lockZ {bset:"1"} para bloquear mientras editás.'
+  - method: deleteSord
+    rpc: POST /rest/IXServicePortIF/deleteSord
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/deleteSord
+    notes:
+      en: 'Two calls: deleteOptions.deleteFinally false -> recycle bin, then true -> purge.'
+      de: 'Zwei Aufrufe: deleteOptions.deleteFinally false -> Papierkorb, dann true -> endgültig.'
+      es: 'Dos llamadas: deleteOptions.deleteFinally false -> papelera, luego true -> purga.'
+
+result_shape: |
+  created: 5500
+  read   : pg-lab-crud | created by the playground
+  updated: pg-lab-crud (renamed)
+  deleted: 5500
+
+snippets:
+  python: |
+    from elo_playground import connect
+
+    elo = connect()
+    ALL = "449304431574384639"
+
+    PARENT = 1          # the folder to file the object under (its "path")
+
+    # --- CREATE ---------------------------------------------------------
+    tpl = elo.call("createSord", {
+        "parentId": str(PARENT), "maskId": 0,
+        "editInfoZ": {"bset": "1", "sordZ": {"bset": ALL}},
+    })["sord"]
+    tpl["name"] = "pg-lab-crud"
+    tpl["desc"] = "created by the playground"     # the memo/description field
+    obj_id = str(elo.call("checkinSord", {
+        "sord": tpl, "sordZ": {"bset": ALL}, "unlockZ": {"bset": "1"},
+    }))
+    print("created:", obj_id)
+
+    # --- READ --------------------------------------------------------
+    got = elo.call("checkoutSord", {
+        "objId": obj_id, "editInfoZ": {"bset": "1", "sordZ": {"bset": ALL}},
+    })["sord"]
+    print("read   :", got["name"], "|", got.get("desc"))
+
+    # --- UPDATE (read / modify / write) --------------------------
+    got["name"] = "pg-lab-crud (renamed)"
+    elo.call("checkinSord", {"sord": got, "sordZ": {"bset": ALL}, "unlockZ": {"bset": "1"}})
+    again = elo.call("checkoutSord", {
+        "objId": obj_id, "editInfoZ": {"bset": "1", "sordZ": {"bset": ALL}},
+    })["sord"]
+    print("updated:", again["name"])
+
+    # --- DELETE (recycle bin, then purge) -----------------------
+    elo.call("deleteSord", {"parentId": str(PARENT), "objId": obj_id,
+                            "deleteOptions": {"deleteFinally": False}})
+    elo.call("deleteSord", {"parentId": str(PARENT), "objId": obj_id,
+                            "deleteOptions": {"deleteFinally": True}})
+    print("deleted:", obj_id)
+
+  node: |
+    import { connect } from "elo-playground";
+
+    const elo = await connect();
+    const ALL = "449304431574384639";
+
+    const PARENT = 1; // the folder to file the object under (its "path")
+
+    // --- CREATE ---------------------------------------------------
+    const tpl = (await elo.call("createSord", {
+      parentId: String(PARENT), maskId: 0,
+      editInfoZ: { bset: "1", sordZ: { bset: ALL } },
+    })).sord;
+    tpl.name = "pg-lab-crud";
+    tpl.desc = "created by the playground";
+    const objId = String(await elo.call("checkinSord", {
+      sord: tpl, sordZ: { bset: ALL }, unlockZ: { bset: "1" },
+    }));
+    console.log("created:", objId);
+
+    // --- READ ---------------------------------------------------
+    const got = (await elo.call("checkoutSord", {
+      objId, editInfoZ: { bset: "1", sordZ: { bset: ALL } },
+    })).sord;
+    console.log("read   :", got.name, "|", got.desc);
+
+    // --- UPDATE (read / modify / write) -----------------------
+    got.name = "pg-lab-crud (renamed)";
+    await elo.call("checkinSord", { sord: got, sordZ: { bset: ALL }, unlockZ: { bset: "1" } });
+    const again = (await elo.call("checkoutSord", {
+      objId, editInfoZ: { bset: "1", sordZ: { bset: ALL } },
+    })).sord;
+    console.log("updated:", again.name);
+
+    // --- DELETE (recycle bin, then purge) -------------------
+    await elo.call("deleteSord", { parentId: String(PARENT), objId,
+      deleteOptions: { deleteFinally: false } });
+    await elo.call("deleteSord", { parentId: String(PARENT), objId,
+      deleteOptions: { deleteFinally: true } });
+    console.log("deleted:", objId);
+
+  browser: |
+    const elo = await connect();
+    const ALL = "449304431574384639";
+    const PARENT = 1;
+
+    const tpl = (await elo.call("createSord", {
+      parentId: String(PARENT), maskId: 0,
+      editInfoZ: { bset: "1", sordZ: { bset: ALL } },
+    })).sord;
+    tpl.name = "pg-lab-crud";
+    tpl.desc = "created by the playground";
+    const objId = String(await elo.call("checkinSord", {
+      sord: tpl, sordZ: { bset: ALL }, unlockZ: { bset: "1" },
+    }));
+    console.log("created:", objId);
+
+    const got = (await elo.call("checkoutSord", {
+      objId, editInfoZ: { bset: "1", sordZ: { bset: ALL } },
+    })).sord;
+    console.log("read:", got.name, "|", got.desc);
+
+    got.name = "pg-lab-crud (renamed)";
+    await elo.call("checkinSord", { sord: got, sordZ: { bset: ALL }, unlockZ: { bset: "1" } });
+    console.log("updated");
+
+    await elo.call("deleteSord", { parentId: String(PARENT), objId,
+      deleteOptions: { deleteFinally: false } });
+    await elo.call("deleteSord", { parentId: String(PARENT), objId,
+      deleteOptions: { deleteFinally: true } });
+    console.log("deleted:", objId);
+
+mock:
+  createSord:
+    sord:
+      id: 0
+      name: ""
+      parentId: 1
+      maskName: "Ordner"
+  checkinSord: 5500
+  checkoutSord:
+    - sord: { id: 5500, name: "pg-lab-crud", desc: "created by the playground", parentId: 1 }
+    - sord: { id: 5500, name: "pg-lab-crud (renamed)", desc: "created by the playground", parentId: 1 }
+  deleteSord: {}

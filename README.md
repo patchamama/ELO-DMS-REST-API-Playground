@@ -6,7 +6,12 @@ shows the minimum call needed to produce a documented result, in three runtimes 
 commented snippets you can run live. It works offline in **mock mode** and against
 a real ELO on `localhost`. UI in English / German / Spanish.
 
-25 topics across 9 categories today; adding more is one YAML file each (see below).
+29 topics across 10 categories today; adding more is one YAML file each (see below).
+
+The last category, **Testing lab**, is a scratch area: find an object by
+GUID / id / name, a full CRUD lifecycle, changing owner / colour / permissions,
+and sending a document to the Textreader (`processOcr`). Its **CRUD Operations**
+deep dive chains the whole flow end to end.
 
 Self-contained: one FastAPI backend, one small Express service, a shared client
 in three languages, and a no-build-step frontend. Python 3.12 + Node 18+.
