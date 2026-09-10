@@ -42,6 +42,22 @@
   let LANG = store.get(LS.lang, "en");
   if (!["en", "de", "es"].includes(LANG)) LANG = "en";
   const RUNTIMES = ["python", "node", "browser", "go", "php", "java", "rhino"];
+  const CODEMIRROR_MODES = Object.freeze({
+    python: "python",
+    node: "javascript",
+    browser: "javascript",
+    rhino: "javascript",
+    go: "go",
+    php: "php",
+    java: "java",
+  });
+  const HIGHLIGHT_LANGUAGES = Object.freeze({
+    node: "javascript",
+    browser: "javascript",
+    rhino: "javascript",
+  });
+  const codeMirrorMode = (runtime) => CODEMIRROR_MODES[runtime] || "javascript";
+  const highlightLanguage = (runtime) => HIGHLIGHT_LANGUAGES[runtime] || runtime || "plaintext";
   let BROWSER_CLIENT_SRC = null; // cached source of eloClient.browser.js
 
   // "static demo" mode: no backend - baked JSON under ./api/ and a run cache
@@ -211,15 +227,20 @@
     codeEl.className = preferJson || looksJson(text) ? "language-json" : "language-plaintext";
     if (window.hljs) window.hljs.highlightElement(codeEl);
   }
-  // if the WHOLE output is one JSON value, return it pretty-printed, else null
-  function jsonPrettyStrict(text) {
-    const t = (text || "").trim();
-    if (!looksJson(t)) return null;
+  // Detect a complete structured response.  Do not try to pull JSON/XML out of
+  // log output: that would hide useful text.  A response is reformatted only
+  // when its complete body is one valid JSON or XML document.
+  function structuredOutput(text) {
+    const source = String(text || "");
+    const t = source.trim();
+    if (!t) return null;
     try {
-      return JSON.stringify(JSON.parse(t), null, 2);
+      return { text: JSON.stringify(JSON.parse(t), null, 2), language: "json" };
     } catch (e) {
-      return null;
+      // It may be XML; retain the original response if it is neither format.
     }
+    const xml = prettyXml(t);
+    return xml == null ? null : { text: xml, language: "xml" };
   }
 
   // put `code` into `outputEl` as a highlighted <code> block. Version-agnostic:
@@ -402,9 +423,9 @@
       if (res.stderr) parts.push((parts.length ? "\n--- stderr ---\n" : "") + res.stderr.replace(/\n$/, ""));
       const text = parts.join("\n") || "(no output)";
       outputEl.dataset.raw = text; // kept so the JSON / XML buttons can reformat it
-      const jsonPretty = res.ok && !res.stderr ? jsonPrettyStrict(res.stdout) : null;
-      if (jsonPretty != null) {
-        renderHighlighted(outputEl, jsonPretty, "json");
+      const structured = !res.stderr ? structuredOutput(res.stdout) : null;
+      if (structured != null) {
+        renderHighlighted(outputEl, structured.text, structured.language);
       } else {
         outputEl.textContent = text;
         outputEl.classList.remove("hljs");
@@ -468,8 +489,8 @@
         if (!outputEl.textContent) outputEl.textContent = d.ok ? "(no output)" : "(failed)";
         outputEl.dataset.raw = outputEl.textContent; // for the JSON / XML buttons
         if (d.ok && !outputEl.classList.contains("err")) {
-          const jsonPretty = jsonPrettyStrict(outputEl.textContent);
-          if (jsonPretty != null) renderHighlighted(outputEl, jsonPretty, "json");
+          const structured = structuredOutput(outputEl.textContent);
+          if (structured != null) renderHighlighted(outputEl, structured.text, structured.language);
         }
         cleanup();
         return;
@@ -1112,10 +1133,7 @@ ${snippet}
   function makeRunner(language, code, topicId, cacheKey, getAttach) {
     code = applyCreds(code, language); // seed the ELO_* constants from the form
     let original = code;
-    // Only Python and JavaScript modes are vendored. Go/PHP/Java/Rhino use
-    // JavaScript tokenisation as an explicit readable fallback, rather than
-    // silently asking CodeMirror for missing external mode assets.
-    const cmMode = language === "python" ? "python" : "javascript";
+    const cmMode = codeMirrorMode(language);
     const wrap = document.createElement("div");
     wrap.className = "runner";
     wrap.innerHTML = `
@@ -1300,7 +1318,7 @@ ${snippet}
         .map(
           (f) =>
             `<div class="lib-file"><div class="lib-file-name">${esc(f.title)}</div>` +
-            `<pre class="code"><code class="language-${lang === "python" ? "python" : "javascript"}">${esc(f.code)}</code></pre></div>`
+            `<pre class="code"><code class="language-${highlightLanguage(lang)}">${esc(f.code)}</code></pre></div>`
         )
         .join("");
       if (window.hljs) libHost.querySelectorAll("pre code").forEach((el) => window.hljs.highlightElement(el));
@@ -1555,8 +1573,7 @@ ${snippet}
         'const elo = await connect({ baseUrl: ELO_BASE_URL, user: ELO_USER, password: ELO_PASS });\n' +
         'console.log((await elo.call("getServerInfo", {})).version);\n',
     };
-      // See makeRunner: all non-Python runtimes use the vendored JS fallback.
-      const cmMode = (lang) => (lang === "python" ? "python" : "javascript");
+      const cmMode = codeMirrorMode;
 
     let touched = false;
     let getCode = () => codeEl.value;

@@ -3,15 +3,18 @@ package elo
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"strings"
+	"time"
 )
 
 const defaultBaseURL = "http://localhost:9090/ix-Repository1"
+const defaultRequestTimeout = 15 * time.Second
 
 type Client struct {
 	BaseURL, User, Password string
@@ -22,13 +25,20 @@ func Connect() *Client {
 	return New(env("ELOPG_ELO_BASE_URL", defaultBaseURL), env("ELOPG_ELO_USER", "Administrator"), os.Getenv("ELOPG_ELO_PASSWORD"))
 }
 func New(baseURL, user, password string) *Client {
-	return &Client{BaseURL: baseURL, User: user, Password: password, HTTP: http.DefaultClient}
+	return &Client{BaseURL: baseURL, User: user, Password: password, HTTP: &http.Client{Timeout: defaultRequestTimeout}}
 }
 func env(name, fallback string) string {
 	if value := os.Getenv(name); value != "" {
 		return value
 	}
 	return fallback
+}
+
+// Login opens an IX session with the same request shape as elo_playground.
+func (c *Client) Login() (json.RawMessage, error) {
+	return c.Call("login", map[string]interface{}{
+		"userName": c.User, "userPwd": c.Password, "clientComputer": "elo-api-playground", "runAsUser": "", "ci": map[string]interface{}{"language": "en", "country": "US", "timezone": "Europe/Berlin"},
+	})
 }
 
 // Call returns the IX result payload, unwrapping the REST {"result": ...} envelope.
@@ -51,7 +61,9 @@ func (c *Client) Call(method string, body interface{}) (json.RawMessage, error) 
 	if err != nil {
 		return nil, err
 	}
-	req, err := http.NewRequest(http.MethodPost, strings.TrimRight(c.BaseURL, "/")+"/rest/IXServicePortIF/"+method, bytes.NewReader(payload))
+	ctx, cancel := context.WithTimeout(context.Background(), defaultRequestTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(c.BaseURL, "/")+"/rest/IXServicePortIF/"+method, bytes.NewReader(payload))
 	if err != nil {
 		return nil, err
 	}
@@ -70,12 +82,16 @@ func (c *Client) Call(method string, body interface{}) (json.RawMessage, error) 
 		return nil, fmt.Errorf("IX HTTP %s: %s", response.Status, string(raw))
 	}
 	var envelope struct {
-		Result json.RawMessage `json:"result"`
+		Result    json.RawMessage `json:"result"`
+		Exception json.RawMessage `json:"exception"`
 	}
 	if err := json.Unmarshal(raw, &envelope); err != nil {
 		return nil, err
 	}
 	if envelope.Result == nil {
+		if envelope.Exception != nil {
+			return nil, fmt.Errorf("IX exception: %s", string(envelope.Exception))
+		}
 		return json.RawMessage(`{}`), nil
 	}
 	return envelope.Result, nil

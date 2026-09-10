@@ -118,6 +118,23 @@ def test_rhino_is_not_executed_as_browser_or_local_code():
     assert "Web Client injection" in result.detail
 
 
+def test_live_mutation_plan_is_a_safe_non_green_skip(monkeypatch):
+    code = '// ELOPG_PLAN: [{"method":"createSord","params":{"parentId":1}}]'
+    monkeypatch.delenv("ELOPG_SCRATCH_ROOT", raising=False)
+    monkeypatch.delenv("ELOPG_SCRATCH_NAMESPACE", raising=False)
+    result = run(RunRequest(language="go", code=code, mock=False))
+    assert not result.ok
+    assert "safe skip" in result.detail
+    assert "ELOPG_SCRATCH_ROOT" in result.detail
+
+
+@pytest.mark.parametrize("method", ["refSord", "linkSords", "checkinMap", "insertPublicDownload"])
+def test_remaining_live_mutation_families_are_safe_skipped(method):
+    result = run(RunRequest(language="go", code=f'// ELOPG_PLAN: [{{"method":"{method}","params":{{}}}}]', mock=False))
+    assert not result.ok
+    assert "safe skip" in result.detail
+
+
 @pytest.mark.parametrize("language", ["go", "php", "java"])
 def test_shared_runtime_example_matches_canonical_fixture(language):
     """Portable toolchains execute the same fixture-backed payload contract."""

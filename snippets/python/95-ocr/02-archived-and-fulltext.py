@@ -3,12 +3,13 @@
 # category: OCR & text extraction
 # id:       ocr.archived
 
+import os
 from elo_playground import connect, EloError, attachment
 
 # --- local ELO test box (override with ELOPG_* env vars or a .env) ---
-ELO_BASE_URL = "http://localhost:9090/ix-Repository1"
-ELO_USER = "Administrator"
-ELO_PASS = "elo"
+ELO_BASE_URL = os.getenv("ELOPG_ELO_BASE_URL", "http://localhost:9090/ix-Repository1")
+ELO_USER = os.getenv("ELOPG_ELO_USER", "Administrator")
+ELO_PASS = os.getenv("ELOPG_ELO_PASSWORD", "")
 
 elo = connect(base_url=ELO_BASE_URL, user=ELO_USER, password=ELO_PASS)
 ALL = "449304431574384639"

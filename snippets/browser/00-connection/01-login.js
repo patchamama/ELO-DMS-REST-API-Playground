@@ -5,9 +5,9 @@
 // id:       connection.login
 
 // --- local ELO test box (override with ELOPG_* env vars or a .env) ---
-const ELO_BASE_URL = "http://localhost:9090/ix-Repository1";
-const ELO_USER = "Administrator";
-const ELO_PASS = "elo";
+const ELO_BASE_URL = globalThis.ELOPG_ELO_BASE_URL || "http://localhost:9090/ix-Repository1";
+const ELO_USER = globalThis.ELOPG_ELO_USER || "Administrator";
+const ELO_PASS = globalThis.ELOPG_ELO_PASSWORD || "";
 
 // connect() is preloaded by the playground; in the browser the call goes
 // to the playground backend, which forwards the RPC (or answers from mock
