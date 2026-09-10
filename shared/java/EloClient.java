@@ -12,14 +12,16 @@ import java.time.Duration;
 public final class EloClient {
   private static final String DEFAULT_BASE_URL = "http://localhost:9090/ix-Repository1";
   private final String baseUrl, authorization;
-  public static EloClient connect() { return new EloClient(env("ELOPG_ELO_BASE_URL", DEFAULT_BASE_URL), env("ELOPG_ELO_USER", "Administrator"), env("ELOPG_ELO_PASSWORD", "")); }
+  public static EloClient connect() { return new EloClient(env("ELOPG_ELO_BASE_URL", DEFAULT_BASE_URL), env("ELOPG_ELO_USER", "Administrator"), env("ELOPG_ELO_PASSWORD", "elo")); }
+  public static EloClient connect(String baseUrl, String user, String password) { return new EloClient(baseUrl, user, password); }
   public EloClient(String baseUrl, String user, String password) { this.baseUrl = baseUrl.replaceAll("/+$", ""); this.authorization = "Basic " + Base64.getEncoder().encodeToString((user + ":" + password).getBytes(StandardCharsets.UTF_8)); }
   public String call(String method, String jsonBody) throws Exception {
     if ("1".equals(System.getenv("ELOPG_MOCK"))) return fixtureResult(Files.readString(Path.of(System.getenv("ELOPG_MOCK_DATA"))), method);
     var request = HttpRequest.newBuilder(URI.create(baseUrl + "/rest/IXServicePortIF/" + method)).timeout(Duration.ofSeconds(15)).header("Content-Type", "application/json").header("Authorization", authorization).POST(HttpRequest.BodyPublishers.ofString(jsonBody)).build();
     var response = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build().send(request, HttpResponse.BodyHandlers.ofString()); if (response.statusCode() >= 300) throw new IllegalStateException("IX HTTP " + response.statusCode()); if (response.body().contains("\"exception\"")) throw new IllegalStateException("IX exception: " + jsonValueAfterKey(response.body(), "exception")); return resultEnvelope(response.body());
   }
-  private static String env(String name, String fallback) { String value = System.getenv(name); return value == null || value.isBlank() ? fallback : value; }
+  /** Reads a non-empty ELOPG variable or the teaching default supplied by the caller. */
+  public static String env(String name, String fallback) { String value = System.getenv(name); return value == null || value.isBlank() ? fallback : value; }
   private static String fixtureResult(String fixture, String method) { return jsonValueAfterKey(fixture, method); }
   private static String resultEnvelope(String response) { return jsonValueAfterKey(response, "result"); }
   /** Extract one JSON object/array value without adding a JSON dependency. */

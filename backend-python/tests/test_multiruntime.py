@@ -39,3 +39,25 @@ def test_go_client_has_request_timeout_for_login_and_every_ix_call():
     assert "&http.Client{Timeout: defaultRequestTimeout}" in go
     assert "context.WithTimeout" in go
     assert "http.NewRequestWithContext" in go
+
+
+def test_all_runtime_snippets_expose_marked_environment_defaults():
+    """The frontend updates only these markers, never a guessed user-code line."""
+    expected = {
+        "python": ('os.getenv("ELOPG_ELO_PASSWORD", "elo")', "# ELOPG_DEFAULT:password"),
+        "node": ('process.env.ELOPG_ELO_PASSWORD || "elo"', "// ELOPG_DEFAULT:password"),
+        "go": ('elo.Env("ELOPG_ELO_PASSWORD", "elo")', "// ELOPG_DEFAULT:password"),
+        "php": ("getenv('ELOPG_ELO_PASSWORD') ?: 'elo'", "// ELOPG_DEFAULT:password"),
+        "java": ('EloClient.env("ELOPG_ELO_PASSWORD", "elo")', "// ELOPG_DEFAULT:password"),
+        "rhino": ('java.lang.System.getenv("ELOPG_ELO_PASSWORD") || "elo"', "// ELOPG_DEFAULT:password"),
+    }
+    for path in sorted(get_settings().catalog_dir.glob("*/*.yaml")):
+        topic = get_topic((yaml.safe_load(path.read_text(encoding="utf-8")) or {})["id"])
+        for runtime, (fallback, password_marker) in expected.items():
+            code = getattr(topic.snippets, runtime)
+            assert "ELOPG_ELO_BASE_URL" in code, f"{topic.id} {runtime} missing base URL default"
+            assert "ELOPG_ELO_USER" in code, f"{topic.id} {runtime} missing user default"
+            assert fallback in code, f"{topic.id} {runtime} missing password fallback"
+            assert "ELOPG_DEFAULT:base_url" in code
+            assert "ELOPG_DEFAULT:user" in code
+            assert password_marker in code

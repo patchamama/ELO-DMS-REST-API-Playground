@@ -3,7 +3,9 @@
 final class EloClient {
   private const DEFAULT_BASE_URL = 'http://localhost:9090/ix-Repository1';
   public function __construct(private string $baseUrl, private string $user, private string $password) {}
-  public static function connect(): self { return new self(getenv('ELOPG_ELO_BASE_URL') ?: self::DEFAULT_BASE_URL, getenv('ELOPG_ELO_USER') ?: 'Administrator', getenv('ELOPG_ELO_PASSWORD') ?: ''); }
+  public static function connect(?string $baseUrl = null, ?string $user = null, ?string $password = null): self {
+    return new self($baseUrl ?: (getenv('ELOPG_ELO_BASE_URL') ?: self::DEFAULT_BASE_URL), $user ?: (getenv('ELOPG_ELO_USER') ?: 'Administrator'), $password ?: (getenv('ELOPG_ELO_PASSWORD') ?: 'elo'));
+  }
   /** Return the IX result payload (the REST envelope is unwrapped). */
   public function call(string $method, array $body = []): mixed {
     if (getenv('ELOPG_MOCK') === '1') { $fixture = json_decode(file_get_contents(getenv('ELOPG_MOCK_DATA')), true, 512, JSON_THROW_ON_ERROR); return $fixture[$method] ?? new stdClass(); }

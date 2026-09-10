@@ -250,28 +250,43 @@ def generate(detail: dict, language: str) -> str:
 
     if language == "go":
         return (
-            "// Requires the shared/go teaching client or your own IX REST transport.\n"
-            'client := &elo.Client{BaseURL: "http://localhost:9090/ix-Repository1", User: "Administrator", Password: os.Getenv("ELOPG_ELO_PASSWORD")}\n'
-            "var result map[string]any\n"
-            f'if err := client.Call("{method}", map[string]any{{}}, &result); err != nil {{ panic(err) }}\n'
-            "fmt.Println(result)\n"
+            "// Requires shared/go/elo.go.\npackage main\n\n"
+            'import (\n  "encoding/json"\n  "fmt"\n  "example.com/elopg/elo"\n)\n\n'
+            "func main() {\n"
+            '  ELOBaseURL := elo.Env("ELOPG_ELO_BASE_URL", "http://localhost:9090/ix-Repository1") // ELOPG_DEFAULT:base_url\n'
+            '  ELOUser := elo.Env("ELOPG_ELO_USER", "Administrator") // ELOPG_DEFAULT:user\n'
+            '  ELOPass := elo.Env("ELOPG_ELO_PASSWORD", "elo") // ELOPG_DEFAULT:password\n'
+            "  client := elo.New(ELOBaseURL, ELOUser, ELOPass)\n"
+            f'  result, err := client.Call("{method}", json.RawMessage(`{{}}`))\n'
+            "  if err != nil { panic(err) }\n  fmt.Println(string(result))\n}\n"
         )
     if language == "php":
         return (
-            "require_once 'EloClient.php';\n"
-            '$elo = new EloClient("http://localhost:9090/ix-Repository1", "Administrator", getenv("ELOPG_ELO_PASSWORD") ?: "");\n'
+            "<?php\nrequire_once __DIR__ . '/EloClient.php';\n"
+            "$ELO_BASE_URL = getenv('ELOPG_ELO_BASE_URL') ?: 'http://localhost:9090/ix-Repository1'; // ELOPG_DEFAULT:base_url\n"
+            "$ELO_USER = getenv('ELOPG_ELO_USER') ?: 'Administrator'; // ELOPG_DEFAULT:user\n"
+            "$ELO_PASS = getenv('ELOPG_ELO_PASSWORD') ?: 'elo'; // ELOPG_DEFAULT:password\n"
+            "$elo = EloClient::connect($ELO_BASE_URL, $ELO_USER, $ELO_PASS);\n"
             f'print_r($elo->call("{method}", []));\n'
         )
     if language == "java":
         return (
             "// Requires shared/java/EloClient.java on the classpath.\n"
-            'var elo = new EloClient("http://localhost:9090/ix-Repository1", "Administrator", System.getenv("ELOPG_ELO_PASSWORD"));\n'
-            f'System.out.println(elo.call("{method}", "{{}}"));\n'
+            "public final class Main {\n  public static void main(String[] args) throws Exception {\n"
+            '    String eloBaseUrl = EloClient.env("ELOPG_ELO_BASE_URL", "http://localhost:9090/ix-Repository1"); // ELOPG_DEFAULT:base_url\n'
+            '    String eloUser = EloClient.env("ELOPG_ELO_USER", "Administrator"); // ELOPG_DEFAULT:user\n'
+            '    String eloPass = EloClient.env("ELOPG_ELO_PASSWORD", "elo"); // ELOPG_DEFAULT:password\n'
+            '    var elo = EloClient.connect(eloBaseUrl, eloUser, eloPass);\n'
+            f'    System.out.println(elo.call("{method}", "{{}}"));\n'
+            "  }\n}\n"
         )
     if language == "rhino":
         return (
             "// Deploy a reviewed server-side Rhino function, then call it through IXServicePortIF.executeScript.\n"
             "// Never inject this code into Web Client and never accept arbitrary script names or code.\n"
+            'var ELO_BASE_URL = java.lang.System.getenv("ELOPG_ELO_BASE_URL") || "http://localhost:9090/ix-Repository1"; // ELOPG_DEFAULT:base_url\n'
+            'var ELO_USER = java.lang.System.getenv("ELOPG_ELO_USER") || "Administrator"; // ELOPG_DEFAULT:user\n'
+            'var ELO_PASS = java.lang.System.getenv("ELOPG_ELO_PASSWORD") || "elo"; // ELOPG_DEFAULT:password\n'
             'var result = ixConnect.ix().executeScript("RF_playground_readMetadata", { objId: "<object-id>" });\n'
         )
     if language == "python":
@@ -282,11 +297,11 @@ def generate(detail: dict, language: str) -> str:
             inner = "\n".join(f'        "{n}": {v},  # {t}' for n, v, t in body_lines)
             body = "{\n" + inner + "\n    }"
         return (
-            "from elo_playground import connect\n\n"
+            "import os\nfrom elo_playground import connect\n\n"
             "# --- local ELO test box (override with ELOPG_* env vars or a .env) ---\n"
-            'ELO_BASE_URL = "http://localhost:9090/ix-Repository1"\n'
-            'ELO_USER = "Administrator"\n'
-            'ELO_PASS = "elo"\n\n'
+            'ELO_BASE_URL = os.getenv("ELOPG_ELO_BASE_URL", "http://localhost:9090/ix-Repository1") # ELOPG_DEFAULT:base_url\n'
+            'ELO_USER = os.getenv("ELOPG_ELO_USER", "Administrator") # ELOPG_DEFAULT:user\n'
+            'ELO_PASS = os.getenv("ELOPG_ELO_PASSWORD", "elo") # ELOPG_DEFAULT:password\n\n'
             "elo = connect(base_url=ELO_BASE_URL, user=ELO_USER, password=ELO_PASS)\n\n"
             f'# {detail["http_method"]} {detail["path"]}\n'
             f'result = elo.call("{method}", {body}{svc_arg})\n'
@@ -303,9 +318,9 @@ def generate(detail: dict, language: str) -> str:
     return (
         f"{head}"
         "// --- local ELO test box (override with ELOPG_* env vars or a .env) ---\n"
-        'const ELO_BASE_URL = "http://localhost:9090/ix-Repository1";\n'
-        'const ELO_USER = "Administrator";\n'
-        'const ELO_PASS = "elo";\n\n'
+        f'const ELO_BASE_URL = {"process.env.ELOPG_ELO_BASE_URL" if language == "node" else "globalThis.ELOPG_ELO_BASE_URL"} || "http://localhost:9090/ix-Repository1"; // ELOPG_DEFAULT:base_url\n'
+        f'const ELO_USER = {"process.env.ELOPG_ELO_USER" if language == "node" else "globalThis.ELOPG_ELO_USER"} || "Administrator"; // ELOPG_DEFAULT:user\n'
+        f'const ELO_PASS = {"process.env.ELOPG_ELO_PASSWORD" if language == "node" else "globalThis.ELOPG_ELO_PASSWORD"} || "elo"; // ELOPG_DEFAULT:password\n\n'
         "const elo = await connect({ baseUrl: ELO_BASE_URL, user: ELO_USER, password: ELO_PASS });\n\n"
         f'// {detail["http_method"]} {detail["path"]}\n'
         f'const result = await elo.call("{method}", {body}{svc_arg});\n'

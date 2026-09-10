@@ -205,25 +205,63 @@
     return raw.replace(/\/+$/, "");
   }
 
-  // Rewrite a snippet's ELO_BASE_URL / ELO_USER / ELO_PASS constants from the
-  // current connection form. A blank form field keeps the snippet's built-in
-  // default. Only those three assignment lines are touched.
+  // Every generated connection default carries one of these stable markers.
+  // Do not broaden this into a heuristic replacement: user code without a marker
+  // must never be rewritten when a form value changes.
+  const CONNECTION_DEFAULTS = Object.freeze({
+    base_url: "ELOPG_DEFAULT:base_url",
+    user: "ELOPG_DEFAULT:user",
+    password: "ELOPG_DEFAULT:password",
+  });
+
+  function escapeCodeString(value, quote) {
+    return String(value)
+      .replace(/\\/g, "\\\\")
+      .replace(/\r/g, "\\r")
+      .replace(/\n/g, "\\n")
+      .replace(new RegExp(quote, "g"), "\\" + quote);
+  }
+
+  function connectionDefaultLine(language, key, value) {
+    const env = { base_url: "ELOPG_ELO_BASE_URL", user: "ELOPG_ELO_USER", password: "ELOPG_ELO_PASSWORD" }[key];
+    const names = { base_url: "ELO_BASE_URL", user: "ELO_USER", password: "ELO_PASS" };
+    const marker = CONNECTION_DEFAULTS[key];
+    if (language === "python") return `${names[key]} = os.getenv("${env}", "${escapeCodeString(value, '"')}") # ${marker}`;
+    if (language === "node") return `const ${names[key]} = process.env.${env} || "${escapeCodeString(value, '"')}"; // ${marker}`;
+    if (language === "browser") return `const ${names[key]} = globalThis.${env} || "${escapeCodeString(value, '"')}"; // ${marker}`;
+    if (language === "go") {
+      const goName = { base_url: "ELOBaseURL", user: "ELOUser", password: "ELOPass" }[key];
+      return `${goName} := elo.Env("${env}", "${escapeCodeString(value, '"')}") // ${marker}`;
+    }
+    if (language === "php") return `$${names[key]} = getenv('${env}') ?: '${escapeCodeString(value, "'")}'; // ${marker}`;
+    if (language === "java") {
+      const javaName = { base_url: "eloBaseUrl", user: "eloUser", password: "eloPass" }[key];
+      return `String ${javaName} = EloClient.env("${env}", "${escapeCodeString(value, '"')}"); // ${marker}`;
+    }
+    if (language === "rhino") return `var ${names[key]} = java.lang.System.getenv("${env}") || "${escapeCodeString(value, '"')}"; // ${marker}`;
+    return null;
+  }
+
+  // Rewrite only the marked ELO_* defaults from the connection form. A blank
+  // field keeps the generated teaching default. Form values remain in memory
+  // (and optional browser storage), never in catalog or static deployment files.
   function applyCreds(code, language) {
     const f = $("#conn");
     if (!f || !code) return code;
-    const q = (v) => String(v).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-    const isPy = language === "python";
-    const set = (src, name, value) => {
-      if (!value) return src; // empty field -> leave the snippet's own default
-      const re = isPy
-        ? new RegExp('^([ \\t]*)' + name + '\\s*=\\s*"[^"]*"', "m")
-        : new RegExp('^([ \\t]*)const ' + name + '\\s*=\\s*"[^"]*"', "m");
-      const rep = isPy ? '$1' + name + ' = "' + q(value) + '"' : '$1const ' + name + ' = "' + q(value) + '"';
-      return src.replace(re, rep);
+    const values = {
+      base_url: effectiveBaseUrl(),
+      user: (f.user.value || "").trim(),
+      password: f.password.value || "",
     };
-    let out = set(code, "ELO_BASE_URL", effectiveBaseUrl());
-    out = set(out, "ELO_USER", (f.user.value || "").trim());
-    out = set(out, "ELO_PASS", f.password.value || "");
+    let out = code;
+    Object.entries(values).forEach(([key, value]) => {
+      if (!value) return;
+      const marker = CONNECTION_DEFAULTS[key].replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const line = connectionDefaultLine(language, key, value);
+      if (!line) return;
+      const re = new RegExp("^([ \\t]*).*?(?:#|//)\\s*" + marker + "\\s*$", "m");
+      out = out.replace(re, (_, indent) => indent + line);
+    });
     return out;
   }
 
@@ -1645,6 +1683,7 @@ ${snippet}
   }
 
   let SCRATCH_CM = null;
+  let SCRATCH_SYNC = null;
   function wireScratchpad() {
     const langSel = $("#scratch-lang");
     const runBtn = $("#scratch-run");
@@ -1654,28 +1693,52 @@ ${snippet}
     wireOutputFormatters(out.closest(".output-wrap").querySelector(".output-head"), out);
     const samples = {
       python:
-        'from elo_playground import connect\n\n' +
+        'import os\nfrom elo_playground import connect\n\n' +
         '# local ELO test box (or set ELOPG_* / .env)\n' +
-        'ELO_BASE_URL = "http://localhost:9090/ix-Repository1"\n' +
-        'ELO_USER = "Administrator"\n' +
-        'ELO_PASS = "elo"\n\n' +
+        'ELO_BASE_URL = os.getenv("ELOPG_ELO_BASE_URL", "http://localhost:9090/ix-Repository1") # ELOPG_DEFAULT:base_url\n' +
+        'ELO_USER = os.getenv("ELOPG_ELO_USER", "Administrator") # ELOPG_DEFAULT:user\n' +
+        'ELO_PASS = os.getenv("ELOPG_ELO_PASSWORD", "elo") # ELOPG_DEFAULT:password\n\n' +
         'elo = connect(base_url=ELO_BASE_URL, user=ELO_USER, password=ELO_PASS)\n' +
         'print(elo.call("getServerInfo", {}).get("version"))\n',
       node:
         'import { connect } from "elo-playground";\n\n' +
         '// local ELO test box (or set ELOPG_* / .env)\n' +
-        'const ELO_BASE_URL = "http://localhost:9090/ix-Repository1";\n' +
-        'const ELO_USER = "Administrator";\n' +
-        'const ELO_PASS = "elo";\n\n' +
+        'const ELO_BASE_URL = process.env.ELOPG_ELO_BASE_URL || "http://localhost:9090/ix-Repository1"; // ELOPG_DEFAULT:base_url\n' +
+        'const ELO_USER = process.env.ELOPG_ELO_USER || "Administrator"; // ELOPG_DEFAULT:user\n' +
+        'const ELO_PASS = process.env.ELOPG_ELO_PASSWORD || "elo"; // ELOPG_DEFAULT:password\n\n' +
         'const elo = await connect({ baseUrl: ELO_BASE_URL, user: ELO_USER, password: ELO_PASS });\n' +
         'console.log((await elo.call("getServerInfo", {})).version);\n',
       browser:
         '// local ELO test box (or set ELOPG_* / .env)\n' +
-        'const ELO_BASE_URL = "http://localhost:9090/ix-Repository1";\n' +
-        'const ELO_USER = "Administrator";\n' +
-        'const ELO_PASS = "elo";\n\n' +
+        'const ELO_BASE_URL = globalThis.ELOPG_ELO_BASE_URL || "http://localhost:9090/ix-Repository1"; // ELOPG_DEFAULT:base_url\n' +
+        'const ELO_USER = globalThis.ELOPG_ELO_USER || "Administrator"; // ELOPG_DEFAULT:user\n' +
+        'const ELO_PASS = globalThis.ELOPG_ELO_PASSWORD || "elo"; // ELOPG_DEFAULT:password\n\n' +
         'const elo = await connect({ baseUrl: ELO_BASE_URL, user: ELO_USER, password: ELO_PASS });\n' +
         'console.log((await elo.call("getServerInfo", {})).version);\n',
+      go:
+        'package main\n\nimport (\n  "encoding/json"\n  "fmt"\n  "example.com/elopg/elo"\n)\n\nfunc main() {\n' +
+        '  ELOBaseURL := elo.Env("ELOPG_ELO_BASE_URL", "http://localhost:9090/ix-Repository1") // ELOPG_DEFAULT:base_url\n' +
+        '  ELOUser := elo.Env("ELOPG_ELO_USER", "Administrator") // ELOPG_DEFAULT:user\n' +
+        '  ELOPass := elo.Env("ELOPG_ELO_PASSWORD", "elo") // ELOPG_DEFAULT:password\n' +
+        '  client := elo.New(ELOBaseURL, ELOUser, ELOPass)\n  result, err := client.Call("getServerInfo", json.RawMessage(`{}`))\n  if err != nil { panic(err) }\n  fmt.Println(string(result))\n}\n',
+      php:
+        '<?php\nrequire_once __DIR__ . "/EloClient.php";\n\n' +
+        '$ELO_BASE_URL = getenv("ELOPG_ELO_BASE_URL") ?: "http://localhost:9090/ix-Repository1"; // ELOPG_DEFAULT:base_url\n' +
+        '$ELO_USER = getenv("ELOPG_ELO_USER") ?: "Administrator"; // ELOPG_DEFAULT:user\n' +
+        '$ELO_PASS = getenv("ELOPG_ELO_PASSWORD") ?: "elo"; // ELOPG_DEFAULT:password\n' +
+        '$elo = EloClient::connect($ELO_BASE_URL, $ELO_USER, $ELO_PASS);\necho json_encode($elo->call("getServerInfo", [])), PHP_EOL;\n',
+      java:
+        'public final class Main {\n  public static void main(String[] args) throws Exception {\n' +
+        '    String eloBaseUrl = EloClient.env("ELOPG_ELO_BASE_URL", "http://localhost:9090/ix-Repository1"); // ELOPG_DEFAULT:base_url\n' +
+        '    String eloUser = EloClient.env("ELOPG_ELO_USER", "Administrator"); // ELOPG_DEFAULT:user\n' +
+        '    String eloPass = EloClient.env("ELOPG_ELO_PASSWORD", "elo"); // ELOPG_DEFAULT:password\n' +
+        '    var elo = EloClient.connect(eloBaseUrl, eloUser, eloPass);\n    System.out.println(elo.call("getServerInfo", "{}"));\n  }\n}\n',
+      rhino:
+        '// Reviewed IndexServer script; deploy server-side, never into Web Client.\n' +
+        'var ELO_BASE_URL = java.lang.System.getenv("ELOPG_ELO_BASE_URL") || "http://localhost:9090/ix-Repository1"; // ELOPG_DEFAULT:base_url\n' +
+        'var ELO_USER = java.lang.System.getenv("ELOPG_ELO_USER") || "Administrator"; // ELOPG_DEFAULT:user\n' +
+        'var ELO_PASS = java.lang.System.getenv("ELOPG_ELO_PASSWORD") || "elo"; // ELOPG_DEFAULT:password\n\n' +
+        'function RF_playground_server_info(ec, args) {\n  return ixConnect.ix().getServerInfo();\n}\n',
     };
       const cmMode = codeMirrorMode;
 
@@ -1698,6 +1761,12 @@ ${snippet}
     } else {
       codeEl.addEventListener("input", () => (touched = true));
     }
+
+    SCRATCH_SYNC = () => {
+      const before = getCode();
+      const after = applyCreds(before, langSel.value);
+      if (after !== before) setCode(after);
+    };
 
     langSel.addEventListener("change", () => {
       if (SCRATCH_CM) SCRATCH_CM.setOption("mode", cmMode(langSel.value));
@@ -1742,6 +1811,7 @@ ${snippet}
       $$("#topic-host .runner, #spec-host .runner").forEach((r) => {
         if (typeof r._syncCreds === "function") r._syncCreds();
       });
+      if (typeof SCRATCH_SYNC === "function") SCRATCH_SYNC();
     }, 200);
   }
 

@@ -16,7 +16,7 @@ def test_topics_load_and_have_required_fields():
         # Every catalogue entry also gets standard-library mock examples for
         # backend runtimes and a reviewed server-side Rhino artifact.
         assert t.snippets.go and t.snippets.php and t.snippets.java and t.snippets.rhino
-        assert "elo.Connect" in t.snippets.go
+        assert "elo.New" in t.snippets.go
         assert "EloClient::connect" in t.snippets.php
         assert "EloClient.connect" in t.snippets.java
         assert "Never inject" in t.snippets.rhino

@@ -52,3 +52,13 @@ def test_runtime_tabs_cache_runners_and_swap_only_the_client_side_dom():
     assert "const runners = new Map();" in app_js
     assert "let runner = runners.get(lang);" in app_js
     assert "snipHost.replaceChildren(runner);" in app_js
+
+
+def test_connection_form_rewrites_only_marked_defaults_for_every_runtime():
+    app_js = (get_settings().frontend_dir / "static" / "app.js").read_text(encoding="utf-8")
+    for marker in ("ELOPG_DEFAULT:base_url", "ELOPG_DEFAULT:user", "ELOPG_DEFAULT:password"):
+        assert marker in app_js
+    for runtime in ("python", "node", "browser", "go", "php", "java", "rhino"):
+        assert f'language === "{runtime}"' in app_js
+    assert "SCRATCH_SYNC" in app_js
+    assert "syncOpenRunnersCreds" in app_js

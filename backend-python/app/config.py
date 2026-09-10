@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     # mode with no ELO reachable.
     elo_base_url: str = "http://localhost:9090/ix-Repository1"
     elo_user: str = "Administrator"
-    elo_password: str = ""            # left blank on purpose; type it in the UI
+    elo_password: str = "elo"         # stock local ELO teaching installation
     tls_verify: bool = True
 
     # ---- runner --------------------------------------------------------- #
