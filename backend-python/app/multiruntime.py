@@ -58,15 +58,15 @@ def _rhino_body(method: str) -> str:
   var name = String(args.name || "");
   if (!parentId || !name) throw "parentId and name are required";
   // Deployment policy must validate the parent against an approved scratch root.
-  var sord = ixConnect.ix().createSord(parentId, "", EditInfoC.mbSord).sord;
+  var sord = ix.createSord(parentId, "", EditInfoC.mbSord).sord;
   sord.name = name;
-  sord = ixConnect.ix().checkinSord(sord, SordC.mbAll, LockC.NO);
+  sord = ix.checkinSord(sord, SordC.mbAll, LockC.NO);
   return { id: String(sord.id), name: String(sord.name) };'''
     if method in {"deleteSord", "deleteSordPath"}:
         return '''  var objId = String(args.objId || "");
   if (!objId || args.confirm !== true) throw "objId and confirm=true are required";
   // Only a dedicated test-root policy may permit destructive operations.
-  ixConnect.ix().deleteSord(null, objId, LockC.NO, null);
+  ix.deleteSord(null, objId, LockC.NO, null);
   return { deletedId: objId };'''
     if method.startswith("find"):
         return '''  var query = String(args.query || "");
@@ -74,18 +74,18 @@ def _rhino_body(method: str) -> str:
   var findInfo = new FindInfo();
   findInfo.findByIndex = new FindByIndex();
   findInfo.findByIndex.name = query;
-  var page = ixConnect.ix().findFirstSords(findInfo, 20, SordC.mbLean);
+  var page = ix.findFirstSords(findInfo, 20, SordC.mbLean);
   try { return { count: page.sords.length, ids: page.sords.map(function (s) { return String(s.id); }) }; }
-  finally { ixConnect.ix().findClose(page.searchId); }'''
+  finally { ix.findClose(page.searchId); }'''
     if "Doc" in method or method in {"processOcr"}:
         return '''  var objId = String(args.objId || "");
   if (!objId) throw "objId is required";
   // Document byte transfer and OCR must be configured server-side, not received as code.
-  var sord = ixConnect.ix().checkoutSord(objId, SordC.mbAllIndex, LockC.NO);
+  var sord = ix.checkoutSord(objId, SordC.mbAllIndex, LockC.NO);
   return { id: String(sord.id), name: String(sord.name), mask: String(sord.maskName || "") };'''
     return '''  var objId = String(args.objId || "");
   if (!objId) throw "objId is required";
-  var sord = ixConnect.ix().checkoutSord(objId, SordC.mbAllIndex, LockC.NO);
+  var sord = ix.checkoutSord(objId, SordC.mbAllIndex, LockC.NO);
   return { id: String(sord.id), name: String(sord.name), mask: String(sord.maskName || "") };'''
 
 
@@ -111,10 +111,11 @@ import (
 )
 
 func main() {{
-    ELOBaseURL := elo.Env("ELOPG_ELO_BASE_URL", "http://localhost:9090/ix-Repository1") // ELOPG_DEFAULT:base_url
-    ELOUser := elo.Env("ELOPG_ELO_USER", "Administrator") // ELOPG_DEFAULT:user
-    ELOPass := elo.Env("ELOPG_ELO_PASSWORD", "elo") // ELOPG_DEFAULT:password
-    client := elo.New(ELOBaseURL, ELOUser, ELOPass)
+    ELO_BASE_URL := elo.Env("ELOPG_ELO_BASE_URL", "http://localhost:9090/ix-Repository1") // ELOPG_DEFAULT:base_url
+    ELO_USER := elo.Env("ELOPG_ELO_USER", "Administrator") // ELOPG_DEFAULT:user
+    ELO_PASS := elo.Env("ELOPG_ELO_PASSWORD", "elo") // ELOPG_DEFAULT:password
+
+    client := elo.New(ELO_BASE_URL, ELO_USER, ELO_PASS)
 {calls}
 }}
 '''
@@ -131,6 +132,7 @@ require_once __DIR__ . '/EloClient.php';
 $ELO_BASE_URL = getenv('ELOPG_ELO_BASE_URL') ?: 'http://localhost:9090/ix-Repository1'; // ELOPG_DEFAULT:base_url
 $ELO_USER = getenv('ELOPG_ELO_USER') ?: 'Administrator'; // ELOPG_DEFAULT:user
 $ELO_PASS = getenv('ELOPG_ELO_PASSWORD') ?: 'elo'; // ELOPG_DEFAULT:password
+
 $elo = EloClient::connect($ELO_BASE_URL, $ELO_USER, $ELO_PASS);
 {calls}
 '''
@@ -143,10 +145,11 @@ $elo = EloClient::connect($ELO_BASE_URL, $ELO_USER, $ELO_PASS);
 // ELOPG_PLAN: {plan_json}
 public final class Main {{
   public static void main(String[] args) throws Exception {{
-    String eloBaseUrl = EloClient.env("ELOPG_ELO_BASE_URL", "http://localhost:9090/ix-Repository1"); // ELOPG_DEFAULT:base_url
-    String eloUser = EloClient.env("ELOPG_ELO_USER", "Administrator"); // ELOPG_DEFAULT:user
-    String eloPass = EloClient.env("ELOPG_ELO_PASSWORD", "elo"); // ELOPG_DEFAULT:password
-    var elo = EloClient.connect(eloBaseUrl, eloUser, eloPass);
+    String ELO_BASE_URL = EloClient.env("ELOPG_ELO_BASE_URL", "http://localhost:9090/ix-Repository1"); // ELOPG_DEFAULT:base_url
+    String ELO_USER = EloClient.env("ELOPG_ELO_USER", "Administrator"); // ELOPG_DEFAULT:user
+    String ELO_PASS = EloClient.env("ELOPG_ELO_PASSWORD", "elo"); // ELOPG_DEFAULT:password
+
+    var elo = EloClient.connect(ELO_BASE_URL, ELO_USER, ELO_PASS);
 {calls}
   }}
 }}
@@ -162,8 +165,16 @@ var ELO_BASE_URL = java.lang.System.getenv("ELOPG_ELO_BASE_URL") || "http://loca
 var ELO_USER = java.lang.System.getenv("ELOPG_ELO_USER") || "Administrator"; // ELOPG_DEFAULT:user
 var ELO_PASS = java.lang.System.getenv("ELOPG_ELO_PASSWORD") || "elo"; // ELOPG_DEFAULT:password
 
+function playgroundIx(baseUrl, user, password) {{
+  if (!baseUrl || !user || !password) throw "ELO connection settings are required";
+  // IndexServer owns the authenticated Rhino session. Do not re-authenticate
+  // here or expose the password; the explicit values are validated at this boundary.
+  return ixConnect.ix();
+}}
+
 function {name}(ec, args) {{
   args = args || {{}};
+  var ix = playgroundIx(ELO_BASE_URL, ELO_USER, ELO_PASS);
 {_rhino_body(method)}
 }}
 '''

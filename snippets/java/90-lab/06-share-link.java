@@ -2,10 +2,11 @@
 // ELOPG_PLAN: [{"method":"checkinDocBegin","params":{"sord":{"$expression":"sord"},"document":{"docs":[{"ext":"txt"}]}}},{"method":"createDoc","params":{"parentId":1,"maskId":0,"editInfoZ":{"bset":"1","sordZ":{"bset":{"$expression":"ALL"}}}}},{"method":"insertPublicDownload","params":{"opts":{"objId":{"$expression":"obj_id"},"remaining":5,"fileNameFromSordName":true}}},{"method":"getPublicDownloads","params":{"opts":{"objId":{"$expression":"obj_id"}}}},{"method":"terminatePublicDownloadUrls","params":{"opts":{"objId":{"$expression":"obj_id"}}}},{"method":"checkinDocEnd","params":{"sord":{"$expression":"sord"},"document":{"$expression":"doc"},"sordZ":{"bset":{"$expression":"ALL"}},"unlockZ":{"bset":"1"}}},{"method":"getPublicDownloads","params":{"opts":{"objId":{"$expression":"obj_id"}}}},{"method":"deleteSord","params":{"objId":{"$expression":"obj_id"},"parentId":"1","deleteOptions":{"deleteFinally":{"$expression":"step"}}}}]
 public final class Main {
   public static void main(String[] args) throws Exception {
-    String eloBaseUrl = EloClient.env("ELOPG_ELO_BASE_URL", "http://localhost:9090/ix-Repository1"); // ELOPG_DEFAULT:base_url
-    String eloUser = EloClient.env("ELOPG_ELO_USER", "Administrator"); // ELOPG_DEFAULT:user
-    String eloPass = EloClient.env("ELOPG_ELO_PASSWORD", "elo"); // ELOPG_DEFAULT:password
-    var elo = EloClient.connect(eloBaseUrl, eloUser, eloPass);
+    String ELO_BASE_URL = EloClient.env("ELOPG_ELO_BASE_URL", "http://localhost:9090/ix-Repository1"); // ELOPG_DEFAULT:base_url
+    String ELO_USER = EloClient.env("ELOPG_ELO_USER", "Administrator"); // ELOPG_DEFAULT:user
+    String ELO_PASS = EloClient.env("ELOPG_ELO_PASSWORD", "elo"); // ELOPG_DEFAULT:password
+
+    var elo = EloClient.connect(ELO_BASE_URL, ELO_USER, ELO_PASS);
     System.out.println(elo.call("checkinDocBegin", "{\"sord\":{\"$expression\":\"sord\"},\"document\":{\"docs\":[{\"ext\":\"txt\"}]}}"));
     System.out.println(elo.call("createDoc", "{\"parentId\":1,\"maskId\":0,\"editInfoZ\":{\"bset\":\"1\",\"sordZ\":{\"bset\":{\"$expression\":\"ALL\"}}}}"));
     System.out.println(elo.call("insertPublicDownload", "{\"opts\":{\"objId\":{\"$expression\":\"obj_id\"},\"remaining\":5,\"fileNameFromSordName\":true}}"));

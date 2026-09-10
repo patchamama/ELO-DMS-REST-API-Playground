@@ -230,12 +230,12 @@
     if (language === "node") return `const ${names[key]} = process.env.${env} || "${escapeCodeString(value, '"')}"; // ${marker}`;
     if (language === "browser") return `const ${names[key]} = globalThis.${env} || "${escapeCodeString(value, '"')}"; // ${marker}`;
     if (language === "go") {
-      const goName = { base_url: "ELOBaseURL", user: "ELOUser", password: "ELOPass" }[key];
+      const goName = names[key];
       return `${goName} := elo.Env("${env}", "${escapeCodeString(value, '"')}") // ${marker}`;
     }
     if (language === "php") return `$${names[key]} = getenv('${env}') ?: '${escapeCodeString(value, "'")}'; // ${marker}`;
     if (language === "java") {
-      const javaName = { base_url: "eloBaseUrl", user: "eloUser", password: "eloPass" }[key];
+      const javaName = names[key];
       return `String ${javaName} = EloClient.env("${env}", "${escapeCodeString(value, '"')}"); // ${marker}`;
     }
     if (language === "rhino") return `var ${names[key]} = java.lang.System.getenv("${env}") || "${escapeCodeString(value, '"')}"; // ${marker}`;
@@ -1717,28 +1717,29 @@ ${snippet}
         'console.log((await elo.call("getServerInfo", {})).version);\n',
       go:
         'package main\n\nimport (\n  "encoding/json"\n  "fmt"\n  "example.com/elopg/elo"\n)\n\nfunc main() {\n' +
-        '  ELOBaseURL := elo.Env("ELOPG_ELO_BASE_URL", "http://localhost:9090/ix-Repository1") // ELOPG_DEFAULT:base_url\n' +
-        '  ELOUser := elo.Env("ELOPG_ELO_USER", "Administrator") // ELOPG_DEFAULT:user\n' +
-        '  ELOPass := elo.Env("ELOPG_ELO_PASSWORD", "elo") // ELOPG_DEFAULT:password\n' +
-        '  client := elo.New(ELOBaseURL, ELOUser, ELOPass)\n  result, err := client.Call("getServerInfo", json.RawMessage(`{}`))\n  if err != nil { panic(err) }\n  fmt.Println(string(result))\n}\n',
+        '  ELO_BASE_URL := elo.Env("ELOPG_ELO_BASE_URL", "http://localhost:9090/ix-Repository1") // ELOPG_DEFAULT:base_url\n' +
+        '  ELO_USER := elo.Env("ELOPG_ELO_USER", "Administrator") // ELOPG_DEFAULT:user\n' +
+        '  ELO_PASS := elo.Env("ELOPG_ELO_PASSWORD", "elo") // ELOPG_DEFAULT:password\n\n' +
+        '  client := elo.New(ELO_BASE_URL, ELO_USER, ELO_PASS)\n  result, err := client.Call("getServerInfo", json.RawMessage(`{}`))\n  if err != nil { panic(err) }\n  fmt.Println(string(result))\n}\n',
       php:
         '<?php\nrequire_once __DIR__ . "/EloClient.php";\n\n' +
         '$ELO_BASE_URL = getenv("ELOPG_ELO_BASE_URL") ?: "http://localhost:9090/ix-Repository1"; // ELOPG_DEFAULT:base_url\n' +
         '$ELO_USER = getenv("ELOPG_ELO_USER") ?: "Administrator"; // ELOPG_DEFAULT:user\n' +
-        '$ELO_PASS = getenv("ELOPG_ELO_PASSWORD") ?: "elo"; // ELOPG_DEFAULT:password\n' +
+        '$ELO_PASS = getenv("ELOPG_ELO_PASSWORD") ?: "elo"; // ELOPG_DEFAULT:password\n\n' +
         '$elo = EloClient::connect($ELO_BASE_URL, $ELO_USER, $ELO_PASS);\necho json_encode($elo->call("getServerInfo", [])), PHP_EOL;\n',
       java:
         'public final class Main {\n  public static void main(String[] args) throws Exception {\n' +
-        '    String eloBaseUrl = EloClient.env("ELOPG_ELO_BASE_URL", "http://localhost:9090/ix-Repository1"); // ELOPG_DEFAULT:base_url\n' +
-        '    String eloUser = EloClient.env("ELOPG_ELO_USER", "Administrator"); // ELOPG_DEFAULT:user\n' +
-        '    String eloPass = EloClient.env("ELOPG_ELO_PASSWORD", "elo"); // ELOPG_DEFAULT:password\n' +
-        '    var elo = EloClient.connect(eloBaseUrl, eloUser, eloPass);\n    System.out.println(elo.call("getServerInfo", "{}"));\n  }\n}\n',
+        '    String ELO_BASE_URL = EloClient.env("ELOPG_ELO_BASE_URL", "http://localhost:9090/ix-Repository1"); // ELOPG_DEFAULT:base_url\n' +
+        '    String ELO_USER = EloClient.env("ELOPG_ELO_USER", "Administrator"); // ELOPG_DEFAULT:user\n' +
+        '    String ELO_PASS = EloClient.env("ELOPG_ELO_PASSWORD", "elo"); // ELOPG_DEFAULT:password\n\n' +
+        '    var elo = EloClient.connect(ELO_BASE_URL, ELO_USER, ELO_PASS);\n    System.out.println(elo.call("getServerInfo", "{}"));\n  }\n}\n',
       rhino:
         '// Reviewed IndexServer script; deploy server-side, never into Web Client.\n' +
         'var ELO_BASE_URL = java.lang.System.getenv("ELOPG_ELO_BASE_URL") || "http://localhost:9090/ix-Repository1"; // ELOPG_DEFAULT:base_url\n' +
         'var ELO_USER = java.lang.System.getenv("ELOPG_ELO_USER") || "Administrator"; // ELOPG_DEFAULT:user\n' +
         'var ELO_PASS = java.lang.System.getenv("ELOPG_ELO_PASSWORD") || "elo"; // ELOPG_DEFAULT:password\n\n' +
-        'function RF_playground_server_info(ec, args) {\n  return ixConnect.ix().getServerInfo();\n}\n',
+        'function playgroundIx(baseUrl, user, password) {\n  if (!baseUrl || !user || !password) throw "ELO connection settings are required";\n  return ixConnect.ix();\n}\n\n' +
+        'function RF_playground_server_info(ec, args) {\n  return playgroundIx(ELO_BASE_URL, ELO_USER, ELO_PASS).getServerInfo();\n}\n',
     };
       const cmMode = codeMirrorMode;
 
