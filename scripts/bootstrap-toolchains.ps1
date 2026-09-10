@@ -1,10 +1,13 @@
 [CmdletBinding()]
 param(
-    [switch]$SkipPythonDeps
+    [switch]$SkipPythonDeps,
+    [ValidateSet('go', 'php', 'java')]
+    [string[]]$Runtimes = @()
 )
 
-# Installs the runtimes used by the snippet runner below runtime/toolchains.
-# Nothing in this script changes the machine PATH, registry, or a global SDK.
+# Installs selected optional runtimes below runtime/toolchains. Python
+# dependencies are always prepared unless -SkipPythonDeps is passed. Nothing
+# in this script changes the machine PATH, registry, or a global SDK.
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -126,9 +129,17 @@ function Install-PythonDeps {
     if ($LASTEXITCODE -ne 0) { throw '[python] Dependency installation failed. Check Internet access and rerun start.bat.' }
 }
 
-Install-Go
-Install-Php
-Install-Jdk
 Install-PythonDeps
+foreach ($runtimeName in ($Runtimes | Select-Object -Unique)) {
+    switch ($runtimeName) {
+        'go' { Install-Go }
+        'php' { Install-Php }
+        'java' { Install-Jdk }
+    }
+}
 
-Write-Host '[playground] Portable Go, PHP, JDK and Python dependencies are ready under runtime/.'
+if ($Runtimes.Count) {
+    Write-Host ("[playground] Python dependencies and selected portable runtimes ({0}) are ready under runtime/." -f ($Runtimes -join ', '))
+} else {
+    Write-Host '[playground] Python dependencies are ready. Optional Go, PHP and Java install only when enabled in Settings.'
+}

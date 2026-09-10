@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 Lang = Literal["en", "de", "es"]
 RunLanguage = Literal["python", "node", "browser", "go", "php", "java", "rhino"]
+RuntimeName = Literal["python", "node", "browser", "go", "php", "java", "rhino"]
 
 
 class EloCreds(BaseModel):
@@ -74,6 +75,13 @@ class RunResult(BaseModel):
     exit_code: int | None = None
     duration_ms: int = 0
     detail: str = ""       # runner-level problem (timeout, node backend down, ...)
+
+
+class RuntimeUpdateRequest(BaseModel):
+    """Names are validated before the installer is ever reached."""
+
+    runtimes: list[RuntimeName]
+    enabled: bool = True
 
 
 class ProxyRequest(BaseModel):

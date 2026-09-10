@@ -37,3 +37,18 @@ def test_editor_mode_selection_covers_every_runtime():
         assert f'{runtime}: "{mode}"' in app_js
     base = (get_settings().frontend_dir / "templates" / "base.html").read_text(encoding="utf-8")
     assert "cm-multiruntime.min.js" in base
+
+
+def test_go_php_and_java_use_explicit_highlightjs_languages():
+    """Do not rely on a generic fallback: these snippets need their own lexer."""
+    app_js = (get_settings().frontend_dir / "static" / "app.js").read_text(encoding="utf-8")
+    for runtime in ("go", "php", "java"):
+        assert f'{runtime}: "{runtime}"' in app_js
+
+
+def test_runtime_tabs_cache_runners_and_swap_only_the_client_side_dom():
+    """Changing a language tab must not fetch/reopen the topic or lose output."""
+    app_js = (get_settings().frontend_dir / "static" / "app.js").read_text(encoding="utf-8")
+    assert "const runners = new Map();" in app_js
+    assert "let runner = runners.get(lang);" in app_js
+    assert "snipHost.replaceChildren(runner);" in app_js

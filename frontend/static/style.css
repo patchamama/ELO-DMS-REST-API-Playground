@@ -297,3 +297,23 @@ button.fn-ref { background: none; border: 0; padding: 0; color: var(--blue); cur
 }
 
 .version { font-size: 10px; color: var(--muted); margin-top: 1px; }
+/* Optional local runtime settings. The dialog is intentionally plain HTML so it
+   remains usable in the backend-free GitHub Pages mock build. */
+.settings-button { margin-left: .6rem; }
+.runtime-modal[hidden] { display: none; }
+.runtime-modal { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 1rem; background: rgba(10, 20, 35, .58); }
+.runtime-dialog { width: min(42rem, 100%); max-height: calc(100vh - 2rem); overflow: auto; padding: 1.25rem; border-radius: .65rem; background: var(--panel, #fff); color: var(--text, #172033); box-shadow: 0 1rem 3rem rgba(0,0,0,.28); }
+.runtime-dialog-head { display: flex; gap: 1rem; justify-content: space-between; align-items: flex-start; }
+.runtime-dialog h2 { margin: 0; }
+.runtime-dialog p { margin: .4rem 0 1rem; }
+.runtime-close { min-width: 2rem; }
+.runtime-list { display: grid; gap: .55rem; }
+.runtime-row { display: grid; grid-template-columns: auto 1fr auto; gap: .65rem; align-items: center; padding: .7rem; border: 1px solid #d5dce6; border-radius: .4rem; }
+.runtime-row input { width: 1rem; height: 1rem; }
+.runtime-row strong, .runtime-row small { display: block; }
+.runtime-row small { margin-top: .15rem; color: #596579; }
+.runtime-kind { font-size: .8rem; color: #596579; }
+.runtime-status { min-height: 1.25rem; margin-top: .8rem !important; }
+.runtime-status.err { color: #a51d2d; }
+.runtime-status.ok { color: #16723d; }
+.runtime-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .5rem; margin-top: .8rem; }

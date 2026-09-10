@@ -10,6 +10,7 @@
   </div>
   <div class="topbar-right">
     <span class="version" id="app-version"></span>
+    <button type="button" id="runtime-settings" class="settings-button" data-t="runtime.settings">Settings</button>
   </div>
 
   <form id="conn" class="conn" autocomplete="off">
@@ -45,6 +46,24 @@
     <button class="lang" data-lang="es">ES</button>
   </span>
 </nav>
+
+<div id="runtime-modal" class="runtime-modal" hidden role="dialog" aria-modal="true" aria-labelledby="runtime-modal-title">
+  <div class="runtime-dialog">
+    <div class="runtime-dialog-head">
+      <div>
+        <h2 id="runtime-modal-title" data-t="runtime.title">Languages</h2>
+        <p data-t="runtime.intro">Python, Node.js and Browser JS are ready. Select optional languages to install locally.</p>
+      </div>
+      <button type="button" class="runtime-close" aria-label="Close">×</button>
+    </div>
+    <div id="runtime-list" class="runtime-list" aria-live="polite"></div>
+    <p id="runtime-status" class="runtime-status" role="status"></p>
+    <div class="runtime-actions">
+      <button type="button" id="runtime-save" data-t="runtime.activate">Activate selected</button>
+      <button type="button" class="runtime-close" data-t="runtime.close">Close</button>
+    </div>
+  </div>
+</div>
 
 <main>
   <section id="view-catalog" class="view">

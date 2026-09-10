@@ -55,6 +55,9 @@
     node: "javascript",
     browser: "javascript",
     rhino: "javascript",
+    go: "go",
+    php: "php",
+    java: "java",
   });
   const codeMirrorMode = (runtime) => CODEMIRROR_MODES[runtime] || "javascript";
   const highlightLanguage = (runtime) => HIGHLIGHT_LANGUAGES[runtime] || runtime || "plaintext";
@@ -64,6 +67,7 @@
   const STATIC = !!CFG.staticMode;
   let RUN_CACHE = {}; // key "t:<id>|<lang>" / "d:<cat>#<i>|<lang>" -> RunResult
   let CURRENT_MOCK = null; // merged mock:{} of the open topic/deep, for the browser JS mock
+  let RUNTIME_STATE = Object.fromEntries(RUNTIMES.map((id) => [id, { id, enabled: true, installed: true, core: true }]));
 
   // map a former "/api/..." endpoint to its baked static file
   function toStatic(url) {
@@ -99,6 +103,96 @@
       body: JSON.stringify(body),
     });
     return r.json();
+  }
+
+  // ---- optional runtime activation ---------------------------------- //
+  function runtimeEnabled(id) {
+    return !!(RUNTIME_STATE[id] || {}).enabled;
+  }
+  function runtimeLabel(item) {
+    if (item.core) return tr("runtime.ready");
+    if (item.id === "rhino") return tr("runtime.serverSide");
+    return item.installed ? tr("runtime.installed") : tr("runtime.optional");
+  }
+  function applyRuntimeAvailability() {
+    const select = $("#scratch-lang");
+    if (select) {
+      Array.from(select.options).forEach((option) => {
+        option.hidden = !runtimeEnabled(option.value);
+        option.disabled = !runtimeEnabled(option.value);
+      });
+      if (select.selectedOptions[0]?.disabled) select.value = "python";
+    }
+  }
+  async function loadRuntimes() {
+    if (STATIC) return;
+    const data = await getJSON("/api/runtimes");
+    RUNTIME_STATE = Object.fromEntries((data.runtimes || []).map((item) => [item.id, item]));
+    applyRuntimeAvailability();
+  }
+  function renderRuntimeList() {
+    const list = $("#runtime-list");
+    if (!list) return;
+    const items = RUNTIMES.map((id) => RUNTIME_STATE[id] || { id, enabled: false, installed: false, core: false });
+    list.innerHTML = items.map((item) => {
+      const disabled = item.core || STATIC ? "disabled" : "";
+      return `<label class="runtime-row"><input type="checkbox" value="${esc(item.id)}" ${item.enabled ? "checked" : ""} ${disabled}>` +
+        `<span><strong>${esc(tr("tab." + item.id))}</strong><small>${esc(item.description || "")}</small></span>` +
+        `<span class="runtime-kind">${esc(runtimeLabel(item))}</span></label>`;
+    }).join("");
+  }
+  function setRuntimeStatus(message, isError) {
+    const status = $("#runtime-status");
+    if (!status) return;
+    status.textContent = message || "";
+    status.className = "runtime-status" + (message ? (isError ? " err" : " ok") : "");
+  }
+  async function openRuntimeSettings(firstRun) {
+    const modal = $("#runtime-modal");
+    if (!modal) return;
+    try {
+      await loadRuntimes();
+      renderRuntimeList();
+      setRuntimeStatus(STATIC ? tr("runtime.static") : "", false);
+    } catch (error) {
+      setRuntimeStatus(String(error), true);
+    }
+    modal.hidden = false;
+    if (firstRun) store.set("elopg.runtime-onboarded.v1", "1");
+  }
+  async function saveRuntimeSettings() {
+    if (STATIC) return setRuntimeStatus(tr("runtime.static"), true);
+    const list = $("#runtime-list");
+    const selected = $$('input[type="checkbox"]:checked', list).map((input) => input.value);
+    const optional = RUNTIMES.filter((id) => !["python", "node", "browser"].includes(id));
+    const enabled = selected.filter((id) => optional.includes(id));
+    const disabled = optional.filter((id) => !enabled.includes(id));
+    const button = $("#runtime-save");
+    button.disabled = true;
+    setRuntimeStatus(tr("runtime.installing"), false);
+    try {
+      // One activation request can download Go/PHP/JDK. A second, non-mutating
+      // request stores disabled optional languages without removing files.
+      if (enabled.length) await postJSON("/api/runtimes", { runtimes: enabled, enabled: true });
+      if (disabled.length) await postJSON("/api/runtimes", { runtimes: disabled, enabled: false });
+      await loadRuntimes();
+      renderRuntimeList();
+      setRuntimeStatus(tr("runtime.saved"), false);
+      reopenLast();
+    } catch (error) {
+      setRuntimeStatus(String(error), true);
+    } finally {
+      button.disabled = false;
+    }
+  }
+  function wireRuntimeSettings() {
+    const modal = $("#runtime-modal");
+    const settings = $("#runtime-settings");
+    if (!modal || !settings) return;
+    settings.addEventListener("click", () => openRuntimeSettings(false));
+    $$(".runtime-close", modal).forEach((button) => button.addEventListener("click", () => (modal.hidden = true)));
+    modal.addEventListener("click", (event) => { if (event.target === modal) modal.hidden = true; });
+    $("#runtime-save").addEventListener("click", saveRuntimeSettings);
   }
 
   // ---- connection state -------------------------------------------- //
@@ -904,7 +998,7 @@ ${snippet}
       )
       .join("");
 
-    const langs = RUNTIMES.filter((k) => (topic.snippets || {})[k]);
+    const langs = RUNTIMES.filter((k) => runtimeEnabled(k) && (topic.snippets || {})[k]);
     const tabs = langs
       .map((k) => `<button class="sub" data-lang="${k}">${esc(tr("tab." + k))}</button>`)
       .join("");
@@ -998,13 +1092,18 @@ ${snippet}
 
     const sub = host.querySelector(".subtabs");
     const snipHost = host.querySelector(".snippet-host");
+    // Keep one detached runner per language. Switching a tab is therefore a
+    // purely client-side DOM swap: the topic, edited code and output survive.
+    const runners = new Map();
     function showLang(lang) {
       store.set(LS.sub, lang);
       $$(".sub", sub).forEach((b) => b.classList.toggle("active", b.dataset.lang === lang));
-      snipHost.innerHTML = "";
-      snipHost.appendChild(
-        makeRunner(lang, topic.snippets[lang], topic.id, "t:" + topic.id, () => ATTACH)
-      );
+      let runner = runners.get(lang);
+      if (!runner) {
+        runner = makeRunner(lang, topic.snippets[lang], topic.id, "t:" + topic.id, () => ATTACH);
+        runners.set(lang, runner);
+      }
+      snipHost.replaceChildren(runner);
     }
     sub.addEventListener("click", (ev) => {
       const b = ev.target.closest(".sub");
@@ -1291,7 +1390,7 @@ ${snippet}
       host.innerHTML = `<p class="err">${esc(String(e))}</p>`;
       return;
     }
-    const langs = RUNTIMES.filter((k) => (data[k] || []).length);
+    const langs = RUNTIMES.filter((k) => runtimeEnabled(k) && (data[k] || []).length);
     const tabs = langs.map((k) => `<button class="sub" data-lang="${k}">${esc(tr("tab." + k))}</button>`).join("");
     const row = (m, d) => `<tr><td><code>${esc(m)}</code></td><td>${esc(tr(d))}</td></tr>`;
     host.innerHTML = `
@@ -1460,7 +1559,7 @@ ${snippet}
       host.innerHTML = `<p class="err">${esc(String(e))}</p>`;
       return;
     }
-    const langs = RUNTIMES;
+    const langs = RUNTIMES.filter(runtimeEnabled);
     const tabs = langs.map((k) => `<button class="sub" data-lang="${k}">${esc(tr("tab." + k))}</button>`).join("");
     const usedBy = (d.used_by || [])
       .map((u) => `<button class="link xref" data-topic="${esc(u.id)}">${esc(u.title)}</button>`)
@@ -1506,10 +1605,15 @@ ${snippet}
     );
     const sub = host.querySelector(".subtabs");
     const snipHost = host.querySelector(".snippet-host");
+    const runners = new Map();
     function showLang(lang) {
       $$(".sub", sub).forEach((b) => b.classList.toggle("active", b.dataset.lang === lang));
-      snipHost.innerHTML = "";
-      snipHost.appendChild(makeRunner(lang, d.snippets[lang], null));
+      let runner = runners.get(lang);
+      if (!runner) {
+        runner = makeRunner(lang, d.snippets[lang], null);
+        runners.set(lang, runner);
+      }
+      snipHost.replaceChildren(runner);
     }
     sub.addEventListener("click", (ev) => {
       const b = ev.target.closest(".sub");
@@ -1732,9 +1836,17 @@ ${snippet}
     wireNav();
     wireTabs();
     wireScratchpad();
+    wireRuntimeSettings();
+    try {
+      await loadRuntimes();
+    } catch (e) {
+      // The static mock build has no runtime endpoint; it intentionally keeps
+      // all examples visible and does not require optional local toolchains.
+    }
     if (STATIC) await enterStaticMode();
     renderVersion();
     await loadCatalog();
     reopenLast();
+    if (store.get("elopg.runtime-onboarded.v1", "") !== "1") openRuntimeSettings(true);
   })();
 })();
