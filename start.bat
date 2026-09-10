@@ -10,19 +10,17 @@ set "NODEPORT=8787"
 rem --- enable the auto version-bump git hook (idempotent) ------------
 where git >nul 2>nul && git -C "%ROOT%" rev-parse --git-dir >nul 2>nul && git -C "%ROOT%" config core.hooksPath .githooks
 
-rem --- locate a Python interpreter (absolute path) -----------------------
-set "PY="
-if exist "%ROOT%\.venv\Scripts\python.exe" set "PY=%ROOT%\.venv\Scripts\python.exe"
-if not defined PY if exist "%ROOT%\..\.venv\Scripts\python.exe" set "PY=%ROOT%\..\.venv\Scripts\python.exe"
-if not defined PY (
-    echo.
-    echo [playground] No virtual environment found. One-time setup:
-    echo   python -m venv .venv
-    echo   .venv\Scripts\pip install -r backend-python\requirements-dev.txt
-    echo.
+rem --- portable toolchains + Python dependencies -------------------------
+rem They are installed below runtime/ only.  This never changes global PATH.
+echo [playground] Checking portable toolchains and Python dependencies ...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%\scripts\bootstrap-toolchains.ps1"
+if errorlevel 1 (
+    echo [playground] Portable bootstrap failed. See the error above.
     pause
     exit /b 1
 )
+set "PY=%ROOT%\runtime\python-venv\Scripts\python.exe"
+set "PATH=%ROOT%\runtime\toolchains\go\bin;%ROOT%\runtime\toolchains\php;%ROOT%\runtime\toolchains\jdk\bin;%PATH%"
 
 rem --- Node dependencies -----------------------------------------------
 where node >nul 2>nul || ( echo [playground] Node.js not found on PATH. & pause & exit /b 1 )

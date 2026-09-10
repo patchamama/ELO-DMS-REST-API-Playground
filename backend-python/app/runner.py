@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -29,6 +30,12 @@ from .config import get_settings
 from .models import RunRequest, RunResult
 
 _DEFAULT_FIXTURE = "default.json"
+_MUTATING_METHODS = {
+    "createSord", "checkinSord", "checkinDocBegin", "checkinDocEnd", "deleteSord", "checkinUsers", "startWorkFlow",
+    # References, links, MAP updates and public downloads mutate archive state
+    # even when their paired cleanup call is present in the teaching example.
+    "refSord", "linkSords", "unlinkSords", "checkinMap", "insertPublicDownload", "terminatePublicDownloadUrls",
+}
 
 
 def mock_data(topic_id: str | None) -> dict:
@@ -115,6 +122,20 @@ def _read_capped(path: Path, cap: int) -> str:
     return text
 
 
+def _execute_process(command: list[str], *, cwd: Path, env: dict[str, str], stdout, stderr, timeout: int) -> int:
+    """Wait for a command and terminate its complete Windows process tree on timeout."""
+    proc = subprocess.Popen(command, cwd=cwd, env=env, stdout=stdout, stderr=stderr)
+    try:
+        return proc.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        if os.name == "nt":
+            subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+        else:
+            proc.kill()
+        proc.wait()
+        raise
+
+
 def run_python(req: RunRequest) -> RunResult:
     s = get_settings()
     workdir = s.runtime_dir / "run" / uuid.uuid4().hex[:12]
@@ -131,16 +152,14 @@ def run_python(req: RunRequest) -> RunResult:
     detail = ""
     try:
         with out_f.open("wb") as o, err_f.open("wb") as e:
-            proc = subprocess.run(
+            code = _execute_process(
                 [sys.executable, "-B", "-u", str(workdir / "snippet.py")],
                 cwd=workdir,
                 env=env,
                 stdout=o,
                 stderr=e,
                 timeout=s.run_timeout_s,
-                check=False,
             )
-        code = proc.returncode
     except subprocess.TimeoutExpired:
         code = None
         detail = f"timed out after {s.run_timeout_s}s"
@@ -194,6 +213,7 @@ def run_node(req: RunRequest) -> RunResult:
 def _portable_tool(s, name: str) -> str:
     """Prefer repo-local toolchains so checks do not depend on global PATH."""
     candidates = {
+        "go": [s.runtime_dir / "toolchains" / "go" / "bin" / "go.exe"],
         "php": [s.runtime_dir / "toolchains" / "php" / "php.exe"],
         "javac": [s.runtime_dir / "toolchains" / "jdk" / "bin" / "javac.exe", s.runtime_dir / "toolchains" / "jdk-stage" / "jdk-21.0.12.1+1" / "bin" / "javac.exe"],
         "java": [s.runtime_dir / "toolchains" / "jdk" / "bin" / "java.exe", s.runtime_dir / "toolchains" / "jdk-stage" / "jdk-21.0.12.1+1" / "bin" / "java.exe"],
@@ -227,8 +247,8 @@ def _run_command(req: RunRequest, command: list[str], source_name: str) -> RunRe
     start = time.time()
     try:
         with out_f.open("wb") as o, err_f.open("wb") as e:
-            proc = subprocess.run(command, cwd=workdir, env=env, stdout=o, stderr=e, timeout=s.run_timeout_s, check=False)
-        code, detail = proc.returncode, ""
+            code = _execute_process(command, cwd=workdir, env=env, stdout=o, stderr=e, timeout=s.run_timeout_s)
+        detail = ""
     except FileNotFoundError:
         code, detail = None, f"toolchain not installed: {command[0]}"
     except subprocess.TimeoutExpired:
@@ -254,10 +274,9 @@ def run_compiled(req: RunRequest, language: str) -> RunResult:
     start = time.time()
     try:
         with out_f.open("wb") as o, err_f.open("wb") as e:
-            compiled = subprocess.run([_portable_tool(s, "javac"), "Main.java", "EloClient.java"], cwd=workdir, env=env, stdout=o, stderr=e, timeout=s.run_timeout_s, check=False)
-            code = compiled.returncode
+            code = _execute_process([_portable_tool(s, "javac"), "Main.java", "EloClient.java"], cwd=workdir, env=env, stdout=o, stderr=e, timeout=s.run_timeout_s)
             if code == 0:
-                code = subprocess.run([_portable_tool(s, "java"), "-cp", str(workdir), "Main"], cwd=workdir, env=env, stdout=o, stderr=e, timeout=s.run_timeout_s, check=False).returncode
+                code = _execute_process([_portable_tool(s, "java"), "-cp", str(workdir), "Main"], cwd=workdir, env=env, stdout=o, stderr=e, timeout=s.run_timeout_s)
         detail = ""
     except FileNotFoundError:
         code, detail = None, "toolchain not installed: javac"
@@ -269,6 +288,26 @@ def run_compiled(req: RunRequest, language: str) -> RunResult:
 
 
 def run(req: RunRequest) -> RunResult:
+    # Never make a live destructive call merely because a learner unticked Mock.
+    # A future tenant-specific implementation can enable these only after it
+    # proves ELOPG_SCRATCH_ROOT/namespace containment and cleanup receipts.
+    if not req.mock:
+        marker = re.search(r"ELOPG_PLAN:\s*(\[.*\])", req.code)
+        methods = set()
+        if marker:
+            try:
+                methods = {str(step.get("method")) for step in json.loads(marker.group(1))}
+            except (TypeError, ValueError):
+                methods = set()
+        if methods & _MUTATING_METHODS:
+            root = os.environ.get("ELOPG_SCRATCH_ROOT", "").strip()
+            namespace = os.environ.get("ELOPG_SCRATCH_NAMESPACE", "").strip()
+            return RunResult(
+                ok=False,
+                detail=("safe skip: live mutation plan is blocked until a tenant-specific scratch-root "
+                        "implementation proves ELOPG_SCRATCH_ROOT and ELOPG_SCRATCH_NAMESPACE containment "
+                        "plus compensating-cleanup receipts" + (f" (configured root {root!r}, namespace {namespace!r} still requires verification)" if root or namespace else "")),
+            )
     if req.language == "python":
         return run_python(req)
     if req.language == "node":

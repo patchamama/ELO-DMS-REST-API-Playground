@@ -42,12 +42,13 @@ result_shape: |
 
 snippets:
   python: |
+    import os
     from elo_playground import connect
 
     # --- local ELO test box (override with ELOPG_* env vars or a .env) ---
-    ELO_BASE_URL = "http://localhost:9090/ix-Repository1"
-    ELO_USER = "Administrator"
-    ELO_PASS = "elo"
+    ELO_BASE_URL = os.getenv("ELOPG_ELO_BASE_URL", "http://localhost:9090/ix-Repository1")
+    ELO_USER = os.getenv("ELOPG_ELO_USER", "Administrator")
+    ELO_PASS = os.getenv("ELOPG_ELO_PASSWORD", "")
 
     elo = connect(base_url=ELO_BASE_URL, user=ELO_USER, password=ELO_PASS)
 
@@ -69,9 +70,9 @@ snippets:
     import { connect } from "elo-playground";
 
     // --- local ELO test box (override with ELOPG_* env vars or a .env) ---
-    const ELO_BASE_URL = "http://localhost:9090/ix-Repository1";
-    const ELO_USER = "Administrator";
-    const ELO_PASS = "elo";
+    const ELO_BASE_URL = process.env.ELOPG_ELO_BASE_URL || "http://localhost:9090/ix-Repository1";
+    const ELO_USER = process.env.ELOPG_ELO_USER || "Administrator";
+    const ELO_PASS = process.env.ELOPG_ELO_PASSWORD || "";
 
     const elo = await connect({ baseUrl: ELO_BASE_URL, user: ELO_USER, password: ELO_PASS });
 
@@ -91,9 +92,9 @@ snippets:
 
   browser: |
     // --- local ELO test box (override with ELOPG_* env vars or a .env) ---
-    const ELO_BASE_URL = "http://localhost:9090/ix-Repository1";
-    const ELO_USER = "Administrator";
-    const ELO_PASS = "elo";
+    const ELO_BASE_URL = globalThis.ELOPG_ELO_BASE_URL || "http://localhost:9090/ix-Repository1";
+    const ELO_USER = globalThis.ELOPG_ELO_USER || "Administrator";
+    const ELO_PASS = globalThis.ELOPG_ELO_PASSWORD || "";
 
     const elo = await connect({ baseUrl: ELO_BASE_URL, user: ELO_USER, password: ELO_PASS });
     const KINDS = { 3000: "text", 3004: "iso-date", 3002: "number", 3005: "keyword-list" };

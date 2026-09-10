@@ -18,6 +18,7 @@ _PINS = {
     "codemirror.min.css": "11077112ab6955d29fe41085c62365c7d4a2f00a570c7475e2aec2a8cbc85fc4",
     "cm-python.min.js": "6d19a4ba8b05a354935ceebf490582faffa047c86c4715a2b504b14319eb6399",
     "cm-javascript.min.js": "99b46f351b4b1ce8a14cdf04fe4235ecb429b5b7b986867034a7dc195a710a58",
+    "cm-multiruntime.min.js": "023c5a8e19c8417e4290ce8236fc68337bede7098d53b4e787a87bacfc2dbf0e",
 }
 
 
@@ -27,3 +28,12 @@ def test_vendor_file_matches_pin(name: str, expected: str):
     assert path.is_file(), f"missing vendored file: {name}"
     actual = hashlib.sha256(path.read_bytes()).hexdigest()
     assert actual == expected, f"{name} changed - review and update the pin"
+
+
+def test_editor_mode_selection_covers_every_runtime():
+    """Every selectable runtime must choose a locally loaded CodeMirror mode."""
+    app_js = (get_settings().frontend_dir / "static" / "app.js").read_text(encoding="utf-8")
+    for runtime, mode in {"go": "go", "php": "php", "java": "java", "rhino": "javascript"}.items():
+        assert f'{runtime}: "{mode}"' in app_js
+    base = (get_settings().frontend_dir / "templates" / "base.html").read_text(encoding="utf-8")
+    assert "cm-multiruntime.min.js" in base

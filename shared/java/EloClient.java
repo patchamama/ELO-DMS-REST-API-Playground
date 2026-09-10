@@ -6,6 +6,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Base64;
+import java.time.Duration;
 
 /** JDK-only IX REST transport used by generated Java examples. */
 public final class EloClient {
@@ -15,8 +16,8 @@ public final class EloClient {
   public EloClient(String baseUrl, String user, String password) { this.baseUrl = baseUrl.replaceAll("/+$", ""); this.authorization = "Basic " + Base64.getEncoder().encodeToString((user + ":" + password).getBytes(StandardCharsets.UTF_8)); }
   public String call(String method, String jsonBody) throws Exception {
     if ("1".equals(System.getenv("ELOPG_MOCK"))) return fixtureResult(Files.readString(Path.of(System.getenv("ELOPG_MOCK_DATA"))), method);
-    var request = HttpRequest.newBuilder(URI.create(baseUrl + "/rest/IXServicePortIF/" + method)).header("Content-Type", "application/json").header("Authorization", authorization).POST(HttpRequest.BodyPublishers.ofString(jsonBody)).build();
-    var response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString()); if (response.statusCode() >= 300) throw new IllegalStateException("IX HTTP " + response.statusCode()); return resultEnvelope(response.body());
+    var request = HttpRequest.newBuilder(URI.create(baseUrl + "/rest/IXServicePortIF/" + method)).timeout(Duration.ofSeconds(15)).header("Content-Type", "application/json").header("Authorization", authorization).POST(HttpRequest.BodyPublishers.ofString(jsonBody)).build();
+    var response = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build().send(request, HttpResponse.BodyHandlers.ofString()); if (response.statusCode() >= 300) throw new IllegalStateException("IX HTTP " + response.statusCode()); if (response.body().contains("\"exception\"")) throw new IllegalStateException("IX exception: " + jsonValueAfterKey(response.body(), "exception")); return resultEnvelope(response.body());
   }
   private static String env(String name, String fallback) { String value = System.getenv(name); return value == null || value.isBlank() ? fallback : value; }
   private static String fixtureResult(String fixture, String method) { return jsonValueAfterKey(fixture, method); }

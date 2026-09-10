@@ -94,18 +94,19 @@ def generate(topic: dict, language: str) -> str:
     plan = operation_plan(topic)
     plan_json = json.dumps(plan, ensure_ascii=False, separators=(",", ":"))
     if language == "go":
+        needs_json = any(step["method"] != "login" for step in plan)
         calls = "\n".join(
-            f'    result, err := client.Call("{step["method"]}", json.RawMessage(`{json.dumps(step["params"], ensure_ascii=False, separators=(",", ":"))}`))\n'
+            ("    result, err := client.Login()\n" if step["method"] == "login" else f'    result, err := client.Call("{step["method"]}", json.RawMessage(`{json.dumps(step["params"], ensure_ascii=False, separators=(",", ":"))}`))\n') +
             "    if err != nil { panic(err) }\n    fmt.Println(string(result))"
             for step in plan
         )
+        json_import = '    "encoding/json"\n' if needs_json else ""
         return f'''// Uses shared/go/elo.go. The runner copies it and creates a temporary module.
 // ELOPG_PLAN: {plan_json}
 package main
 
 import (
-    "encoding/json"
-    "fmt"
+{json_import}    "fmt"
     "example.com/elopg/elo"
 )
 
