@@ -23,6 +23,14 @@ def test_version_endpoint():
     assert v["frontend"] and v["frontend"][0].isdigit()
 
 
+def test_runtime_status_endpoint_exposes_only_supported_local_runtimes():
+    body = client.get("/api/runtimes").json()
+    by_id = {item["id"]: item for item in body["runtimes"]}
+    assert set(by_id) == {"python", "node", "browser", "go", "php", "java", "rhino"}
+    assert by_id["go"]["installable"] is True
+    assert by_id["rhino"]["installable"] is False
+
+
 def test_faq_endpoint():
     r = client.get("/api/faq")
     assert r.status_code == 200

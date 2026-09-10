@@ -10,20 +10,21 @@ set "NODEPORT=8787"
 rem --- enable the auto version-bump git hook (idempotent) ------------
 where git >nul 2>nul && git -C "%ROOT%" rev-parse --git-dir >nul 2>nul && git -C "%ROOT%" config core.hooksPath .githooks
 
-rem --- portable toolchains + Python dependencies -------------------------
-rem They are installed below runtime/ only.  This never changes global PATH.
-echo [playground] Checking portable toolchains and Python dependencies ...
+rem --- Python dependencies ------------------------------------------------
+rem Optional Go, PHP and Java are installed only when enabled in the app's
+rem Settings dialog. Nothing here changes the global machine PATH.
+echo [playground] Checking Python dependencies ...
 powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%\scripts\bootstrap-toolchains.ps1"
 if errorlevel 1 (
-    echo [playground] Portable bootstrap failed. See the error above.
+    echo [playground] Python bootstrap failed. See the error above.
     pause
     exit /b 1
 )
 set "PY=%ROOT%\runtime\python-venv\Scripts\python.exe"
-set "PATH=%ROOT%\runtime\toolchains\go\bin;%ROOT%\runtime\toolchains\php;%ROOT%\runtime\toolchains\jdk\bin;%PATH%"
 
 rem --- Node dependencies -----------------------------------------------
 where node >nul 2>nul || ( echo [playground] Node.js not found on PATH. & pause & exit /b 1 )
+where npm >nul 2>nul || ( echo [playground] npm not found on PATH. Install the Node.js LTS distribution. & pause & exit /b 1 )
 if not exist "%ROOT%\node_modules\elo-playground" (
     echo [playground] Installing Node dependencies ^(npm install^) ...
     call npm install --no-audit --no-fund || ( echo [playground] npm install failed & pause & exit /b 1 )

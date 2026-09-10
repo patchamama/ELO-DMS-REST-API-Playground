@@ -34,10 +34,12 @@ from .models import (
     LabTreeRequest,
     LabUploadRequest,
     ProxyRequest,
+    RuntimeUpdateRequest,
     RunRequest,
     RunResult,
 )
 from .runner import mock_data, run
+from . import runtime_manager
 
 settings = get_settings()
 
@@ -145,6 +147,24 @@ def api_deep(category_id: str):
 def api_client_lib():
     """Source of the shared elo_playground teaching client (all three runtimes)."""
     return client_lib()
+
+
+# ---- local optional runtime activation ---------------------------------- #
+@app.get("/api/runtimes")
+def api_runtimes():
+    """Installed/enabled state for the Settings dialog (no network or mutation)."""
+    return runtime_manager.status()
+
+
+@app.post("/api/runtimes")
+def api_update_runtimes(req: RuntimeUpdateRequest):
+    """Install/enable or disable only allow-listed portable teaching runtimes."""
+    try:
+        return runtime_manager.update(req.runtimes, enabled=req.enabled)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(502, str(exc)) from exc
 
 
 # ---- openapi.json reference ("API reference" tab) ---------------- #
