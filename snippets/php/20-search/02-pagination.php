@@ -1,7 +1,12 @@
 <?php
-// Offline mock example. The runner supplies ELOPG_MOCK_DATA from canonical fixtures.
-$method = 'findFirstSords'; // IXServicePortIF/findFirstSords
-$path = getenv('ELOPG_MOCK_DATA');
-if (!$path || !is_file($path)) { throw new RuntimeException('ELOPG_MOCK_DATA is required for offline mock runs'); }
-$fixture = json_decode(file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
-echo json_encode($fixture[$method] ?? new stdClass(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), PHP_EOL;
+// The runner places the shared teaching client beside this example.
+// ELOPG_PLAN: [{"method":"findFirstSords","params":{"$expression":"body"}},{"method":"findClose","params":{"searchId":{"$expression":"search_id"}}},{"method":"findNextSords","params":{"searchId":{"$expression":"search_id"},"idx":{"$expression":"len(rows)"},"max":2,"sordZ":{"$expression":"body['sordZ']"}}}]
+require_once __DIR__ . '/EloClient.php';
+
+$elo = EloClient::connect(); // ELOPG_* overrides local teaching defaults.
+$result = $elo->call('findFirstSords', json_decode('{"$expression":"body"}', true, 512, JSON_THROW_ON_ERROR));
+echo json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), PHP_EOL;
+$result = $elo->call('findClose', json_decode('{"searchId":{"$expression":"search_id"}}', true, 512, JSON_THROW_ON_ERROR));
+echo json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), PHP_EOL;
+$result = $elo->call('findNextSords', json_decode('{"searchId":{"$expression":"search_id"},"idx":{"$expression":"len(rows)"},"max":2,"sordZ":{"$expression":"body[\'sordZ\']"}}', true, 512, JSON_THROW_ON_ERROR));
+echo json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), PHP_EOL;

@@ -1,15 +1,16 @@
-// Offline mock example. The runner supplies ELOPG_MOCK_DATA from canonical fixtures.
+// Uses shared/go/elo.go. The runner copies it and creates a temporary module.
+// ELOPG_PLAN: [{"method":"checkoutDoc","params":{"objId":{"$expression":"str(doc['id'])"},"editInfoZ":{"bset":"320","sordZ":{"bset":"0"}}}}]
 package main
 
-import ("encoding/json"; "fmt"; "os")
+import (
+    "encoding/json"
+    "fmt"
+    "example.com/elopg/elo"
+)
 
 func main() {
-  const method = "findFirstSords" // IXServicePortIF/findFirstSords
-  raw, err := os.ReadFile(os.Getenv("ELOPG_MOCK_DATA"))
-  if err != nil { panic("ELOPG_MOCK_DATA is required for offline mock runs: " + err.Error()) }
-  var fixture map[string]json.RawMessage
-  if err := json.Unmarshal(raw, &fixture); err != nil { panic(err) }
-  result, ok := fixture[method]
-  if !ok { result = json.RawMessage(`{}`) }
-  fmt.Println(string(result))
+    client := elo.Connect() // ELOPG_* overrides the local teaching defaults.
+    result, err := client.Call("checkoutDoc", json.RawMessage(`{"objId":{"$expression":"str(doc['id'])"},"editInfoZ":{"bset":"320","sordZ":{"bset":"0"}}}`))
+    if err != nil { panic(err) }
+    fmt.Println(string(result))
 }

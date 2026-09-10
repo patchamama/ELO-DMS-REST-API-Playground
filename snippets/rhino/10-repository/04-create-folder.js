@@ -1,11 +1,16 @@
 /**
- * IndexServer Rhino script example, NOT Web Client injection.
- * Register this script through ELO administration/deployment, review it, then invoke
- * it using IXServicePortIF.executeScript. Incoming args are data, never code.
+ * Reviewed IndexServer Rhino function for IXServicePortIF.createSord.
+ * Contract: args is structured data; script name, target hosts and permitted roots
+ * are deployment configuration. Never inject this source into ELO Web Client.
  */
-function RF_playground_readMetadata(ec, args) {
-  var objId = String((args && args.objId) || "");
-  if (!objId) throw "objId is required";
-  var sord = ixConnect.ix().checkoutSord(objId, SordC.mbAllIndex, LockC.NO);
-  return { id: String(sord.id), name: String(sord.name), mask: String(sord.maskName || "") };
+function RF_playground_repository_create_folder(ec, args) {
+  args = args || {};
+  var parentId = String(args.parentId || "");
+  var name = String(args.name || "");
+  if (!parentId || !name) throw "parentId and name are required";
+  // Deployment policy must validate the parent against an approved scratch root.
+  var sord = ixConnect.ix().createSord(parentId, "", EditInfoC.mbSord).sord;
+  sord.name = name;
+  sord = ixConnect.ix().checkinSord(sord, SordC.mbAll, LockC.NO);
+  return { id: String(sord.id), name: String(sord.name) };
 }

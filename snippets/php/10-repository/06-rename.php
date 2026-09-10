@@ -1,7 +1,20 @@
 <?php
-// Offline mock example. The runner supplies ELOPG_MOCK_DATA from canonical fixtures.
-$method = 'checkoutSord'; // IXServicePortIF/checkoutSord
-$path = getenv('ELOPG_MOCK_DATA');
-if (!$path || !is_file($path)) { throw new RuntimeException('ELOPG_MOCK_DATA is required for offline mock runs'); }
-$fixture = json_decode(file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
-echo json_encode($fixture[$method] ?? new stdClass(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), PHP_EOL;
+// The runner places the shared teaching client beside this example.
+// ELOPG_PLAN: [{"method":"createSord","params":{"parentId":"1","maskId":0,"editInfoZ":{"bset":"1","sordZ":{"bset":{"$expression":"ALL"}}}}},{"method":"checkinSord","params":{"sord":{"$expression":"tpl"},"sordZ":{"bset":{"$expression":"ALL"}},"unlockZ":{"bset":"1"}}},{"method":"checkinSord","params":{"sord":{"$expression":"sord"},"sordZ":{"bset":{"$expression":"ALL"}},"unlockZ":{"bset":"1"}}},{"method":"checkoutSord","params":{"objId":{"$expression":"obj_id"},"editInfoZ":{"bset":"1","sordZ":{"bset":{"$expression":"ALL"}},"lockZ":{"bset":"1"}}}},{"method":"checkoutSord","params":{"objId":{"$expression":"obj_id"},"editInfoZ":{"bset":"1","sordZ":{"bset":{"$expression":"ALL"}}}}},{"method":"deleteSord","params":{"objId":{"$expression":"obj_id"},"parentId":"1","deleteOptions":{"deleteFinally":false}}},{"method":"deleteSord","params":{"objId":{"$expression":"obj_id"},"parentId":"1","deleteOptions":{"deleteFinally":true}}}]
+require_once __DIR__ . '/EloClient.php';
+
+$elo = EloClient::connect(); // ELOPG_* overrides local teaching defaults.
+$result = $elo->call('createSord', json_decode('{"parentId":"1","maskId":0,"editInfoZ":{"bset":"1","sordZ":{"bset":{"$expression":"ALL"}}}}', true, 512, JSON_THROW_ON_ERROR));
+echo json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), PHP_EOL;
+$result = $elo->call('checkinSord', json_decode('{"sord":{"$expression":"tpl"},"sordZ":{"bset":{"$expression":"ALL"}},"unlockZ":{"bset":"1"}}', true, 512, JSON_THROW_ON_ERROR));
+echo json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), PHP_EOL;
+$result = $elo->call('checkinSord', json_decode('{"sord":{"$expression":"sord"},"sordZ":{"bset":{"$expression":"ALL"}},"unlockZ":{"bset":"1"}}', true, 512, JSON_THROW_ON_ERROR));
+echo json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), PHP_EOL;
+$result = $elo->call('checkoutSord', json_decode('{"objId":{"$expression":"obj_id"},"editInfoZ":{"bset":"1","sordZ":{"bset":{"$expression":"ALL"}},"lockZ":{"bset":"1"}}}', true, 512, JSON_THROW_ON_ERROR));
+echo json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), PHP_EOL;
+$result = $elo->call('checkoutSord', json_decode('{"objId":{"$expression":"obj_id"},"editInfoZ":{"bset":"1","sordZ":{"bset":{"$expression":"ALL"}}}}', true, 512, JSON_THROW_ON_ERROR));
+echo json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), PHP_EOL;
+$result = $elo->call('deleteSord', json_decode('{"objId":{"$expression":"obj_id"},"parentId":"1","deleteOptions":{"deleteFinally":false}}', true, 512, JSON_THROW_ON_ERROR));
+echo json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), PHP_EOL;
+$result = $elo->call('deleteSord', json_decode('{"objId":{"$expression":"obj_id"},"parentId":"1","deleteOptions":{"deleteFinally":true}}', true, 512, JSON_THROW_ON_ERROR));
+echo json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), PHP_EOL;

@@ -1,11 +1,16 @@
 /**
- * IndexServer Rhino script example, NOT Web Client injection.
- * Register this script through ELO administration/deployment, review it, then invoke
- * it using IXServicePortIF.executeScript. Incoming args are data, never code.
+ * Reviewed IndexServer Rhino function for IXServicePortIF.findFirstSords.
+ * Contract: args is structured data; script name, target hosts and permitted roots
+ * are deployment configuration. Never inject this source into ELO Web Client.
  */
-function RF_playground_readMetadata(ec, args) {
-  var objId = String((args && args.objId) || "");
-  if (!objId) throw "objId is required";
-  var sord = ixConnect.ix().checkoutSord(objId, SordC.mbAllIndex, LockC.NO);
-  return { id: String(sord.id), name: String(sord.name), mask: String(sord.maskName || "") };
+function RF_playground_lab_fs_sync(ec, args) {
+  args = args || {};
+  var query = String(args.query || "");
+  if (!query) throw "query is required";
+  var findInfo = new FindInfo();
+  findInfo.findByIndex = new FindByIndex();
+  findInfo.findByIndex.name = query;
+  var page = ixConnect.ix().findFirstSords(findInfo, 20, SordC.mbLean);
+  try { return { count: page.sords.length, ids: page.sords.map(function (s) { return String(s.id); }) }; }
+  finally { ixConnect.ix().findClose(page.searchId); }
 }

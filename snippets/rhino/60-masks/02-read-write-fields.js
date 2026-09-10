@@ -1,10 +1,11 @@
 /**
- * IndexServer Rhino script example, NOT Web Client injection.
- * Register this script through ELO administration/deployment, review it, then invoke
- * it using IXServicePortIF.executeScript. Incoming args are data, never code.
+ * Reviewed IndexServer Rhino function for IXServicePortIF.checkoutSord.
+ * Contract: args is structured data; script name, target hosts and permitted roots
+ * are deployment configuration. Never inject this source into ELO Web Client.
  */
-function RF_playground_readMetadata(ec, args) {
-  var objId = String((args && args.objId) || "");
+function RF_playground_masks_read_write_fields(ec, args) {
+  args = args || {};
+  var objId = String(args.objId || "");
   if (!objId) throw "objId is required";
   var sord = ixConnect.ix().checkoutSord(objId, SordC.mbAllIndex, LockC.NO);
   return { id: String(sord.id), name: String(sord.name), mask: String(sord.maskName || "") };

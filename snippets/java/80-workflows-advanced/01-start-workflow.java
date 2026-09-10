@@ -1,14 +1,13 @@
-// Offline mock example. The runner supplies ELOPG_MOCK_DATA from canonical fixtures.
-// Uses only the JDK; add the ELO IX client JAR for typed live calls in a real application.
-import java.nio.file.Files;
-import java.nio.file.Path;
-
+// The runner compiles this file with shared/java/EloClient.java.
+// ELOPG_PLAN: [{"method":"createSord","params":{"parentId":"1","maskId":0,"editInfoZ":{"bset":"1","sordZ":{"bset":{"$expression":"ALL"}}}}},{"method":"checkinSord","params":{"sord":{"$expression":"tpl"},"sordZ":{"bset":{"$expression":"ALL"}},"unlockZ":{"bset":"1"}}},{"method":"startWorkFlow","params":{"templFlowId":{"$expression":"tmpl['id']"},"flowName":"playground test workflow","objId":{"$expression":"obj_id"}}},{"method":"checkoutWorkFlow","params":{"flowId":{"$expression":"flow_id"},"typeZ":{"bset":"0"},"lockZ":{"bset":"0"},"workFlowDiagramZ":{"bset":"1073741823"}}},{"method":"deleteSord","params":{"objId":{"$expression":"obj_id"},"parentId":"1","deleteOptions":{"deleteFinally":{"$expression":"step"}}}},{"method":"findFirstWorkflows","params":{"findInfo":{"type":{"bset":"2"},"inclHidden":true},"max":5,"wfDiagramZ":{"bset":"0"}}}]
 public final class Main {
   public static void main(String[] args) throws Exception {
-    String method = "startWorkFlow"; // IXServicePortIF/startWorkFlow
-    String mockPath = System.getenv("ELOPG_MOCK_DATA");
-    if (mockPath == null || mockPath.isBlank()) throw new IllegalStateException("ELOPG_MOCK_DATA is required for offline mock runs");
-    // Print canonical fixture JSON. A production client should deserialize the method result.
-    System.out.println(Files.readString(Path.of(mockPath)));
+    var elo = EloClient.connect(); // ELOPG_* overrides local teaching defaults.
+    System.out.println(elo.call("createSord", "{\"parentId\":\"1\",\"maskId\":0,\"editInfoZ\":{\"bset\":\"1\",\"sordZ\":{\"bset\":{\"$expression\":\"ALL\"}}}}"));
+    System.out.println(elo.call("checkinSord", "{\"sord\":{\"$expression\":\"tpl\"},\"sordZ\":{\"bset\":{\"$expression\":\"ALL\"}},\"unlockZ\":{\"bset\":\"1\"}}"));
+    System.out.println(elo.call("startWorkFlow", "{\"templFlowId\":{\"$expression\":\"tmpl['id']\"},\"flowName\":\"playground test workflow\",\"objId\":{\"$expression\":\"obj_id\"}}"));
+    System.out.println(elo.call("checkoutWorkFlow", "{\"flowId\":{\"$expression\":\"flow_id\"},\"typeZ\":{\"bset\":\"0\"},\"lockZ\":{\"bset\":\"0\"},\"workFlowDiagramZ\":{\"bset\":\"1073741823\"}}"));
+    System.out.println(elo.call("deleteSord", "{\"objId\":{\"$expression\":\"obj_id\"},\"parentId\":\"1\",\"deleteOptions\":{\"deleteFinally\":{\"$expression\":\"step\"}}}"));
+    System.out.println(elo.call("findFirstWorkflows", "{\"findInfo\":{\"type\":{\"bset\":\"2\"},\"inclHidden\":true},\"max\":5,\"wfDiagramZ\":{\"bset\":\"0\"}}"));
   }
 }

@@ -1,15 +1,25 @@
-// Offline mock example. The runner supplies ELOPG_MOCK_DATA from canonical fixtures.
+// Uses shared/go/elo.go. The runner copies it and creates a temporary module.
+// ELOPG_PLAN: [{"method":"createSord","params":{"parentId":1,"maskId":34,"editInfoZ":{"bset":"1","sordZ":{"bset":{"$expression":"ALL"}}}}},{"method":"checkinSord","params":{"sord":{"$expression":"sord"},"sordZ":{"bset":{"$expression":"ALL"}},"unlockZ":{"bset":"1"}}},{"method":"checkoutSord","params":{"objId":{"$expression":"new_id"},"editInfoZ":{"bset":"1","sordZ":{"bset":{"$expression":"ALL"}}}}},{"method":"deleteSord","params":{"objId":{"$expression":"new_id"},"parentId":"1","deleteOptions":{"deleteFinally":{"$expression":"step"}}}}]
 package main
 
-import ("encoding/json"; "fmt"; "os")
+import (
+    "encoding/json"
+    "fmt"
+    "example.com/elopg/elo"
+)
 
 func main() {
-  const method = "checkoutSord" // IXServicePortIF/checkoutSord
-  raw, err := os.ReadFile(os.Getenv("ELOPG_MOCK_DATA"))
-  if err != nil { panic("ELOPG_MOCK_DATA is required for offline mock runs: " + err.Error()) }
-  var fixture map[string]json.RawMessage
-  if err := json.Unmarshal(raw, &fixture); err != nil { panic(err) }
-  result, ok := fixture[method]
-  if !ok { result = json.RawMessage(`{}`) }
-  fmt.Println(string(result))
+    client := elo.Connect() // ELOPG_* overrides the local teaching defaults.
+    result, err := client.Call("createSord", json.RawMessage(`{"parentId":1,"maskId":34,"editInfoZ":{"bset":"1","sordZ":{"bset":{"$expression":"ALL"}}}}`))
+    if err != nil { panic(err) }
+    fmt.Println(string(result))
+    result, err := client.Call("checkinSord", json.RawMessage(`{"sord":{"$expression":"sord"},"sordZ":{"bset":{"$expression":"ALL"}},"unlockZ":{"bset":"1"}}`))
+    if err != nil { panic(err) }
+    fmt.Println(string(result))
+    result, err := client.Call("checkoutSord", json.RawMessage(`{"objId":{"$expression":"new_id"},"editInfoZ":{"bset":"1","sordZ":{"bset":{"$expression":"ALL"}}}}`))
+    if err != nil { panic(err) }
+    fmt.Println(string(result))
+    result, err := client.Call("deleteSord", json.RawMessage(`{"objId":{"$expression":"new_id"},"parentId":"1","deleteOptions":{"deleteFinally":{"$expression":"step"}}}`))
+    if err != nil { panic(err) }
+    fmt.Println(string(result))
 }

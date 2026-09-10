@@ -92,6 +92,16 @@ def _base_env(req: RunRequest, workdir: Path) -> dict[str, str]:
         env["ELOPG_ELO_PASSWORD"] = req.credentials.password
         env["ELOPG_TLS_VERIFY"] = "1" if req.credentials.tls_verify else "0"
     _write_attachment(req, workdir, env)
+    # Go otherwise writes to a user-profile cache which can be inaccessible in
+    # locked-down Windows sessions. Keep compiler cache and temp data isolated.
+    # Keep the compiled standard library cache across runs; a per-run cache
+    # makes even a one-line Go example exceed the learning-run timeout.
+    go_cache = workdir.parents[1] / "go-cache"
+    go_tmp = workdir / "go-tmp"
+    go_cache.mkdir(parents=True, exist_ok=True)
+    go_tmp.mkdir(exist_ok=True)
+    env["GOCACHE"] = str(go_cache)
+    env["GOTMPDIR"] = str(go_tmp)
     return env
 
 
@@ -181,12 +191,37 @@ def run_node(req: RunRequest) -> RunResult:
     )
 
 
+def _portable_tool(s, name: str) -> str:
+    """Prefer repo-local toolchains so checks do not depend on global PATH."""
+    candidates = {
+        "php": [s.runtime_dir / "toolchains" / "php" / "php.exe"],
+        "javac": [s.runtime_dir / "toolchains" / "jdk" / "bin" / "javac.exe", s.runtime_dir / "toolchains" / "jdk-stage" / "jdk-21.0.12.1+1" / "bin" / "javac.exe"],
+        "java": [s.runtime_dir / "toolchains" / "jdk" / "bin" / "java.exe", s.runtime_dir / "toolchains" / "jdk-stage" / "jdk-21.0.12.1+1" / "bin" / "java.exe"],
+    }
+    return str(next((p for p in candidates.get(name, []) if p.is_file()), shutil.which(name) or name))
+
+
+def _prepare_shared_runtime(s, workdir: Path, language: str) -> None:
+    if language == "go":
+        package = workdir / "elo"
+        package.mkdir()
+        shutil.copy2(s.project_root / "shared" / "go" / "elo.go", package / "elo.go")
+        (workdir / "go.mod").write_text("module example.com/elopg\n\ngo 1.18\n", encoding="utf-8")
+    elif language == "php":
+        shutil.copy2(s.project_root / "shared" / "php" / "EloClient.php", workdir / "EloClient.php")
+    elif language == "java":
+        shutil.copy2(s.project_root / "shared" / "java" / "EloClient.java", workdir / "EloClient.java")
+
+
 def _run_command(req: RunRequest, command: list[str], source_name: str) -> RunResult:
     """Run a standard-library example in an isolated work directory."""
     s = get_settings()
-    workdir = s.runtime_dir / "run" / uuid.uuid4().hex[:12]
+    # The Go tool ignores go.mod below a directory it identifies as a temp root.
+    run_root = s.runtime_dir / ("go-work" if req.language == "go" else "run")
+    workdir = run_root / uuid.uuid4().hex[:12]
     workdir.mkdir(parents=True, exist_ok=True)
     (workdir / source_name).write_text(req.code, encoding="utf-8")
+    _prepare_shared_runtime(s, workdir, req.language)
     env = _base_env(req, workdir)
     out_f, err_f = workdir / "stdout.txt", workdir / "stderr.txt"
     start = time.time()
@@ -205,23 +240,24 @@ def _run_command(req: RunRequest, command: list[str], source_name: str) -> RunRe
 
 def run_compiled(req: RunRequest, language: str) -> RunResult:
     if language == "go":
-        return _run_command(req, ["go", "run", "snippet.go"], "snippet.go")
+        return _run_command(req, [_portable_tool(get_settings(), "go"), "run", "snippet.go"], "snippet.go")
     if language == "php":
-        return _run_command(req, ["php", "snippet.php"], "snippet.php")
+        return _run_command(req, [_portable_tool(get_settings(), "php"), "snippet.php"], "snippet.php")
     # Java needs a compile phase; do not hide compiler diagnostics from learners.
     s = get_settings()
     workdir = s.runtime_dir / "run" / uuid.uuid4().hex[:12]
     workdir.mkdir(parents=True, exist_ok=True)
     (workdir / "Main.java").write_text(req.code, encoding="utf-8")
+    _prepare_shared_runtime(s, workdir, "java")
     env = _base_env(req, workdir)
     out_f, err_f = workdir / "stdout.txt", workdir / "stderr.txt"
     start = time.time()
     try:
         with out_f.open("wb") as o, err_f.open("wb") as e:
-            compiled = subprocess.run(["javac", "Main.java"], cwd=workdir, env=env, stdout=o, stderr=e, timeout=s.run_timeout_s, check=False)
+            compiled = subprocess.run([_portable_tool(s, "javac"), "Main.java", "EloClient.java"], cwd=workdir, env=env, stdout=o, stderr=e, timeout=s.run_timeout_s, check=False)
             code = compiled.returncode
             if code == 0:
-                code = subprocess.run(["java", "-cp", str(workdir), "Main"], cwd=workdir, env=env, stdout=o, stderr=e, timeout=s.run_timeout_s, check=False).returncode
+                code = subprocess.run([_portable_tool(s, "java"), "-cp", str(workdir), "Main"], cwd=workdir, env=env, stdout=o, stderr=e, timeout=s.run_timeout_s, check=False).returncode
         detail = ""
     except FileNotFoundError:
         code, detail = None, "toolchain not installed: javac"

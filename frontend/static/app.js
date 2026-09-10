@@ -6,7 +6,7 @@
  *   - a language switch (EN / DE / ES)
  *   - two tabs: Catalog (nav tree + topic panels) and Scratchpad (free editor)
  *   - every code block gets Copy + Run:
- *       python / node  -> POST /api/run  (executed on the backend)
+ *       python / node / Go / PHP / Java -> POST /api/run  (executed on the backend)
  *       browser        -> executed here, inside a sandboxed <iframe>
  */
 (function () {
@@ -343,7 +343,7 @@
     if (!$("#view-spec").hidden) loadSpec(true);
   }
 
-  // ---- Run: backend (python / node) ------------------------------ //
+  // ---- Run: backend (Python / Node / Go / PHP / Java) ------------- //
   async function runBackend(language, code, topicId, outputEl, metaEl, btn, cacheKey, attach) {
     const label = btn ? btn.textContent : "";
     if (btn) {
@@ -1112,7 +1112,10 @@ ${snippet}
   function makeRunner(language, code, topicId, cacheKey, getAttach) {
     code = applyCreds(code, language); // seed the ELO_* constants from the form
     let original = code;
-    const cmMode = language === "python" ? "python" : (["node", "browser", "rhino"].includes(language) ? "javascript" : null);
+    // Only Python and JavaScript modes are vendored. Go/PHP/Java/Rhino use
+    // JavaScript tokenisation as an explicit readable fallback, rather than
+    // silently asking CodeMirror for missing external mode assets.
+    const cmMode = language === "python" ? "python" : "javascript";
     const wrap = document.createElement("div");
     wrap.className = "runner";
     wrap.innerHTML = `
@@ -1552,7 +1555,8 @@ ${snippet}
         'const elo = await connect({ baseUrl: ELO_BASE_URL, user: ELO_USER, password: ELO_PASS });\n' +
         'console.log((await elo.call("getServerInfo", {})).version);\n',
     };
-      const cmMode = (lang) => (lang === "python" ? "python" : (["node", "browser", "rhino"].includes(lang) ? "javascript" : null));
+      // See makeRunner: all non-Python runtimes use the vendored JS fallback.
+      const cmMode = (lang) => (lang === "python" ? "python" : "javascript");
 
     let touched = false;
     let getCode = () => codeEl.value;

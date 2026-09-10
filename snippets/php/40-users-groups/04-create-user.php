@@ -1,7 +1,20 @@
 <?php
-// Offline mock example. The runner supplies ELOPG_MOCK_DATA from canonical fixtures.
-$method = 'checkinUsers'; // IXServicePortIF/checkinUsers
-$path = getenv('ELOPG_MOCK_DATA');
-if (!$path || !is_file($path)) { throw new RuntimeException('ELOPG_MOCK_DATA is required for offline mock runs'); }
-$fixture = json_decode(file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
-echo json_encode($fixture[$method] ?? new stdClass(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), PHP_EOL;
+// The runner places the shared teaching client beside this example.
+// ELOPG_PLAN: [{"method":"checkinUsers","params":{"userInfos":[{"$expression":"ui"}],"checkinUsersZ":{"bset":"513"},"unlockZ":{"bset":"1"}}},{"method":"checkinUsers","params":{"userInfos":[{"id":{"$expression":"-1"},"name":{"$expression":"USER"},"type":1,"pwd":"PlaygroundDemoUser2026!"}],"checkinUsersZ":{"bset":"1"},"unlockZ":{"bset":"1"}}},{"method":"checkinUsers","params":{"userInfos":[{"id":{"$expression":"-1"},"name":{"$expression":"GROUP"},"type":0}],"checkinUsersZ":{"bset":"1"},"unlockZ":{"bset":"1"}}},{"method":"checkoutUsers","params":{"ids":[{"$expression":"uid"}],"checkoutUsersZ":{"bset":"513"}}},{"method":"checkoutUsers","params":{"ids":[{"$expression":"uid"}],"checkoutUsersZ":{"bset":"513"}}},{"method":"deleteUsers","params":{"ids":{"$expression":"ids"}}},{"method":"checkoutUsers","params":{"ids":[{"$expression":"name"}],"checkoutUsersZ":{"bset":"1"}}}]
+require_once __DIR__ . '/EloClient.php';
+
+$elo = EloClient::connect(); // ELOPG_* overrides local teaching defaults.
+$result = $elo->call('checkinUsers', json_decode('{"userInfos":[{"$expression":"ui"}],"checkinUsersZ":{"bset":"513"},"unlockZ":{"bset":"1"}}', true, 512, JSON_THROW_ON_ERROR));
+echo json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), PHP_EOL;
+$result = $elo->call('checkinUsers', json_decode('{"userInfos":[{"id":{"$expression":"-1"},"name":{"$expression":"USER"},"type":1,"pwd":"PlaygroundDemoUser2026!"}],"checkinUsersZ":{"bset":"1"},"unlockZ":{"bset":"1"}}', true, 512, JSON_THROW_ON_ERROR));
+echo json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), PHP_EOL;
+$result = $elo->call('checkinUsers', json_decode('{"userInfos":[{"id":{"$expression":"-1"},"name":{"$expression":"GROUP"},"type":0}],"checkinUsersZ":{"bset":"1"},"unlockZ":{"bset":"1"}}', true, 512, JSON_THROW_ON_ERROR));
+echo json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), PHP_EOL;
+$result = $elo->call('checkoutUsers', json_decode('{"ids":[{"$expression":"uid"}],"checkoutUsersZ":{"bset":"513"}}', true, 512, JSON_THROW_ON_ERROR));
+echo json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), PHP_EOL;
+$result = $elo->call('checkoutUsers', json_decode('{"ids":[{"$expression":"uid"}],"checkoutUsersZ":{"bset":"513"}}', true, 512, JSON_THROW_ON_ERROR));
+echo json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), PHP_EOL;
+$result = $elo->call('deleteUsers', json_decode('{"ids":{"$expression":"ids"}}', true, 512, JSON_THROW_ON_ERROR));
+echo json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), PHP_EOL;
+$result = $elo->call('checkoutUsers', json_decode('{"ids":[{"$expression":"name"}],"checkoutUsersZ":{"bset":"1"}}', true, 512, JSON_THROW_ON_ERROR));
+echo json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), PHP_EOL;
