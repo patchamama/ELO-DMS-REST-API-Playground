@@ -1,11 +1,13 @@
 /**
- * IndexServer Rhino script example, NOT Web Client injection.
- * Register this script through ELO administration/deployment, review it, then invoke
- * it using IXServicePortIF.executeScript. Incoming args are data, never code.
+ * Reviewed IndexServer Rhino function for IXServicePortIF.deleteSord.
+ * Contract: args is structured data; script name, target hosts and permitted roots
+ * are deployment configuration. Never inject this source into ELO Web Client.
  */
-function RF_playground_readMetadata(ec, args) {
-  var objId = String((args && args.objId) || "");
-  if (!objId) throw "objId is required";
-  var sord = ixConnect.ix().checkoutSord(objId, SordC.mbAllIndex, LockC.NO);
-  return { id: String(sord.id), name: String(sord.name), mask: String(sord.maskName || "") };
+function RF_playground_repository_delete_sord(ec, args) {
+  args = args || {};
+  var objId = String(args.objId || "");
+  if (!objId || args.confirm !== true) throw "objId and confirm=true are required";
+  // Only a dedicated test-root policy may permit destructive operations.
+  ixConnect.ix().deleteSord(null, objId, LockC.NO, null);
+  return { deletedId: objId };
 }

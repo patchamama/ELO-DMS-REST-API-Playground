@@ -128,6 +128,10 @@ Pending work and the roadmap live in [`TODO.md`](TODO.md).
   request parameters, response schema, links to curated topics, and a generated
   `elo.call(...)` skeleton in all three runtimes.
 - **Scratchpad** - CodeMirror editor + language selector + Run.
+
+The bundled CodeMirror distribution includes Python and JavaScript modes only.
+Go, PHP, Java and Rhino deliberately use the JavaScript mode as a readable fallback;
+the playground does not fetch editor assets at runtime.
 - **FAQ** - the questions below, rendered in-app (`frontend/faq.md`, served at
   `GET /api/faq`).
 

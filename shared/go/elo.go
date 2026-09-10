@@ -1,4 +1,4 @@
-// Package elo provides a small standard-library IX REST client for Go examples.
+// Package elo is the standard-library teaching client used by generated Go examples.
 package elo
 
 import (
@@ -11,46 +11,72 @@ import (
 	"strings"
 )
 
+const defaultBaseURL = "http://localhost:9090/ix-Repository1"
+
 type Client struct {
 	BaseURL, User, Password string
 	HTTP                    *http.Client
 }
 
-func (c *Client) Call(method string, body interface{}, out interface{}) error {
+func Connect() *Client {
+	return New(env("ELOPG_ELO_BASE_URL", defaultBaseURL), env("ELOPG_ELO_USER", "Administrator"), os.Getenv("ELOPG_ELO_PASSWORD"))
+}
+func New(baseURL, user, password string) *Client {
+	return &Client{BaseURL: baseURL, User: user, Password: password, HTTP: http.DefaultClient}
+}
+func env(name, fallback string) string {
+	if value := os.Getenv(name); value != "" {
+		return value
+	}
+	return fallback
+}
+
+// Call returns the IX result payload, unwrapping the REST {"result": ...} envelope.
+func (c *Client) Call(method string, body interface{}) (json.RawMessage, error) {
 	if os.Getenv("ELOPG_MOCK") == "1" {
-		raw, e := os.ReadFile(os.Getenv("ELOPG_MOCK_DATA"))
-		if e != nil {
-			return e
+		raw, err := os.ReadFile(os.Getenv("ELOPG_MOCK_DATA"))
+		if err != nil {
+			return nil, err
 		}
-		var m map[string]json.RawMessage
-		if e = json.Unmarshal(raw, &m); e != nil {
-			return e
+		var fixture map[string]json.RawMessage
+		if err = json.Unmarshal(raw, &fixture); err != nil {
+			return nil, err
 		}
-		return json.Unmarshal(m[method], out)
+		if result, ok := fixture[method]; ok {
+			return result, nil
+		}
+		return json.RawMessage(`{}`), nil
 	}
-	raw, e := json.Marshal(body)
-	if e != nil {
-		return e
+	payload, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
 	}
-	req, e := http.NewRequest(http.MethodPost, strings.TrimRight(c.BaseURL, "/")+"/rest/IXServicePortIF/"+method, bytes.NewReader(raw))
-	if e != nil {
-		return e
+	req, err := http.NewRequest(http.MethodPost, strings.TrimRight(c.BaseURL, "/")+"/rest/IXServicePortIF/"+method, bytes.NewReader(payload))
+	if err != nil {
+		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.SetBasicAuth(c.User, c.Password)
-	h := c.HTTP
-	if h == nil {
-		h = http.DefaultClient
+	response, err := c.HTTP.Do(req)
+	if err != nil {
+		return nil, err
 	}
-	resp, e := h.Do(req)
-	if e != nil {
-		return e
+	defer response.Body.Close()
+	raw, err := io.ReadAll(response.Body)
+	if err != nil {
+		return nil, err
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode >= 300 {
-		return fmt.Errorf("IX HTTP %s", resp.Status)
+	if response.StatusCode >= http.StatusMultipleChoices {
+		return nil, fmt.Errorf("IX HTTP %s: %s", response.Status, string(raw))
 	}
-	return json.NewDecoder(resp.Body).Decode(out)
+	var envelope struct {
+		Result json.RawMessage `json:"result"`
+	}
+	if err := json.Unmarshal(raw, &envelope); err != nil {
+		return nil, err
+	}
+	if envelope.Result == nil {
+		return json.RawMessage(`{}`), nil
+	}
+	return envelope.Result, nil
 }
-
-var _ = io.EOF

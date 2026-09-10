@@ -5,7 +5,6 @@ Python  -> pyflakes over snippets/python/ and every fenced ```python block in
 Node / browser -> scripts/check_snippets_js.mjs (acorn-based; also covers the
            ```js blocks in the deep dives).
 """
-import os
 import re
 import shutil
 import subprocess
@@ -14,6 +13,9 @@ import tempfile
 from pathlib import Path
 
 import pytest
+
+from app.models import RunRequest
+from app.runner import run
 
 _ROOT = Path(__file__).resolve().parent.parent.parent
 _SNIPPETS_PY = _ROOT / "snippets" / "python"
@@ -71,12 +73,7 @@ def test_go_mock_snippet_runs_against_canonical_fixture():
     The full runtime matrix is intentionally left to CI/toolchain jobs; this is
     a narrow offline check and never calls a live ELO endpoint.
     """
-    go = shutil.which("go")
-    if not go:
-        pytest.skip("Go toolchain unavailable")
     snippet = _ROOT / "snippets" / "go" / "00-connection" / "02-server-info.go"
-    fixture = _ROOT / "fixtures" / "ix" / "default.json"
-    env = {"PATH": os.environ.get("PATH", ""), "ELOPG_MOCK": "1", "ELOPG_MOCK_DATA": str(fixture)}
-    proc = subprocess.run([go, "run", str(snippet)], capture_output=True, text=True, cwd=_ROOT, env=env, check=False)
-    assert proc.returncode == 0, proc.stderr
-    assert "25.00.001.003" in proc.stdout
+    result = run(RunRequest(language="go", code=snippet.read_text(encoding="utf-8"), mock=True, topic_id="connection.server-info"))
+    assert result.ok, result.stderr
+    assert "25.00.001.003" in result.stdout

@@ -1,7 +1,12 @@
 """The Python side of the snippet runner (offline / mock only)."""
 import base64
+import json
+import os
 import textwrap
 
+import pytest
+
+from app.catalog import get_topic
 from app.models import Attachment, RunRequest
 from app.runner import _run_command, mock_data, run, run_python
 
@@ -111,3 +116,13 @@ def test_rhino_is_not_executed_as_browser_or_local_code():
     assert result.exit_code is None
     assert "IndexServer script artifacts" in result.detail
     assert "Web Client injection" in result.detail
+
+
+@pytest.mark.parametrize("language", ["go", "php", "java"])
+def test_shared_runtime_example_matches_canonical_fixture(language):
+    """Portable toolchains execute the same fixture-backed payload contract."""
+    topic = get_topic("connection.server-info")
+    code = getattr(topic.snippets, language)
+    result = run(RunRequest(language=language, code=code, mock=True, topic_id=topic.id))
+    assert result.ok, f"{language}: {result.detail}\n{result.stderr}"
+    assert json.loads(result.stdout) == mock_data(topic.id)["getServerInfo"]

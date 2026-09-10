@@ -1,7 +1,14 @@
 <?php
-// Offline mock example. The runner supplies ELOPG_MOCK_DATA from canonical fixtures.
-$method = 'checkoutSord'; // IXServicePortIF/checkoutSord
-$path = getenv('ELOPG_MOCK_DATA');
-if (!$path || !is_file($path)) { throw new RuntimeException('ELOPG_MOCK_DATA is required for offline mock runs'); }
-$fixture = json_decode(file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
-echo json_encode($fixture[$method] ?? new stdClass(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), PHP_EOL;
+// The runner places the shared teaching client beside this example.
+// ELOPG_PLAN: [{"method":"findFirstSords","params":{"findInfo":{"findByIndex":{"name":"Administration*"}},"max":10,"sordZ":{"bset":{"$expression":"ALL"}}}},{"method":"findClose","params":{"searchId":{"$expression":"res.get('searchId')"}}},{"method":"checkoutSord","params":{"objId":2,"editInfoZ":{"bset":"1","sordZ":{"bset":{"$expression":"ALL"}}}}},{"method":"checkoutSord","params":{"objId":{"$expression":"by_id['guid']"},"editInfoZ":{"bset":"1","sordZ":{"bset":{"$expression":"ALL"}}}}}]
+require_once __DIR__ . '/EloClient.php';
+
+$elo = EloClient::connect(); // ELOPG_* overrides local teaching defaults.
+$result = $elo->call('findFirstSords', json_decode('{"findInfo":{"findByIndex":{"name":"Administration*"}},"max":10,"sordZ":{"bset":{"$expression":"ALL"}}}', true, 512, JSON_THROW_ON_ERROR));
+echo json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), PHP_EOL;
+$result = $elo->call('findClose', json_decode('{"searchId":{"$expression":"res.get(\'searchId\')"}}', true, 512, JSON_THROW_ON_ERROR));
+echo json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), PHP_EOL;
+$result = $elo->call('checkoutSord', json_decode('{"objId":2,"editInfoZ":{"bset":"1","sordZ":{"bset":{"$expression":"ALL"}}}}', true, 512, JSON_THROW_ON_ERROR));
+echo json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), PHP_EOL;
+$result = $elo->call('checkoutSord', json_decode('{"objId":{"$expression":"by_id[\'guid\']"},"editInfoZ":{"bset":"1","sordZ":{"bset":{"$expression":"ALL"}}}}', true, 512, JSON_THROW_ON_ERROR));
+echo json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), PHP_EOL;

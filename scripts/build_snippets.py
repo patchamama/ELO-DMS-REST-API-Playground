@@ -15,6 +15,12 @@ from pathlib import Path
 
 import yaml
 
+# importlib-based tests load this module by path and do not add scripts/ to
+# sys.path, unlike direct ``python scripts/build_snippets.py`` execution.
+_SCRIPT_DIR = Path(__file__).resolve().parent
+if str(_SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPT_DIR))
+
 from multiruntime import EXTENSIONS as _EXT, generate as _generate_multiruntime
 
 ROOT = Path(__file__).resolve().parent.parent

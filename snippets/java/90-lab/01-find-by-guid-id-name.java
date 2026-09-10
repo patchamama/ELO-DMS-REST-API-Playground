@@ -1,14 +1,11 @@
-// Offline mock example. The runner supplies ELOPG_MOCK_DATA from canonical fixtures.
-// Uses only the JDK; add the ELO IX client JAR for typed live calls in a real application.
-import java.nio.file.Files;
-import java.nio.file.Path;
-
+// The runner compiles this file with shared/java/EloClient.java.
+// ELOPG_PLAN: [{"method":"findFirstSords","params":{"findInfo":{"findByIndex":{"name":"Administration*"}},"max":10,"sordZ":{"bset":{"$expression":"ALL"}}}},{"method":"findClose","params":{"searchId":{"$expression":"res.get('searchId')"}}},{"method":"checkoutSord","params":{"objId":2,"editInfoZ":{"bset":"1","sordZ":{"bset":{"$expression":"ALL"}}}}},{"method":"checkoutSord","params":{"objId":{"$expression":"by_id['guid']"},"editInfoZ":{"bset":"1","sordZ":{"bset":{"$expression":"ALL"}}}}}]
 public final class Main {
   public static void main(String[] args) throws Exception {
-    String method = "checkoutSord"; // IXServicePortIF/checkoutSord
-    String mockPath = System.getenv("ELOPG_MOCK_DATA");
-    if (mockPath == null || mockPath.isBlank()) throw new IllegalStateException("ELOPG_MOCK_DATA is required for offline mock runs");
-    // Print canonical fixture JSON. A production client should deserialize the method result.
-    System.out.println(Files.readString(Path.of(mockPath)));
+    var elo = EloClient.connect(); // ELOPG_* overrides local teaching defaults.
+    System.out.println(elo.call("findFirstSords", "{\"findInfo\":{\"findByIndex\":{\"name\":\"Administration*\"}},\"max\":10,\"sordZ\":{\"bset\":{\"$expression\":\"ALL\"}}}"));
+    System.out.println(elo.call("findClose", "{\"searchId\":{\"$expression\":\"res.get('searchId')\"}}"));
+    System.out.println(elo.call("checkoutSord", "{\"objId\":2,\"editInfoZ\":{\"bset\":\"1\",\"sordZ\":{\"bset\":{\"$expression\":\"ALL\"}}}}"));
+    System.out.println(elo.call("checkoutSord", "{\"objId\":{\"$expression\":\"by_id['guid']\"},\"editInfoZ\":{\"bset\":\"1\",\"sordZ\":{\"bset\":{\"$expression\":\"ALL\"}}}}"));
   }
 }
