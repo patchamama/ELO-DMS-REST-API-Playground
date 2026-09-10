@@ -253,10 +253,11 @@ def generate(detail: dict, language: str) -> str:
             "// Requires shared/go/elo.go.\npackage main\n\n"
             'import (\n  "encoding/json"\n  "fmt"\n  "example.com/elopg/elo"\n)\n\n'
             "func main() {\n"
-            '  ELOBaseURL := elo.Env("ELOPG_ELO_BASE_URL", "http://localhost:9090/ix-Repository1") // ELOPG_DEFAULT:base_url\n'
-            '  ELOUser := elo.Env("ELOPG_ELO_USER", "Administrator") // ELOPG_DEFAULT:user\n'
-            '  ELOPass := elo.Env("ELOPG_ELO_PASSWORD", "elo") // ELOPG_DEFAULT:password\n'
-            "  client := elo.New(ELOBaseURL, ELOUser, ELOPass)\n"
+            '  ELO_BASE_URL := elo.Env("ELOPG_ELO_BASE_URL", "http://localhost:9090/ix-Repository1") // ELOPG_DEFAULT:base_url\n'
+            '  ELO_USER := elo.Env("ELOPG_ELO_USER", "Administrator") // ELOPG_DEFAULT:user\n'
+            '  ELO_PASS := elo.Env("ELOPG_ELO_PASSWORD", "elo") // ELOPG_DEFAULT:password\n'
+            "\n"
+            "  client := elo.New(ELO_BASE_URL, ELO_USER, ELO_PASS)\n"
             f'  result, err := client.Call("{method}", json.RawMessage(`{{}}`))\n'
             "  if err != nil { panic(err) }\n  fmt.Println(string(result))\n}\n"
         )
@@ -266,6 +267,7 @@ def generate(detail: dict, language: str) -> str:
             "$ELO_BASE_URL = getenv('ELOPG_ELO_BASE_URL') ?: 'http://localhost:9090/ix-Repository1'; // ELOPG_DEFAULT:base_url\n"
             "$ELO_USER = getenv('ELOPG_ELO_USER') ?: 'Administrator'; // ELOPG_DEFAULT:user\n"
             "$ELO_PASS = getenv('ELOPG_ELO_PASSWORD') ?: 'elo'; // ELOPG_DEFAULT:password\n"
+            "\n"
             "$elo = EloClient::connect($ELO_BASE_URL, $ELO_USER, $ELO_PASS);\n"
             f'print_r($elo->call("{method}", []));\n'
         )
@@ -273,10 +275,11 @@ def generate(detail: dict, language: str) -> str:
         return (
             "// Requires shared/java/EloClient.java on the classpath.\n"
             "public final class Main {\n  public static void main(String[] args) throws Exception {\n"
-            '    String eloBaseUrl = EloClient.env("ELOPG_ELO_BASE_URL", "http://localhost:9090/ix-Repository1"); // ELOPG_DEFAULT:base_url\n'
-            '    String eloUser = EloClient.env("ELOPG_ELO_USER", "Administrator"); // ELOPG_DEFAULT:user\n'
-            '    String eloPass = EloClient.env("ELOPG_ELO_PASSWORD", "elo"); // ELOPG_DEFAULT:password\n'
-            '    var elo = EloClient.connect(eloBaseUrl, eloUser, eloPass);\n'
+            '    String ELO_BASE_URL = EloClient.env("ELOPG_ELO_BASE_URL", "http://localhost:9090/ix-Repository1"); // ELOPG_DEFAULT:base_url\n'
+            '    String ELO_USER = EloClient.env("ELOPG_ELO_USER", "Administrator"); // ELOPG_DEFAULT:user\n'
+            '    String ELO_PASS = EloClient.env("ELOPG_ELO_PASSWORD", "elo"); // ELOPG_DEFAULT:password\n'
+            '\n'
+            '    var elo = EloClient.connect(ELO_BASE_URL, ELO_USER, ELO_PASS);\n'
             f'    System.out.println(elo.call("{method}", "{{}}"));\n'
             "  }\n}\n"
         )
@@ -287,7 +290,13 @@ def generate(detail: dict, language: str) -> str:
             'var ELO_BASE_URL = java.lang.System.getenv("ELOPG_ELO_BASE_URL") || "http://localhost:9090/ix-Repository1"; // ELOPG_DEFAULT:base_url\n'
             'var ELO_USER = java.lang.System.getenv("ELOPG_ELO_USER") || "Administrator"; // ELOPG_DEFAULT:user\n'
             'var ELO_PASS = java.lang.System.getenv("ELOPG_ELO_PASSWORD") || "elo"; // ELOPG_DEFAULT:password\n'
-            'var result = ixConnect.ix().executeScript("RF_playground_readMetadata", { objId: "<object-id>" });\n'
+            '\n'
+            'function playgroundIx(baseUrl, user, password) {\n'
+            '  if (!baseUrl || !user || !password) throw "ELO connection settings are required";\n'
+            '  return ixConnect.ix(); // IndexServer owns the authenticated Rhino session.\n'
+            '}\n\n'
+            'var ix = playgroundIx(ELO_BASE_URL, ELO_USER, ELO_PASS);\n'
+            'var result = ix.executeScript("RF_playground_readMetadata", { objId: "<object-id>" });\n'
         )
     if language == "python":
         svc_arg = "" if service == "IXServicePortIF" else f', service="{service}"'

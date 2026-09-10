@@ -44,20 +44,50 @@ def test_go_client_has_request_timeout_for_login_and_every_ix_call():
 def test_all_runtime_snippets_expose_marked_environment_defaults():
     """The frontend updates only these markers, never a guessed user-code line."""
     expected = {
-        "python": ('os.getenv("ELOPG_ELO_PASSWORD", "elo")', "# ELOPG_DEFAULT:password"),
-        "node": ('process.env.ELOPG_ELO_PASSWORD || "elo"', "// ELOPG_DEFAULT:password"),
-        "go": ('elo.Env("ELOPG_ELO_PASSWORD", "elo")', "// ELOPG_DEFAULT:password"),
-        "php": ("getenv('ELOPG_ELO_PASSWORD') ?: 'elo'", "// ELOPG_DEFAULT:password"),
-        "java": ('EloClient.env("ELOPG_ELO_PASSWORD", "elo")', "// ELOPG_DEFAULT:password"),
-        "rhino": ('java.lang.System.getenv("ELOPG_ELO_PASSWORD") || "elo"', "// ELOPG_DEFAULT:password"),
+        "python": (
+            'ELO_BASE_URL = os.getenv("ELOPG_ELO_BASE_URL", "http://localhost:9090/ix-Repository1") # ELOPG_DEFAULT:base_url',
+            'ELO_USER = os.getenv("ELOPG_ELO_USER", "Administrator") # ELOPG_DEFAULT:user',
+            'ELO_PASS = os.getenv("ELOPG_ELO_PASSWORD", "elo") # ELOPG_DEFAULT:password',
+        ),
+        "node": (
+            'const ELO_BASE_URL = process.env.ELOPG_ELO_BASE_URL || "http://localhost:9090/ix-Repository1"; // ELOPG_DEFAULT:base_url',
+            'const ELO_USER = process.env.ELOPG_ELO_USER || "Administrator"; // ELOPG_DEFAULT:user',
+            'const ELO_PASS = process.env.ELOPG_ELO_PASSWORD || "elo"; // ELOPG_DEFAULT:password',
+        ),
+        "go": (
+            'ELO_BASE_URL := elo.Env("ELOPG_ELO_BASE_URL", "http://localhost:9090/ix-Repository1") // ELOPG_DEFAULT:base_url',
+            'ELO_USER := elo.Env("ELOPG_ELO_USER", "Administrator") // ELOPG_DEFAULT:user',
+            'ELO_PASS := elo.Env("ELOPG_ELO_PASSWORD", "elo") // ELOPG_DEFAULT:password',
+        ),
+        "php": (
+            "$ELO_BASE_URL = getenv('ELOPG_ELO_BASE_URL') ?: 'http://localhost:9090/ix-Repository1'; // ELOPG_DEFAULT:base_url",
+            "$ELO_USER = getenv('ELOPG_ELO_USER') ?: 'Administrator'; // ELOPG_DEFAULT:user",
+            "$ELO_PASS = getenv('ELOPG_ELO_PASSWORD') ?: 'elo'; // ELOPG_DEFAULT:password",
+        ),
+        "java": (
+            'String ELO_BASE_URL = EloClient.env("ELOPG_ELO_BASE_URL", "http://localhost:9090/ix-Repository1"); // ELOPG_DEFAULT:base_url',
+            'String ELO_USER = EloClient.env("ELOPG_ELO_USER", "Administrator"); // ELOPG_DEFAULT:user',
+            'String ELO_PASS = EloClient.env("ELOPG_ELO_PASSWORD", "elo"); // ELOPG_DEFAULT:password',
+        ),
+        "rhino": (
+            'var ELO_BASE_URL = java.lang.System.getenv("ELOPG_ELO_BASE_URL") || "http://localhost:9090/ix-Repository1"; // ELOPG_DEFAULT:base_url',
+            'var ELO_USER = java.lang.System.getenv("ELOPG_ELO_USER") || "Administrator"; // ELOPG_DEFAULT:user',
+            'var ELO_PASS = java.lang.System.getenv("ELOPG_ELO_PASSWORD") || "elo"; // ELOPG_DEFAULT:password',
+        ),
+    }
+    client_use = {
+        "go": "elo.New(ELO_BASE_URL, ELO_USER, ELO_PASS)",
+        "php": "EloClient::connect($ELO_BASE_URL, $ELO_USER, $ELO_PASS)",
+        "java": "EloClient.connect(ELO_BASE_URL, ELO_USER, ELO_PASS)",
+        "rhino": "playgroundIx(ELO_BASE_URL, ELO_USER, ELO_PASS)",
     }
     for path in sorted(get_settings().catalog_dir.glob("*/*.yaml")):
         topic = get_topic((yaml.safe_load(path.read_text(encoding="utf-8")) or {})["id"])
-        for runtime, (fallback, password_marker) in expected.items():
+        for runtime, lines in expected.items():
             code = getattr(topic.snippets, runtime)
-            assert "ELOPG_ELO_BASE_URL" in code, f"{topic.id} {runtime} missing base URL default"
-            assert "ELOPG_ELO_USER" in code, f"{topic.id} {runtime} missing user default"
-            assert fallback in code, f"{topic.id} {runtime} missing password fallback"
-            assert "ELOPG_DEFAULT:base_url" in code
-            assert "ELOPG_DEFAULT:user" in code
-            assert password_marker in code
+            for line in lines:
+                assert line in code, f"{topic.id} {runtime} missing visible connection default: {line}"
+            password_end = code.index(lines[-1]) + len(lines[-1])
+            assert code[password_end:].startswith("\n\n"), f"{topic.id} {runtime} must leave a blank line after ELO_PASS"
+            if runtime in client_use:
+                assert client_use[runtime] in code, f"{topic.id} {runtime} does not use its visible connection defaults"

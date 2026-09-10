@@ -62,3 +62,5 @@ def test_connection_form_rewrites_only_marked_defaults_for_every_runtime():
         assert f'language === "{runtime}"' in app_js
     assert "SCRATCH_SYNC" in app_js
     assert "syncOpenRunnersCreds" in app_js
+    assert 'const goName = names[key];' in app_js
+    assert 'const javaName = names[key];' in app_js
