@@ -22,12 +22,14 @@ type Client struct {
 }
 
 func Connect() *Client {
-	return New(env("ELOPG_ELO_BASE_URL", defaultBaseURL), env("ELOPG_ELO_USER", "Administrator"), os.Getenv("ELOPG_ELO_PASSWORD"))
+	return New(Env("ELOPG_ELO_BASE_URL", defaultBaseURL), Env("ELOPG_ELO_USER", "Administrator"), Env("ELOPG_ELO_PASSWORD", "elo"))
 }
 func New(baseURL, user, password string) *Client {
 	return &Client{BaseURL: baseURL, User: user, Password: password, HTTP: &http.Client{Timeout: defaultRequestTimeout}}
 }
-func env(name, fallback string) string {
+// Env reads a non-empty environment variable or returns its teaching default.
+// Generated examples use it explicitly so the connection values stay visible.
+func Env(name, fallback string) string {
 	if value := os.Getenv(name); value != "" {
 		return value
 	}

@@ -7,9 +7,9 @@ import os
 from elo_playground import connect, EloError
 
 # --- local ELO test box (override with ELOPG_* env vars or a .env) ---
-ELO_BASE_URL = os.getenv("ELOPG_ELO_BASE_URL", "http://localhost:9090/ix-Repository1")
-ELO_USER = os.getenv("ELOPG_ELO_USER", "Administrator")
-ELO_PASS = os.getenv("ELOPG_ELO_PASSWORD", "")
+ELO_BASE_URL = os.getenv("ELOPG_ELO_BASE_URL", "http://localhost:9090/ix-Repository1") # ELOPG_DEFAULT:base_url
+ELO_USER = os.getenv("ELOPG_ELO_USER", "Administrator") # ELOPG_DEFAULT:user
+ELO_PASS = os.getenv("ELOPG_ELO_PASSWORD", "elo") # ELOPG_DEFAULT:password
 
 # login=False builds the client but does NOT log in yet, so we can call
 # login() ourselves below, read what it returns and handle a failure.

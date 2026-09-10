@@ -5,9 +5,9 @@
 // id:       ocr.archived
 
 // --- local ELO test box (override with ELOPG_* env vars or a .env) ---
-const ELO_BASE_URL = globalThis.ELOPG_ELO_BASE_URL || "http://localhost:9090/ix-Repository1";
-const ELO_USER = globalThis.ELOPG_ELO_USER || "Administrator";
-const ELO_PASS = globalThis.ELOPG_ELO_PASSWORD || "";
+const ELO_BASE_URL = globalThis.ELOPG_ELO_BASE_URL || "http://localhost:9090/ix-Repository1"; // ELOPG_DEFAULT:base_url
+const ELO_USER = globalThis.ELOPG_ELO_USER || "Administrator"; // ELOPG_DEFAULT:user
+const ELO_PASS = globalThis.ELOPG_ELO_PASSWORD || "elo"; // ELOPG_DEFAULT:password
 
 // Uploading a document is not available from the browser (the connector is
 // on another origin). Run this one from the Python or Node tab; the browser

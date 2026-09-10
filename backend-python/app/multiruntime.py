@@ -111,7 +111,10 @@ import (
 )
 
 func main() {{
-    client := elo.Connect() // ELOPG_* overrides the local teaching defaults.
+    ELOBaseURL := elo.Env("ELOPG_ELO_BASE_URL", "http://localhost:9090/ix-Repository1") // ELOPG_DEFAULT:base_url
+    ELOUser := elo.Env("ELOPG_ELO_USER", "Administrator") // ELOPG_DEFAULT:user
+    ELOPass := elo.Env("ELOPG_ELO_PASSWORD", "elo") // ELOPG_DEFAULT:password
+    client := elo.New(ELOBaseURL, ELOUser, ELOPass)
 {calls}
 }}
 '''
@@ -125,7 +128,10 @@ func main() {{
 // ELOPG_PLAN: {plan_json}
 require_once __DIR__ . '/EloClient.php';
 
-$elo = EloClient::connect(); // ELOPG_* overrides local teaching defaults.
+$ELO_BASE_URL = getenv('ELOPG_ELO_BASE_URL') ?: 'http://localhost:9090/ix-Repository1'; // ELOPG_DEFAULT:base_url
+$ELO_USER = getenv('ELOPG_ELO_USER') ?: 'Administrator'; // ELOPG_DEFAULT:user
+$ELO_PASS = getenv('ELOPG_ELO_PASSWORD') ?: 'elo'; // ELOPG_DEFAULT:password
+$elo = EloClient::connect($ELO_BASE_URL, $ELO_USER, $ELO_PASS);
 {calls}
 '''
     if language == "java":
@@ -137,7 +143,10 @@ $elo = EloClient::connect(); // ELOPG_* overrides local teaching defaults.
 // ELOPG_PLAN: {plan_json}
 public final class Main {{
   public static void main(String[] args) throws Exception {{
-    var elo = EloClient.connect(); // ELOPG_* overrides local teaching defaults.
+    String eloBaseUrl = EloClient.env("ELOPG_ELO_BASE_URL", "http://localhost:9090/ix-Repository1"); // ELOPG_DEFAULT:base_url
+    String eloUser = EloClient.env("ELOPG_ELO_USER", "Administrator"); // ELOPG_DEFAULT:user
+    String eloPass = EloClient.env("ELOPG_ELO_PASSWORD", "elo"); // ELOPG_DEFAULT:password
+    var elo = EloClient.connect(eloBaseUrl, eloUser, eloPass);
 {calls}
   }}
 }}
@@ -149,6 +158,10 @@ public final class Main {{
  * Contract: args is structured data; script name, target hosts and permitted roots
  * are deployment configuration. Never inject this source into ELO Web Client.
  */
+var ELO_BASE_URL = java.lang.System.getenv("ELOPG_ELO_BASE_URL") || "http://localhost:9090/ix-Repository1"; // ELOPG_DEFAULT:base_url
+var ELO_USER = java.lang.System.getenv("ELOPG_ELO_USER") || "Administrator"; // ELOPG_DEFAULT:user
+var ELO_PASS = java.lang.System.getenv("ELOPG_ELO_PASSWORD") || "elo"; // ELOPG_DEFAULT:password
+
 function {name}(ec, args) {{
   args = args || {{}};
 {_rhino_body(method)}

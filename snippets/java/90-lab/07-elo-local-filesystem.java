@@ -2,7 +2,10 @@
 // ELOPG_PLAN: [{"method":"findFirstSords","params":{"findInfo":{"findChildren":{"parentId":{"$expression":"str(parent_id)"},"mainParent":true,"endLevel":1}},"max":1000,"sordZ":{"bset":{"$expression":"ALL"}}}},{"method":"checkoutSord","params":{"objId":{"$expression":"FOLDER_ID"},"editInfoZ":{"bset":"1","sordZ":{"bset":{"$expression":"ALL"}}}}},{"method":"findClose","params":{"searchId":{"$expression":"search_id"}}},{"method":"checkoutDoc","params":{"objId":{"$expression":"s['id']"},"editInfoZ":{"bset":"320","sordZ":{"bset":"0"}}}},{"method":"checkoutSord","params":{"objId":{"$expression":"str(obj_id)"},"editInfoZ":{"bset":"1","sordZ":{"bset":{"$expression":"ALL"}}}}},{"method":"checkoutMap","params":{"objId":{"$expression":"int(obj_id)"},"id":{"$expression":"str(obj_id)"},"domainName":"objekte","keyNames":["*"],"lockZ":{"bset":"0"}}}]
 public final class Main {
   public static void main(String[] args) throws Exception {
-    var elo = EloClient.connect(); // ELOPG_* overrides local teaching defaults.
+    String eloBaseUrl = EloClient.env("ELOPG_ELO_BASE_URL", "http://localhost:9090/ix-Repository1"); // ELOPG_DEFAULT:base_url
+    String eloUser = EloClient.env("ELOPG_ELO_USER", "Administrator"); // ELOPG_DEFAULT:user
+    String eloPass = EloClient.env("ELOPG_ELO_PASSWORD", "elo"); // ELOPG_DEFAULT:password
+    var elo = EloClient.connect(eloBaseUrl, eloUser, eloPass);
     System.out.println(elo.call("findFirstSords", "{\"findInfo\":{\"findChildren\":{\"parentId\":{\"$expression\":\"str(parent_id)\"},\"mainParent\":true,\"endLevel\":1}},\"max\":1000,\"sordZ\":{\"bset\":{\"$expression\":\"ALL\"}}}"));
     System.out.println(elo.call("checkoutSord", "{\"objId\":{\"$expression\":\"FOLDER_ID\"},\"editInfoZ\":{\"bset\":\"1\",\"sordZ\":{\"bset\":{\"$expression\":\"ALL\"}}}}"));
     System.out.println(elo.call("findClose", "{\"searchId\":{\"$expression\":\"search_id\"}}"));
