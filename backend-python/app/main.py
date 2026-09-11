@@ -167,6 +167,12 @@ def api_update_runtimes(req: RuntimeUpdateRequest):
         raise HTTPException(502, str(exc)) from exc
 
 
+@app.get("/api/runtimes/progress")
+def api_runtimes_progress():
+    """Tail of the running (or last) installer's progress log, for polling."""
+    return {"lines": runtime_manager.progress_lines()}
+
+
 # ---- openapi.json reference ("API reference" tab) ---------------- #
 def _spec(mock: bool, base_url: str | None):
     return openapi_ref.load_spec(base_url or settings.elo_base_url, mock=mock)

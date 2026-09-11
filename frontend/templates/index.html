@@ -57,6 +57,10 @@
       <button type="button" class="runtime-close" aria-label="Close">×</button>
     </div>
     <div id="runtime-list" class="runtime-list" aria-live="polite"></div>
+    <div id="runtime-progress" class="runtime-progress" hidden>
+      <div class="runtime-progress-bar"><div id="runtime-progress-fill" class="runtime-progress-fill"></div></div>
+      <pre id="runtime-progress-log" class="runtime-progress-log" aria-live="polite"></pre>
+    </div>
     <p id="runtime-status" class="runtime-status" role="status"></p>
     <div class="runtime-actions">
       <button type="button" id="runtime-save" data-t="runtime.activate">Activate selected</button>

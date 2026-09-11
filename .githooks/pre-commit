@@ -7,9 +7,16 @@
 root="$(git rev-parse --show-toplevel)"
 script="$root/scripts/bump_version.py"
 
-# Prefer a project virtualenv (Git Bash here often has no python on PATH),
-# then fall back to whatever interpreter is available.
+# Prefer the project's own venv (see start.bat / bootstrap-toolchains.ps1),
+# then fall back to whatever interpreter is on PATH - skipping Windows'
+# PATH stub for "python", which exists but only opens the Microsoft Store
+# and never prints a real version to `python --version`.
+is_real_python() {
+  "$1" --version 2>&1 | grep -q '^Python 3'
+}
+
 for py in \
+  "$root/runtime/python-venv/Scripts/python.exe" "$root/runtime/python-venv/bin/python" \
   "$root/.venv/Scripts/python.exe" "$root/.venv/bin/python" \
   "$root/../.venv/Scripts/python.exe" "$root/../.venv/bin/python"
 do
@@ -19,7 +26,7 @@ do
 done
 
 for py in py python3 python; do
-  if command -v "$py" >/dev/null 2>&1; then
+  if command -v "$py" >/dev/null 2>&1 && is_real_python "$py"; then
     exec "$py" "$script"
   fi
 done
