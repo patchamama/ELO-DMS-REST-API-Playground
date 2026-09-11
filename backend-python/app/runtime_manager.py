@@ -50,7 +50,7 @@ def _installed(name: str) -> bool:
     s = get_settings()
     checks = {
         "python": Path(sys.executable).is_file(),
-        "node": bool(shutil.which("node")),
+        "node": bool(shutil.which("node")) or (s.runtime_dir / "toolchains" / "node" / "node.exe").is_file(),
         "browser": True,
         "go": (s.runtime_dir / "toolchains" / "go" / "bin" / "go.exe").is_file(),
         "php": (s.runtime_dir / "toolchains" / "php" / "php.exe").is_file(),
@@ -60,6 +60,21 @@ def _installed(name: str) -> bool:
         "rhino": False,
     }
     return checks[name]
+
+
+def progress_lines() -> list[str]:
+    """Tail of the installer's progress log, refreshed on every bootstrap run.
+
+    Best-effort: no install may be running, or the file may not exist yet.
+    """
+    path = get_settings().runtime_dir / "toolchains" / ".install-progress.log"
+    try:
+        # utf-8-sig: Windows PowerShell 5.1's `Add-Content -Encoding utf8`
+        # writes a BOM on the first line, unlike pwsh 7's utf8NoBOM.
+        lines = path.read_text(encoding="utf-8-sig", errors="replace").splitlines()
+    except OSError:
+        return []
+    return lines[-200:]
 
 
 def status() -> dict:
@@ -105,12 +120,18 @@ def update(requested: list[str], *, enabled: bool) -> dict:
             script = s.project_root / "scripts" / "bootstrap-toolchains.ps1"
             command = [
                 "powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(script),
-                "-SkipPythonDeps", "-Runtimes", *missing,
+                "-SkipPythonDeps", "-RuntimesCsv", ",".join(missing),
             ]
             # Captured and bounded output prevents a download failure from
             # leaking an arbitrary process stream through the web API.
+            # errors="replace" avoids a UnicodeDecodeError masking the real
+            # installer failure when PowerShell prints a localized (non-UTF8)
+            # error message under a non-English Windows console codepage.
             try:
-                proc = subprocess.run(command, cwd=s.project_root, capture_output=True, text=True, timeout=900, check=False)
+                proc = subprocess.run(
+                    command, cwd=s.project_root, capture_output=True, text=True,
+                    errors="replace", timeout=900, check=False,
+                )
             except (OSError, subprocess.TimeoutExpired) as exc:
                 raise RuntimeError(f"portable runtime installation failed: {exc}") from exc
             if proc.returncode != 0:

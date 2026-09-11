@@ -10,24 +10,39 @@ set "NODEPORT=8787"
 rem --- enable the auto version-bump git hook (idempotent) ------------
 where git >nul 2>nul && git -C "%ROOT%" rev-parse --git-dir >nul 2>nul && git -C "%ROOT%" config core.hooksPath .githooks
 
-rem --- Python dependencies ------------------------------------------------
-rem Optional Go, PHP and Java are installed only when enabled in the app's
-rem Settings dialog. Nothing here changes the global machine PATH.
-echo [playground] Checking Python dependencies ...
+rem --- Python and Node.js -------------------------------------------------
+rem Fetches a portable Python and/or Node.js into runtime\toolchains when no
+rem working system installation is found. Optional Go, PHP and Java are
+rem installed only when enabled in the app's Settings dialog. Nothing here
+rem changes the global machine PATH.
+echo [playground] Checking Python and Node.js dependencies ...
 powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%\scripts\bootstrap-toolchains.ps1"
 if errorlevel 1 (
-    echo [playground] Python bootstrap failed. See the error above.
+    echo [playground] Python/Node.js bootstrap failed. See the error above.
     pause
     exit /b 1
 )
 set "PY=%ROOT%\runtime\python-venv\Scripts\python.exe"
 
 rem --- Node dependencies -----------------------------------------------
-where node >nul 2>nul || ( echo [playground] Node.js not found on PATH. & pause & exit /b 1 )
-where npm >nul 2>nul || ( echo [playground] npm not found on PATH. Install the Node.js LTS distribution. & pause & exit /b 1 )
+rem bootstrap-toolchains.ps1 already fetched a portable Node.js LTS into
+rem runtime\toolchains\node when none was found on PATH. Resolve NODE/NPM to
+rem fully-qualified paths - npm.cmd's own directory detection breaks when it
+rem is invoked through a bare, unqualified "npm" token.
+set "NODE="
+for /f "usebackq delims=" %%I in (`where node 2^>nul`) do if not defined NODE set "NODE=%%I"
+if not defined NODE (
+    if exist "%ROOT%\runtime\toolchains\node\node.exe" (
+        set "NODE=%ROOT%\runtime\toolchains\node\node.exe"
+    ) else (
+        echo [playground] Node.js not found on PATH and the portable copy is missing. & pause & exit /b 1
+    )
+)
+for %%D in ("%NODE%") do set "NPM=%%~dpDnpm.cmd"
+if not exist "%NPM%" ( echo [playground] npm.cmd not found next to node.exe at "%NODE%". & pause & exit /b 1 )
 if not exist "%ROOT%\node_modules\elo-playground" (
     echo [playground] Installing Node dependencies ^(npm install^) ...
-    call npm install --no-audit --no-fund || ( echo [playground] npm install failed & pause & exit /b 1 )
+    call "%NPM%" install --no-audit --no-fund || ( echo [playground] npm install failed & pause & exit /b 1 )
 )
 
 rem --- .env ---------------------------------------------------------
@@ -41,7 +56,7 @@ call :free_port %APIPORT%
 call :free_port %NODEPORT%
 
 echo [playground] Starting Node runner   -> http://127.0.0.1:%NODEPORT%
-start "playground-node" cmd /k "cd /d "%ROOT%" && node backend-node\src\server.mjs"
+start "playground-node" cmd /k "cd /d "%ROOT%" && "%NODE%" backend-node\src\server.mjs"
 
 timeout /t 2 /nobreak >nul
 

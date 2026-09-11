@@ -104,6 +104,20 @@
     });
     return r.json();
   }
+  // Unlike postJSON above, this rejects on a non-2xx response instead of
+  // resolving with the error body - callers that need to distinguish a
+  // failed request from a successful one (e.g. an installer that may
+  // legitimately fail) should use this instead.
+  async function postJSONStrict(url, body) {
+    const r = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await r.json().catch(() => null);
+    if (!r.ok) throw new Error((data && data.detail) || `${url} -> HTTP ${r.status}`);
+    return data;
+  }
 
   // ---- optional runtime activation ---------------------------------- //
   function runtimeEnabled(id) {
@@ -150,6 +164,8 @@
   async function openRuntimeSettings(firstRun) {
     const modal = $("#runtime-modal");
     if (!modal) return;
+    const progressWrap = $("#runtime-progress");
+    if (progressWrap) progressWrap.hidden = true;
     try {
       await loadRuntimes();
       renderRuntimeList();
@@ -159,6 +175,33 @@
     }
     modal.hidden = false;
     if (firstRun) store.set("elopg.runtime-onboarded.v1", "1");
+  }
+  // "HH:mm:ss|runtime-id|message" - see Write-InstallProgress in
+  // scripts/bootstrap-toolchains.ps1.
+  function parseProgressLine(line) {
+    const i = line.indexOf("|");
+    const j = line.indexOf("|", i + 1);
+    if (i < 0 || j < 0) return null;
+    return { time: line.slice(0, i), name: line.slice(i + 1, j), message: line.slice(j + 1) };
+  }
+  // Polls /api/runtimes/progress while the (single, blocking) POST /api/runtimes
+  // install request is in flight, so the modal can show live download/verify/
+  // extract status instead of a single static "installing..." message.
+  // Returns a stop function; onLines(lines) is called after every successful poll.
+  function pollInstallProgress(onLines) {
+    let stopped = false;
+    async function tick() {
+      if (stopped) return;
+      try {
+        const data = await getJSON("/api/runtimes/progress");
+        onLines(data.lines || []);
+      } catch (error) {
+        // transient - the server may be busy installing; keep polling
+      }
+      if (!stopped) setTimeout(tick, 700);
+    }
+    tick();
+    return () => { stopped = true; };
   }
   async function saveRuntimeSettings() {
     if (STATIC) return setRuntimeStatus(tr("runtime.static"), true);
@@ -170,11 +213,40 @@
     const button = $("#runtime-save");
     button.disabled = true;
     setRuntimeStatus(tr("runtime.installing"), false);
+
+    const installable = ["go", "php", "java"];
+    const willInstall = enabled.filter((id) => installable.includes(id) && !RUNTIME_STATE[id]?.installed);
+    const progressWrap = $("#runtime-progress");
+    const progressFill = $("#runtime-progress-fill");
+    const progressLog = $("#runtime-progress-log");
+    let stopPoll = null;
+    if (willInstall.length) {
+      progressWrap.hidden = false;
+      progressFill.classList.add("indeterminate");
+      progressLog.textContent = "";
+      const readyIds = new Set();
+      stopPoll = pollInstallProgress((lines) => {
+        progressLog.textContent = lines
+          .map((line) => {
+            const parsed = parseProgressLine(line);
+            return parsed ? `[${parsed.time}] ${parsed.name}: ${parsed.message}` : line;
+          })
+          .join("\n");
+        progressLog.scrollTop = progressLog.scrollHeight;
+        lines.forEach((line) => {
+          const parsed = parseProgressLine(line);
+          if (parsed && /^ready under/.test(parsed.message)) readyIds.add(parsed.name);
+        });
+        progressFill.classList.remove("indeterminate");
+        progressFill.style.width = Math.min(100, Math.round((readyIds.size / willInstall.length) * 100)) + "%";
+      });
+    }
+
     try {
       // One activation request can download Go/PHP/JDK. A second, non-mutating
       // request stores disabled optional languages without removing files.
-      if (enabled.length) await postJSON("/api/runtimes", { runtimes: enabled, enabled: true });
-      if (disabled.length) await postJSON("/api/runtimes", { runtimes: disabled, enabled: false });
+      if (enabled.length) await postJSONStrict("/api/runtimes", { runtimes: enabled, enabled: true });
+      if (disabled.length) await postJSONStrict("/api/runtimes", { runtimes: disabled, enabled: false });
       await loadRuntimes();
       renderRuntimeList();
       setRuntimeStatus(tr("runtime.saved"), false);
@@ -182,6 +254,8 @@
     } catch (error) {
       setRuntimeStatus(String(error), true);
     } finally {
+      if (stopPoll) stopPoll();
+      if (willInstall.length) progressFill.style.width = "100%";
       button.disabled = false;
     }
   }
