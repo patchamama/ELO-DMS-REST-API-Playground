@@ -233,6 +233,7 @@ stock local ELO test box:
 ELO_BASE_URL = "http://localhost:9090/ix-Repository1"   # the port lives in the URL
 ELO_USER = "Administrator"
 ELO_PASS = "elo"
+
 elo = connect(base_url=ELO_BASE_URL, user=ELO_USER, password=ELO_PASS)
 ```
 
