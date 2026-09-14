@@ -50,6 +50,7 @@ class Topic(BaseModel):
     mock: dict[str, Any] = {}
     attach_file: bool = False   # show a "Choose file" button on this topic
     lab_fs: bool = False        # render the interactive ELO <-> local filesystem panel
+    lab_perms: bool = False     # render the interactive user/folder permissions panel
 
 
 class Attachment(BaseModel):
@@ -127,3 +128,43 @@ class LabUploadRequest(BaseModel):
     credentials: EloCreds | None = None
     max_objects: int = 500
     max_bytes: int = 25 * 1024 * 1024
+
+
+# ---- Testing lab: user/folder permissions panel (live only) ---------- #
+class LabPrincipal(BaseModel):
+    kind: Literal["user", "group"]
+    id: str
+
+
+class LabPermPrincipalsRequest(BaseModel):
+    """Groups + users for the left panel, plus who the connected session is."""
+
+    credentials: EloCreds | None = None
+
+
+class LabPermMembersRequest(BaseModel):
+    """First N members of a group, plus the total member count."""
+
+    group_id: str
+    preview: int = 10
+    credentials: EloCreds | None = None
+
+
+class LabPermSubtreeRequest(BaseModel):
+    """Children of ``parent_id``, annotated with the resolved access of
+    ``principal``, recursed up to ``depth`` levels. ``depth: 1`` serves a
+    manual one-level expand; a larger ``depth`` serves auto-expand-on-select."""
+
+    parent_id: str = "1"                     # "1" = repository root
+    principal: LabPrincipal
+    depth: int = 1
+    max_nodes: int = 300
+    credentials: EloCreds | None = None
+
+
+class LabPermFolderPrincipalsRequest(BaseModel):
+    """Every group/user's resolved access to one folder - the reverse
+    "who can see this" view."""
+
+    folder_id: str
+    credentials: EloCreds | None = None

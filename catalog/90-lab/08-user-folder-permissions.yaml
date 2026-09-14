@@ -1,0 +1,304 @@
+id: lab.user-folder-permissions
+order: 8
+lab_perms: true
+category:
+  en: Testing lab
+  de: Testlabor
+  es: Laboratorio de pruebas
+title:
+  en: Check user/folder permissions
+  de: Benutzer-/Ordnerberechtigungen prüfen
+  es: Comprobar permisos de usuarios y carpetas
+summary:
+  en: >
+    A read-only permissions explorer, live only (it never writes anything). Pick
+    a group or user and the folder tree shows each first-level folder's resolved
+    access, drilling into subfolders on click; or pick one folder and see every
+    user/group with access to it. `sord.aclItems` is the permission list - each
+    entry is `{id, type, access}` where `access` is a bitmask (1 R, 2 W, 4 D,
+    8 edit-rights, 16 L, 32 P; 63 = full), read via `checkoutSord`. There is no
+    "effective permission" RPC, so access is resolved here: a principal has
+    access to a folder when their own id is in its `aclItems`, or - for a user -
+    any group in their `UserInfo.groupList` is. The connected administrator
+    still sees everything regardless of what is shown for the picked principal -
+    that is ELO's own server-side ACL bypass, not something this panel fakes.
+
+  de: "Ein reiner Lese-Explorer für Berechtigungen, nur live (er schreibt nie etwas). Eine Gruppe oder einen Benutzer wählen, und der Ordnerbaum zeigt für jeden Ordner der ersten Ebene den aufgelösten Zugriff, per Klick geht es in Unterordner; oder einen Ordner wählen und jeden Benutzer/jede Gruppe mit Zugriff darauf sehen. `sord.aclItems` ist die Berechtigungsliste - jeder Eintrag ist `{id, type, access}`, wobei `access` eine Bitmaske ist (1 R, 2 W, 4 D, 8 Rechte, 16 L, 32 P; 63 = voll), gelesen über `checkoutSord`. Es gibt keinen RPC für \"effektive Berechtigung\", daher wird der Zugriff hier aufgelöst: ein Principal hat Zugriff auf einen Ordner, wenn seine eigene ID in dessen `aclItems` steht, oder - bei einem Benutzer - irgendeine Gruppe aus seiner `UserInfo.groupList`. Der angemeldete Administrator sieht weiterhin alles, unabhängig davon, was für den gewählten Principal angezeigt wird - das ist ELOs eigene serverseitige ACL-Umgehung, nichts, was dieses Panel vortäuscht."
+  es: "Un explorador de permisos de solo lectura, únicamente en vivo (nunca escribe nada). Elegís un grupo o usuario y el árbol de carpetas muestra el acceso resuelto de cada carpeta de primer nivel, navegando a las subcarpetas al hacer clic; o elegís una carpeta y ves todos los usuarios/grupos con acceso a ella. `sord.aclItems` es la lista de permisos - cada entrada es `{id, type, access}`, donde `access` es una máscara de bits (1 R, 2 W, 4 D, 8 derechos, 16 L, 32 P; 63 = total), leída con `checkoutSord`. No existe un RPC de \"permiso efectivo\", así que el acceso se resuelve acá: un principal tiene acceso a una carpeta cuando su propio id está en el `aclItems` de esa carpeta, o - para un usuario - cuando algún grupo de su `UserInfo.groupList` lo está. El administrador conectado sigue viendo todo igual, sin importar lo que se muestre para el principal elegido - eso es la propia evasión de ACL del lado del servidor de ELO, no algo que este panel simule."
+
+elo_api:
+- method: findFirstUsers
+  rpc: POST /rest/IXServicePortIF/findFirstUsers
+  doc_url: "{base}/rest/openapi.json"
+  spec: IXServicePortIF/findFirstUsers
+  notes:
+    en: 'Body { findUserInfo: { onlyGroups: true } } lists groups; { onlyUsers: true } lists users. Rows are in "sortedResult".'
+    de: 'Body { findUserInfo: { onlyGroups: true } } listet Gruppen; { onlyUsers: true } listet Benutzer. Die Zeilen stehen in "sortedResult".'
+    es: 'Cuerpo { findUserInfo: { onlyGroups: true } } lista grupos; { onlyUsers: true } lista usuarios. Las filas están en "sortedResult".'
+- method: checkoutUsers
+  rpc: POST /rest/IXServicePortIF/checkoutUsers
+  doc_url: "{base}/rest/openapi.json"
+  spec: IXServicePortIF/checkoutUsers
+  notes:
+    en: 'One batched call ({ids, checkoutUsersZ:{bset:"513"}}) resolves every user''s groupList at once - there is no "members of group X" RPC, so this is the only way to answer that without one call per user.'
+    de: 'Ein gebündelter Aufruf ({ids, checkoutUsersZ:{bset:"513"}}) löst die groupList aller Benutzer auf einmal auf - es gibt keinen RPC für "Mitglieder von Gruppe X", das ist der einzige Weg ohne einen Aufruf pro Benutzer.'
+    es: 'Una llamada agrupada ({ids, checkoutUsersZ:{bset:"513"}}) resuelve el groupList de todos los usuarios de una vez - no existe un RPC de "miembros del grupo X", así que es la única forma sin una llamada por usuario.'
+- method: findFirstSords
+  rpc: POST /rest/IXServicePortIF/findFirstSords
+  doc_url: "{base}/rest/openapi.json"
+  spec: IXServicePortIF/findFirstSords
+  notes:
+    en: '`findInfo.findChildren {parentId, mainParent, endLevel:1}` - one level of the folder tree, same shape as the "Testing lab" filesystem panel.'
+    de: '`findInfo.findChildren {parentId, mainParent, endLevel:1}` - eine Ebene des Ordnerbaums, dieselbe Form wie im Dateisystem-Panel des "Testlabors".'
+    es: '`findInfo.findChildren {parentId, mainParent, endLevel:1}` - un nivel del árbol de carpetas, la misma forma que el panel de sistema de archivos del "Laboratorio de pruebas".'
+- method: checkoutSord
+  rpc: POST /rest/IXServicePortIF/checkoutSord
+  doc_url: "{base}/rest/openapi.json"
+  spec: IXServicePortIF/checkoutSord
+  notes:
+    en: 'The only way to read a folder''s aclItems - read-only here, unlike "Change owner, colour and permissions" which also writes it back.'
+    de: 'Der einzige Weg, die aclItems eines Ordners zu lesen - hier nur lesend, anders als bei "Eigentümer, Farbe und Berechtigungen ändern", das sie auch zurückschreibt.'
+    es: 'La única forma de leer los aclItems de una carpeta - acá solo de lectura, a diferencia de "Cambiar dueño, color y permisos", que también los escribe de vuelta.'
+
+result_shape: |
+  'Sales-Team' members (2): ['m.muster', 'a.gruber']
+
+  folders visible to 'Sales-Team':
+  Sales (R, W)
+    Contracts (no access)
+  Finance (no access)
+
+snippets:
+  python: |
+    import os
+    from elo_playground import connect, EloError
+
+    # --- local ELO test box (override with ELOPG_* env vars or a .env) ---
+    ELO_BASE_URL = os.getenv("ELOPG_ELO_BASE_URL", "http://localhost:9090/ix-Repository1") # ELOPG_DEFAULT:base_url
+    ELO_USER = os.getenv("ELOPG_ELO_USER", "Administrator") # ELOPG_DEFAULT:user
+    ELO_PASS = os.getenv("ELOPG_ELO_PASSWORD", "elo") # ELOPG_DEFAULT:password
+
+    elo = connect(base_url=ELO_BASE_URL, user=ELO_USER, password=ELO_PASS)
+    ALL = "449304431574384639"  # SordC.mbAllIndex - every Sord field, incl. aclItems
+
+    # access bits: 1 R  2 W  4 D  8 edit-rights  16 L  32 P ; 63 = full
+    _ACCESS_BITS = [(1, "R"), (2, "W"), (4, "D"), (8, "ER"), (16, "L"), (32, "P")]
+
+
+    def access_label(bits):
+        if bits == 63:
+            return "full"
+        if not bits:
+            return "no access"
+        return ", ".join(name for bit, name in _ACCESS_BITS if bits & bit)
+
+
+    def resolve_access(acl_items, principal_ids):
+        """A principal - their own id, plus (for a user) every group id they
+        belong to - has access when any of those ids appears in aclItems.
+        Matching entries' access bits are OR-ed together."""
+        bits = 0
+        for entry in acl_items:
+            if int(entry.get("id", -1)) in principal_ids:
+                bits |= int(entry.get("access", 0))
+        return bits
+
+
+    def folder_children(parent_id):
+        """One level of the ELO folder tree, folders only (mirrors the
+        Testing lab filesystem panel's list_children)."""
+        res = elo.call("findFirstSords", {
+            "findInfo": {"findChildren": {"parentId": str(parent_id), "mainParent": True, "endLevel": 1}},
+            "max": 1000,
+            "sordZ": {"bset": ALL},
+        })
+        rows = [s for s in (res.get("sords") or []) if int(s.get("type", 0)) < 254]
+        if res.get("searchId"):
+            elo.call("findClose", {"searchId": res["searchId"]})
+        return rows
+
+
+    def folder_acl(folder_id):
+        sord = elo.call("checkoutSord", {
+            "objId": str(folder_id), "editInfoZ": {"bset": "1", "sordZ": {"bset": ALL}},
+        })["sord"]
+        return sord.get("aclItems") or []
+
+
+    # groups and users - the same findFirstUsers/findNextUsers loop as catalog
+    # "List users (and groups)"; onlyGroups vs onlyUsers selects which.
+    groups = elo.find_all("findFirstUsers", "findNextUsers", "sortedResult", {"findUserInfo": {"onlyGroups": True}, "max": 200})
+    users = elo.find_all("findFirstUsers", "findNextUsers", "sortedResult", {"findUserInfo": {"onlyUsers": True}, "max": 200})
+    print(f"{len(groups)} groups, {len(users)} users")
+
+    # One batched checkoutUsers call resolves every user's groupList at once.
+    detail = elo.call("checkoutUsers", {
+        "ids": [u["id"] for u in users],
+        "checkoutUsersZ": {"bset": "513"},   # CHECKOUT_USERS.BY_IDS
+    })
+    detail = detail if isinstance(detail, list) else (detail.get("result") or detail.get("users") or [])
+    group_lists = {int(u["id"]): u.get("groupList") or [] for u in detail}
+
+    # Pick the first group as the demo principal - the interactive panel lets
+    # you click any group or user in the left-hand list instead.
+    principal = groups[0]
+    principal_ids = {int(principal["id"])}
+    members = [u for u in users if int(principal["id"]) in group_lists.get(int(u["id"]), [])]
+    print(f"\n{principal['name']!r} members ({len(members)}):", [u["name"] for u in members[:10]])
+
+    # Walk the folder tree from the repository root, printing each folder's
+    # permission label for the chosen principal - exactly what the interactive
+    # panel's right-hand tree renders (greyed out + struck through at "no access").
+    def walk(parent_id, indent=0):
+        for row in folder_children(parent_id):
+            bits = resolve_access(folder_acl(row["id"]), principal_ids)
+            print("  " * indent + f"{row['name']} ({access_label(bits)})")
+            if int(row.get("childCount", 0)):
+                walk(row["id"], indent + 1)
+
+
+    print(f"\nfolders visible to {principal['name']!r}:")
+    try:
+        walk("1")
+    except EloError as exc:
+        print("could not read the tree:", exc)
+
+    elo.close()
+
+  node: |
+    import { connect, EloError } from "elo-playground";
+
+    // --- local ELO test box (override with ELOPG_* env vars or a .env) ---
+    const ELO_BASE_URL = process.env.ELOPG_ELO_BASE_URL || "http://localhost:9090/ix-Repository1"; // ELOPG_DEFAULT:base_url
+    const ELO_USER = process.env.ELOPG_ELO_USER || "Administrator"; // ELOPG_DEFAULT:user
+    const ELO_PASS = process.env.ELOPG_ELO_PASSWORD || "elo"; // ELOPG_DEFAULT:password
+
+    const elo = await connect({ baseUrl: ELO_BASE_URL, user: ELO_USER, password: ELO_PASS });
+    const ALL = "449304431574384639"; // SordC.mbAllIndex - every Sord field, incl. aclItems
+
+    // access bits: 1 R  2 W  4 D  8 edit-rights  16 L  32 P ; 63 = full
+    const ACCESS_BITS = [[1, "R"], [2, "W"], [4, "D"], [8, "ER"], [16, "L"], [32, "P"]];
+
+    function accessLabel(bits) {
+      if (bits === 63) return "full";
+      if (!bits) return "no access";
+      return ACCESS_BITS.filter(([bit]) => bits & bit).map(([, name]) => name).join(", ");
+    }
+
+    function resolveAccess(aclItems, principalIds) {
+      // A principal - their own id, plus (for a user) every group id they
+      // belong to - has access when any of those ids appears in aclItems.
+      let bits = 0;
+      for (const entry of aclItems) {
+        if (principalIds.has(Number(entry.id))) bits |= Number(entry.access || 0);
+      }
+      return bits;
+    }
+
+    async function folderChildren(parentId) {
+      // One level of the ELO folder tree, folders only (mirrors the Testing
+      // lab filesystem panel's list_children).
+      const res = await elo.call("findFirstSords", {
+        findInfo: { findChildren: { parentId: String(parentId), mainParent: true, endLevel: 1 } },
+        max: 1000,
+        sordZ: { bset: ALL },
+      });
+      const rows = (res.sords || []).filter((s) => Number(s.type || 0) < 254);
+      if (res.searchId) await elo.call("findClose", { searchId: res.searchId });
+      return rows;
+    }
+
+    async function folderAcl(folderId) {
+      const res = await elo.call("checkoutSord", {
+        objId: String(folderId), editInfoZ: { bset: "1", sordZ: { bset: ALL } },
+      });
+      return res.sord.aclItems || [];
+    }
+
+    // groups and users - the same findFirstUsers/findNextUsers loop as
+    // catalog "List users (and groups)"; onlyGroups vs onlyUsers selects which.
+    const groups = await elo.findAll("findFirstUsers", "findNextUsers", "sortedResult", { findUserInfo: { onlyGroups: true }, max: 200 });
+    const users = await elo.findAll("findFirstUsers", "findNextUsers", "sortedResult", { findUserInfo: { onlyUsers: true }, max: 200 });
+    console.log(`${groups.length} groups, ${users.length} users`);
+
+    // One batched checkoutUsers call resolves every user's groupList at once.
+    let detail = await elo.call("checkoutUsers", {
+      ids: users.map((u) => u.id),
+      checkoutUsersZ: { bset: "513" }, // CHECKOUT_USERS.BY_IDS
+    });
+    detail = Array.isArray(detail) ? detail : detail.result || detail.users || [];
+    const groupLists = new Map(detail.map((u) => [Number(u.id), u.groupList || []]));
+
+    // Pick the first group as the demo principal - the interactive panel lets
+    // you click any group or user in the left-hand list instead.
+    const principal = groups[0];
+    const principalIds = new Set([Number(principal.id)]);
+    const members = users.filter((u) => (groupLists.get(Number(u.id)) || []).includes(Number(principal.id)));
+    console.log(`\n${principal.name} members (${members.length}):`, members.slice(0, 10).map((u) => u.name));
+
+    // Walk the folder tree from the repository root, printing each folder's
+    // permission label for the chosen principal - exactly what the interactive
+    // panel's right-hand tree renders (greyed out + struck through at "no access").
+    async function walk(parentId, indent = 0) {
+      for (const row of await folderChildren(parentId)) {
+        const bits = resolveAccess(await folderAcl(row.id), principalIds);
+        console.log("  ".repeat(indent) + `${row.name} (${accessLabel(bits)})`);
+        if (Number(row.childCount || 0)) await walk(row.id, indent + 1);
+      }
+    }
+
+    console.log(`\nfolders visible to ${principal.name}:`);
+    try {
+      await walk("1");
+    } catch (exc) {
+      if (exc instanceof EloError) console.log("could not read the tree:", exc.message);
+      else throw exc;
+    }
+    elo.close();
+
+mock:
+  findFirstUsers:
+  - moreResults: false
+    searchId: "(MOCK-GROUPS)"
+    sortedResult:
+    - {id: 9999, name: "Jeder", type: 0, displayName: "Jeder"}
+    - {id: 9998, name: "Administratoren", type: 0, displayName: "Administratoren"}
+    - {id: 150, name: "Sales-Team", type: 0, displayName: "Sales-Team"}
+  - moreResults: false
+    searchId: "(MOCK-USERS)"
+    sortedResult:
+    - {id: 0, name: "Administrator", type: 1, displayName: "Administrator"}
+    - {id: 12, name: "m.muster", type: 1, displayName: "Max Muster"}
+    - {id: 13, name: "a.gruber", type: 1, displayName: "Anna Gruber"}
+  checkoutUsers:
+    result:
+    - {id: 0, name: "Administrator", flags: 2013265919, groupList: [9998, 9999]}
+    - {id: 12, name: "m.muster", flags: 536870912, groupList: [9999, 150]}
+    - {id: 13, name: "a.gruber", flags: 536870912, groupList: [9999]}
+  findFirstSords:
+  - searchId: "(MOCK-ROOT)"
+    sords:
+    - {id: 200, parentId: 1, name: "Sales", type: 1, childCount: 1}
+    - {id: 201, parentId: 1, name: "Finance", type: 1, childCount: 0}
+  - searchId: "(MOCK-SALES)"
+    sords:
+    - {id: 210, parentId: 200, name: "Contracts", type: 1, childCount: 0}
+  checkoutSord:
+  - sord:
+      id: 200
+      name: "Sales"
+      aclItems:
+      - {id: 150, type: 0, name: "Sales-Team", access: 3}
+      - {id: 9999, type: 0, name: "Jeder", access: 1}
+  - sord:
+      id: 210
+      name: "Contracts"
+      aclItems:
+      - {id: 9998, type: 0, name: "Administratoren", access: 63}
+  - sord:
+      id: 201
+      name: "Finance"
+      aclItems:
+      - {id: 9998, type: 0, name: "Administratoren", access: 63}
+      - {id: 9999, type: 0, name: "Jeder", access: 16}
+  findClose: {}

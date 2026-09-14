@@ -110,6 +110,10 @@ def test_lab_endpoints_need_credentials_and_never_500():
         ("/api/lab/elo-children", {"parent_id": "1"}),
         ("/api/lab/mirror", {"folder_id": "1"}),
         ("/api/lab/upload-tree", {"target_id": "1", "server_path": "/nope"}),
+        ("/api/lab/perm-principals", {}),
+        ("/api/lab/perm-members", {"group_id": "9999"}),
+        ("/api/lab/perm-subtree", {"principal": {"kind": "group", "id": "9999"}}),
+        ("/api/lab/perm-folder-principals", {"folder_id": "1"}),
     ):
         r = client.post(path, json=body)
         assert r.status_code == 200
@@ -124,3 +128,13 @@ def test_lab_fs_source_lists_the_real_backend_module():
     assert any("lab_fs.py" in t for t in titles)
     assert body["frontend"] and "app.js" in body["frontend"][0]["title"]
     assert "lab-fs slice" in body["frontend"][0]["code"]
+
+
+def test_lab_perms_source_lists_the_real_backend_module():
+    r = client.get("/api/lab/perm-source")
+    assert r.status_code == 200
+    body = r.json()
+    titles = [f["title"] for f in body["backend"]]
+    assert any("lab_perms.py" in t for t in titles)
+    assert body["frontend"] and "app.js" in body["frontend"][0]["title"]
+    assert "lab-perms slice" in body["frontend"][0]["code"]
