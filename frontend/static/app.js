@@ -1081,6 +1081,491 @@ ${snippet}
   }
   // <<< lab-fs slice
 
+  // >>> lab-perms slice  (Testing lab: user/folder permissions panel)
+  //
+  // Rendered for a topic with `lab_perms: true`. Talks to five live-only
+  // endpoints (POST unless noted):
+  //   /api/lab/perm-principals        - groups + users for the left panel
+  //   /api/lab/perm-members           - first N members of a group
+  //   /api/lab/perm-subtree           - a folder's children, annotated with the
+  //                                      selected principal's resolved access
+  //   /api/lab/perm-folder-principals - every group/user's access to one folder
+  //   GET /api/lab/perm-source        - real source, for "show the code"
+  // ELO has no "effective permission" RPC: a principal has access to a folder
+  // when their own id, or (for a user) any group they belong to, appears in
+  // that folder's aclItems - see resolve_access() in backend-python/app/lab_perms.py.
+  // In Mock / static mode the panel is inert; only "show the code" still works.
+  function labPermsPanelHtml() {
+    return `
+      <div class="labfs-panel labperm-panel">
+        <p class="labfs-note" hidden></p>
+        <div class="labperm-topbar">
+          <div class="labperm-modes">
+            <button type="button" class="active" data-mode="byPrincipal">${esc(tr("labperm.modeByPrincipal"))}</button>
+            <button type="button" data-mode="byFolder">${esc(tr("labperm.modeByFolder"))}</button>
+          </div>
+          <label class="labperm-only-access"><input type="checkbox" class="labperm-only-access-cb" /> ${esc(tr("labperm.onlyWithAccess"))}</label>
+          <button type="button" class="labperm-maximize" title="${esc(tr("labperm.maximize"))}" aria-label="${esc(tr("labperm.maximize"))}">⤢</button>
+        </div>
+
+        <div class="labperm-mode-host" data-mode-host="byPrincipal">
+          <div class="labfs-cols">
+            <section class="labfs-side" data-role="principals">
+              <div class="labperm-modes">
+                <button type="button" class="active" data-kind="groups">${esc(tr("labperm.groupsTab"))}</button>
+                <button type="button" data-kind="users">${esc(tr("labperm.usersTab"))}</button>
+              </div>
+              <div class="labfs-tree"><button class="labfs-load labperm-load-principals">${esc(tr("labperm.loadPrincipals"))}</button><ul class="labperm-list" hidden></ul></div>
+              <p class="labfs-selected labperm-principal-selected">${esc(tr("labperm.noPrincipalSelected"))}</p>
+            </section>
+            <section class="labfs-side" data-role="perm-folders">
+              <div class="labperm-controls">
+                <label>${esc(tr("labperm.depthLabel"))} <input type="number" class="labperm-depth" min="0" max="6" value="3" /></label>
+                <label><input type="checkbox" class="labperm-only-visible" /> ${esc(tr("labperm.onlyVisible"))}</label>
+                <details class="labperm-legend"><summary>${esc(tr("labperm.legend"))}</summary><p class="hint">${esc(tr("labperm.legendText"))}</p></details>
+              </div>
+              <div class="labfs-tree labperm-tree"><ul class="labperm-folder-root"></ul></div>
+            </section>
+          </div>
+        </div>
+
+        <div class="labperm-mode-host" data-mode-host="byFolder" hidden>
+          <div class="labfs-cols">
+            <section class="labfs-side" data-role="perm-folder-pick">
+              <div class="labfs-tree"><button class="labfs-load">${esc(tr("labperm.loadFolders"))}</button><ul class="labfs-root" hidden></ul></div>
+              <p class="labfs-selected">${esc(tr("labperm.selectFolderHint"))}</p>
+            </section>
+            <section class="labfs-side" data-role="perm-folder-result">
+              <div class="labperm-filter">
+                <span>${esc(tr("labperm.filterTitle"))}:</span>
+                <label><input type="checkbox" data-bit="1" /> R</label>
+                <label><input type="checkbox" data-bit="2" /> W</label>
+                <label><input type="checkbox" data-bit="4" /> D</label>
+                <label><input type="checkbox" data-bit="8" /> ER</label>
+                <label><input type="checkbox" data-bit="16" /> L</label>
+                <label><input type="checkbox" data-bit="32" /> P</label>
+                <button type="button" class="labperm-preset-read">${esc(tr("labperm.filterAtLeastRead"))}</button>
+              </div>
+              <ul class="labperm-result-list"></ul>
+            </section>
+          </div>
+        </div>
+
+        <pre class="labfs-log" hidden></pre>
+        <details class="labfs-src">
+          <summary>${esc(tr("labfs.showCode"))}</summary>
+          <div class="labfs-src-host"></div>
+        </details>
+      </div>`;
+  }
+
+  function wireLabPerms(host) {
+    const panel = host.querySelector(".labperm-panel");
+    if (!panel) return;
+    const log = panel.querySelector(".labfs-log");
+    const say = (line, isErr) => {
+      log.hidden = false;
+      log.textContent += (log.textContent ? "\n" : "") + line;
+      if (isErr) log.classList.add("err");
+    };
+    const labPost = (url, body) =>
+      postJSON(url, Object.assign({ credentials: isMock() ? null : creds() }, body));
+
+    // Same message classification as the "Log in" topic's own snippet
+    // (catalog/00-connection/01-login.yaml) - a raw EloError like
+    // "login: HTTP 404 - <!DOCTYPE html>..." is a connection problem, not a
+    // permissions result, so it gets a clear headline instead of raw HTML.
+    function explainError(msg) {
+      const m = String(msg || "");
+      if (/ELOIX:3008|authentication failed|HTTP 401|HTTP 403/.test(m)) return `${tr("labperm.errAuth")}: ${m}`;
+      if (/request failed/.test(m)) return `${tr("labperm.errUnreachable")}: ${m}`;
+      if (/HTTP 404/.test(m)) return `${tr("labperm.errNotFound")}: ${m.split(" - ")[0]}`;
+      return `${tr("labperm.errGeneric")}: ${m}`;
+    }
+
+    // --- collapsed "show the code": real source, works offline too ----------
+    let srcLoaded = false;
+    const details = panel.querySelector(".labfs-src");
+    details.addEventListener("toggle", async () => {
+      if (!details.open || srcLoaded) return;
+      srcLoaded = true;
+      const holder = panel.querySelector(".labfs-src-host");
+      holder.innerHTML = `<p class="hint">${esc(tr("run.running"))}</p>`;
+      try {
+        const data = await getJSON("/api/lab/perm-source");
+        const files = [].concat(data.backend || [], data.frontend || []);
+        holder.innerHTML = files
+          .map(
+            (f) =>
+              `<div class="lib-file"><div class="lib-file-name">${esc(f.title)}</div>` +
+              `<pre class="code"><code class="language-${/\.py\b/.test(f.title) ? "python" : "javascript"}">${esc(f.code)}</code></pre></div>`
+          )
+          .join("");
+        if (window.hljs) holder.querySelectorAll("pre code").forEach((el) => window.hljs.highlightElement(el));
+      } catch (e) {
+        holder.innerHTML = `<p class="err">${esc(String(e))}</p>`;
+      }
+    });
+
+    // --- live-only guard: everything here needs a real ELO -----------------
+    if (STATIC || isMock()) {
+      const note = panel.querySelector(".labfs-note");
+      note.hidden = false;
+      note.textContent = tr("labfs.needsBackend");
+      panel.querySelectorAll("button, input").forEach((el) => {
+        if (el.closest(".labfs-src")) return;
+        if ("disabled" in el) el.disabled = true;
+        el.classList.add("is-off");
+      });
+      return;
+    }
+
+    // --- a lazy folder tree, optionally annotated with resolved access -----
+    // (forked from labfs's wireTree: this one also renders a greyed/struck
+    // "no access" row and an italic permission suffix when rows carry them,
+    // and accepts already-resolved nested `children` for auto-expand.)
+    function wirePermTree(section, { fetchRows, onSelect }) {
+      const treeEl = section.querySelector(".labfs-tree");
+
+      const rowHtml = (r) => {
+        const hasInfo = typeof r.access === "boolean";
+        const noAccess = hasInfo && !r.access;
+        const suffix = hasInfo ? ` <em class="labperm-access">(${esc(r.label)})</em>` : "";
+        return (
+          `<li class="${noAccess ? "labperm-noaccess" : ""}">` +
+          `<span class="labfs-toggle${r.child_count ? "" : " leaf"}">${r.child_count ? "▸" : "·"}</span>` +
+          `<button class="labfs-pick" data-id="${esc(r.id)}" data-name="${esc(r.name)}">${esc(r.name)}</button>${suffix}` +
+          `<ul${r.children && r.children.length ? "" : " hidden"}></ul></li>`
+        );
+      };
+
+      function renderInto(ul, rows) {
+        ul.innerHTML = rows.map(rowHtml).join("") || `<li class="hint">(empty)</li>`;
+        ul.dataset.loaded = "1";
+        rows.forEach((r, i) => {
+          if (r.children) {
+            const li = ul.children[i];
+            if (!li) return;
+            renderInto(li.querySelector("ul"), r.children);
+            if (r.children.length) li.querySelector(".labfs-toggle").classList.add("open");
+          }
+        });
+      }
+
+      treeEl.addEventListener("click", async (ev) => {
+        const tog = ev.target.closest(".labfs-toggle");
+        if (tog && !tog.classList.contains("leaf")) {
+          const li = tog.closest("li");
+          const ul = li.querySelector("ul");
+          const pick = li.querySelector(".labfs-pick");
+          if (!ul.dataset.loaded) {
+            ul.innerHTML = `<li class="hint">…</li>`;
+            ul.hidden = false;
+            renderInto(ul, await fetchRows(pick.dataset.id));
+          }
+          ul.hidden = !ul.hidden;
+          tog.classList.toggle("open", !ul.hidden);
+          return;
+        }
+        if (!onSelect) return;
+        const pick = ev.target.closest(".labfs-pick");
+        if (pick) {
+          treeEl.querySelectorAll(".labfs-pick.active").forEach((b) => b.classList.remove("active"));
+          pick.classList.add("active");
+          onSelect({ id: pick.dataset.id, name: pick.dataset.name });
+        }
+      });
+
+      return { renderInto };
+    }
+
+    // --- maximize: fill the viewport for easier tree/list reading -----------
+    const maximizeBtn = panel.querySelector(".labperm-maximize");
+    maximizeBtn.addEventListener("click", () => {
+      const on = panel.classList.toggle("maximized");
+      const label = tr(on ? "labperm.restore" : "labperm.maximize");
+      maximizeBtn.textContent = on ? "⤡" : "⤢";
+      maximizeBtn.title = label;
+      maximizeBtn.setAttribute("aria-label", label);
+    });
+
+    // --- mode toggle: "by group/user" vs "by folder" ------------------------
+    const modeButtons = panel.querySelectorAll(".labperm-topbar > .labperm-modes > button");
+    const modeHosts = panel.querySelectorAll(".labperm-mode-host");
+    const onlyAccessCb = panel.querySelector(".labperm-only-access-cb");
+    let byPrincipalWired = false;
+    let byFolderWired = false;
+    modeButtons.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        modeButtons.forEach((b) => b.classList.toggle("active", b === btn));
+        modeHosts.forEach((h) => (h.hidden = h.dataset.modeHost !== btn.dataset.mode));
+        if (btn.dataset.mode === "byPrincipal" && !byPrincipalWired) {
+          byPrincipalWired = true;
+          wireByPrincipal();
+        }
+        if (btn.dataset.mode === "byFolder" && !byFolderWired) {
+          byFolderWired = true;
+          wireByFolder();
+        }
+      });
+    });
+
+    // --- Mode A: pick a group/user, see its accessible folders --------------
+    function wireByPrincipal() {
+      const section = panel.querySelector('[data-role="principals"]');
+      const kindButtons = section.querySelectorAll(".labperm-modes button");
+      const loadBtn = section.querySelector(".labperm-load-principals");
+      const list = section.querySelector(".labperm-list");
+      const selEl = section.querySelector(".labperm-principal-selected");
+      const folderSection = panel.querySelector('[data-role="perm-folders"]');
+      const depthInput = folderSection.querySelector(".labperm-depth");
+      const onlyVisible = folderSection.querySelector(".labperm-only-visible");
+      const folderRoot = folderSection.querySelector(".labperm-folder-root");
+
+      let DATA = { groups: [], users: [] };
+      let KIND = "groups";
+      let CURRENT_PRINCIPAL = null;
+
+      const permTree = wirePermTree(folderSection, {
+        fetchRows: async (parentId) => {
+          if (!CURRENT_PRINCIPAL) return [];
+          const r = await labPost("/api/lab/perm-subtree", { parent_id: parentId, principal: CURRENT_PRINCIPAL, depth: 1 });
+          if (r.error) {
+            say("! " + explainError(r.error), true);
+            return [];
+          }
+          return r.rows;
+        },
+      });
+
+      kindButtons.forEach((b) =>
+        b.addEventListener("click", () => {
+          kindButtons.forEach((x) => x.classList.toggle("active", x === b));
+          KIND = b.dataset.kind;
+          renderList();
+        })
+      );
+
+      function renderList() {
+        const rows = KIND === "groups" ? DATA.groups : DATA.users;
+        list.innerHTML =
+          rows
+            .map((p) => {
+              const icon = KIND === "groups" ? "👥" : "👤";
+              const groupsHint =
+                KIND === "users" && p.group_names && p.group_names.length
+                  ? ` <span class="labperm-usergroups">(${esc(p.group_names.join(", "))})</span>`
+                  : "";
+              const admin = p.is_main_admin ? ` <span class="labperm-admin-badge" title="${esc(tr("labperm.mainAdmin"))}">★</span>` : "";
+              const members =
+                KIND === "groups"
+                  ? `<span class="labperm-members-toggle" data-id="${esc(p.id)}">▸ ${esc(tr("labperm.showMembers"))}</span><ul class="labperm-members" hidden></ul>`
+                  : "";
+              return (
+                `<li><button class="labfs-pick" data-kind="${KIND === "groups" ? "group" : "user"}" data-id="${esc(p.id)}" data-name="${esc(p.name)}">${icon} ${esc(p.name)}</button>${admin}${groupsHint}` +
+                members +
+                `</li>`
+              );
+            })
+            .join("") || `<li class="hint">(empty)</li>`;
+      }
+
+      loadBtn.addEventListener("click", async () => {
+        loadBtn.disabled = true;
+        const label = loadBtn.textContent;
+        loadBtn.textContent = tr("labfs.running");
+        try {
+          const res = await labPost("/api/lab/perm-principals", {});
+          if (res.error) {
+            say("! " + explainError(res.error), true);
+            return;
+          }
+          DATA = res;
+          list.hidden = false;
+          renderList();
+          loadBtn.hidden = true;
+        } finally {
+          loadBtn.disabled = false;
+          loadBtn.textContent = label;
+        }
+      });
+
+      // members become their own clickable principal (a plain .labfs-pick
+      // button), so picking one re-uses the exact same selection handler below.
+      const memberCache = new Map();
+      list.addEventListener("click", async (ev) => {
+        const toggle = ev.target.closest(".labperm-members-toggle");
+        if (toggle) {
+          const ul = toggle.nextElementSibling;
+          if (!memberCache.has(toggle.dataset.id)) {
+            ul.innerHTML = `<li class="hint">…</li>`;
+            ul.hidden = false;
+            const res = await labPost("/api/lab/perm-members", { group_id: toggle.dataset.id, preview: 10 });
+            if (res.error) {
+              ul.innerHTML = `<li class="err">${esc(explainError(res.error))}</li>`;
+              return;
+            }
+            memberCache.set(toggle.dataset.id, res);
+            const names = res.members.map((m) => m.name);
+            const rest = res.total - names.length;
+            ul.innerHTML =
+              res.members
+                .map(
+                  (m) =>
+                    `<li><button class="labfs-pick" data-kind="user" data-id="${esc(m.id)}" data-name="${esc(m.name)}">👤 ${esc(m.name)}</button></li>`
+                )
+                .join("") + (rest > 0 ? `<li class="hint">+${rest} ${esc(tr("labperm.more"))}</li>` : "");
+            // the toggle label itself: the single member's name when there is
+            // only one, otherwise the total count.
+            toggle.innerHTML = `▾ ${esc(tr("labperm.showMembers"))} (${res.total === 1 ? esc(names[0]) : res.total})`;
+            toggle.title = names.join(", ") + (rest > 0 ? `, +${rest} ${tr("labperm.more")}` : "");
+          } else {
+            ul.hidden = !ul.hidden;
+            toggle.textContent = toggle.textContent.replace(/^./, ul.hidden ? "▸" : "▾");
+          }
+          return;
+        }
+        const pick = ev.target.closest(".labfs-pick");
+        if (pick) {
+          list.querySelectorAll(".labfs-pick.active").forEach((b) => b.classList.remove("active"));
+          pick.classList.add("active");
+          selEl.textContent = `${tr("labfs.selected")}: ${pick.dataset.name}`;
+          CURRENT_PRINCIPAL = { kind: pick.dataset.kind, id: pick.dataset.id };
+          const depth = Math.max(0, Math.min(6, Number(depthInput.value) || 0));
+          folderRoot.innerHTML = `<li class="hint">…</li>`;
+          const res = await labPost("/api/lab/perm-subtree", { parent_id: "1", principal: CURRENT_PRINCIPAL, depth });
+          if (res.error) {
+            folderRoot.innerHTML = `<li class="err">${esc(explainError(res.error))}</li>`;
+            return;
+          }
+          permTree.renderInto(folderRoot, res.rows);
+          if (res.is_main_admin) say(`  ${pick.dataset.name}: ${tr("labperm.mainAdminNote")}`);
+          if (res.truncated) say("  (stopped at the node cap)");
+        }
+      });
+
+      onlyVisible.addEventListener("change", () => {
+        folderSection.querySelector(".labperm-tree").classList.toggle("hide-noaccess", onlyVisible.checked);
+      });
+    }
+
+    // --- Mode B: pick one folder, see who has access ------------------------
+    function wireByFolder() {
+      const pickSection = panel.querySelector('[data-role="perm-folder-pick"]');
+      const resultSection = panel.querySelector('[data-role="perm-folder-result"]');
+      const loadBtn = pickSection.querySelector(".labfs-load");
+      const rootUl = pickSection.querySelector(".labfs-root");
+      const selEl = pickSection.querySelector(".labfs-selected");
+      const resultList = resultSection.querySelector(".labperm-result-list");
+      const checkboxes = resultSection.querySelectorAll('.labperm-filter input[type="checkbox"]');
+      const presetBtn = resultSection.querySelector(".labperm-preset-read");
+
+      let PRINCIPALS = null;
+
+      // groups-with-access, then users-with-access, then groups/users
+      // without access - group before user within each access tier.
+      function sortPrincipals(rows) {
+        const rank = (p) => (p.access ? 0 : 2) + (p.kind === "group" ? 0 : 1);
+        return rows.slice().sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
+      }
+
+      function adminBadge(p) {
+        return p.is_main_admin ? ` <span class="labperm-admin-badge" title="${esc(tr("labperm.mainAdmin"))}">★</span>` : "";
+      }
+
+      function rowHtml(p) {
+        const icon = p.kind === "group" ? "👥" : "👤";
+        const cls = p.access ? "" : " labperm-noaccess";
+        if (p.kind === "group") {
+          return (
+            `<li class="labperm-group-row${cls}">` +
+            `<span class="labperm-toggle-members" data-id="${esc(p.id)}">▸</span> ${icon} ${esc(p.name)}${adminBadge(p)} ` +
+            `<em class="labperm-access">(${esc(p.label)})</em> <span class="labperm-count">[👤 ${p.member_count}]</span>` +
+            `<ul class="labperm-group-users" hidden></ul></li>`
+          );
+        }
+        return `<li class="${cls.trim()}">${icon} ${esc(p.name)}${adminBadge(p)} <em class="labperm-access">(${esc(p.label)})</em></li>`;
+      }
+
+      function renderResults() {
+        if (!PRINCIPALS) return;
+        const mask = Array.from(checkboxes)
+          .filter((c) => c.checked)
+          .reduce((m, c) => m | Number(c.dataset.bit), 0);
+        let rows = PRINCIPALS.filter((p) => (mask ? (p.bits & mask) === mask : true));
+        if (onlyAccessCb.checked) rows = rows.filter((p) => p.access);
+        resultList.innerHTML = sortPrincipals(rows).map(rowHtml).join("") || `<li class="hint">(none)</li>`;
+      }
+      checkboxes.forEach((c) => c.addEventListener("change", renderResults));
+      onlyAccessCb.addEventListener("change", () => {
+        if (byFolderWired) renderResults();
+      });
+      presetBtn.addEventListener("click", () => {
+        checkboxes.forEach((c) => (c.checked = c.dataset.bit === "1"));
+        renderResults();
+      });
+
+      // a group row expands (indented) to its member users, each showing
+      // their own resolved access to the same folder.
+      resultList.addEventListener("click", (ev) => {
+        const toggle = ev.target.closest(".labperm-toggle-members");
+        if (!toggle) return;
+        const li = toggle.closest("li");
+        const ul = li.querySelector(".labperm-group-users");
+        if (!ul.dataset.loaded) {
+          const gid = Number(toggle.dataset.id);
+          const members = PRINCIPALS.filter((p) => p.kind === "user" && (p.group_ids || []).includes(gid));
+          ul.innerHTML =
+            sortPrincipals(members)
+              .map(
+                (m) =>
+                  `<li class="${m.access ? "" : "labperm-noaccess"}">👤 ${esc(m.name)}${adminBadge(m)} <em class="labperm-access">(${esc(m.label)})</em></li>`
+              )
+              .join("") || `<li class="hint">(${esc(tr("labperm.emptyGroup"))})</li>`;
+          ul.dataset.loaded = "1";
+        }
+        ul.hidden = !ul.hidden;
+        toggle.classList.toggle("open", !ul.hidden);
+      });
+
+      const tree = wirePermTree(pickSection, {
+        fetchRows: async (parentId) => {
+          const res = await labPost("/api/lab/elo-children", { parent_id: String(parentId) });
+          if (res.error) {
+            say("! " + explainError(res.error), true);
+            return [];
+          }
+          return (res.rows || []).filter((r) => r.is_folder);
+        },
+        onSelect: async (f) => {
+          selEl.textContent = `${tr("labfs.selected")}: ${f.name} (id ${f.id})`;
+          resultList.innerHTML = `<li class="hint">…</li>`;
+          PRINCIPALS = null;
+          const res = await labPost("/api/lab/perm-folder-principals", { folder_id: String(f.id) });
+          if (res.error) {
+            resultList.innerHTML = `<li class="err">${esc(explainError(res.error))}</li>`;
+            return;
+          }
+          PRINCIPALS = res.principals;
+          renderResults();
+        },
+      });
+
+      loadBtn.addEventListener("click", async () => {
+        loadBtn.disabled = true;
+        const res = await labPost("/api/lab/elo-children", { parent_id: "1" });
+        if (res.error) say("! " + explainError(res.error), true);
+        tree.renderInto(rootUl, res.error ? [] : (res.rows || []).filter((r) => r.is_folder));
+        rootUl.hidden = false;
+        loadBtn.hidden = true;
+      });
+    }
+
+    wireByPrincipal();
+    byPrincipalWired = true;
+  }
+  // <<< lab-perms slice
+
   async function openTopic(id) {
     store.set(LS.topic, "t:" + id);
     markActiveNav(`.topiclink[data-topic="${cssEsc(id)}"]`);
@@ -1147,6 +1632,7 @@ ${snippet}
         }
 
         ${topic.lab_fs ? labFsPanelHtml() : ""}
+        ${topic.lab_perms ? labPermsPanelHtml() : ""}
 
         <div class="subtabs">${tabs}</div>
         <div class="snippet-host"></div>
@@ -1201,6 +1687,8 @@ ${snippet}
 
     // ---- interactive ELO <-> local filesystem panel (topic.lab_fs) --
     if (topic.lab_fs) wireLabFs(host);
+    // ---- interactive user/folder permissions panel (topic.lab_perms) --
+    if (topic.lab_perms) wireLabPerms(host);
 
     const sub = host.querySelector(".subtabs");
     const snipHost = host.querySelector(".snippet-host");

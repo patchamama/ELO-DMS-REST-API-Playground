@@ -79,6 +79,7 @@ def load_topics(lang: str = "en") -> list[Topic]:
                 mock=d.get("mock") or {},
                 attach_file=bool(d.get("attach_file", False)),
                 lab_fs=bool(d.get("lab_fs", False)),
+                lab_perms=bool(d.get("lab_perms", False)),
             )
         )
     topics.sort(key=lambda t: (t.category_id, t.order, t.id))

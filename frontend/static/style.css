@@ -265,6 +265,42 @@ button.fn-ref { background: none; border: 0; padding: 0; color: var(--blue); cur
 .labfs-src summary { cursor: pointer; font-size: 12px; color: var(--blue); }
 .labfs-src-host { margin-top: 8px; }
 
+/* ---- Testing lab: user/folder permissions panel ---- */
+.labperm-modes { display: flex; gap: 6px; margin-bottom: 10px; }
+.labperm-modes button { background: none; border: 1px solid var(--line); border-radius: 6px; padding: 4px 12px; font-size: 12.5px; cursor: pointer; color: var(--ink); }
+.labperm-modes button.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+.labperm-mode-host[hidden] { display: none; }
+.labperm-topbar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 10px; }
+.labperm-topbar > .labperm-modes { margin-bottom: 0; }
+.labperm-only-access { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); cursor: pointer; }
+.labperm-maximize { margin-left: auto; background: none; border: 1px solid var(--line); border-radius: 6px; width: 26px; height: 26px; line-height: 1; font-size: 14px; cursor: pointer; color: var(--ink); }
+.labperm-maximize:hover { background: var(--panel); }
+.labperm-panel.maximized {
+  position: fixed; inset: 3vh 3vw; z-index: 1000; margin: 0;
+  background: #fff; box-shadow: 0 1rem 3rem rgba(0,0,0,.35);
+  overflow: auto; display: flex; flex-direction: column;
+}
+.labperm-controls { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 0 0 8px; font-size: 12px; color: var(--muted); }
+.labperm-depth { width: 3em; padding: 2px 6px; border: 1px solid var(--line); border-radius: 6px; font: inherit; }
+.labperm-access { font-style: italic; color: var(--muted); margin-left: 4px; font-size: 11.5px; }
+.labperm-noaccess { color: var(--muted); text-decoration: line-through; opacity: .6; }
+.labperm-tree.hide-noaccess .labperm-noaccess { display: none; }
+.labperm-usergroups { font-style: italic; color: var(--muted); font-size: 11px; }
+.labperm-admin-badge { color: var(--warn); font-size: 11px; cursor: help; text-decoration: none !important; }
+.labperm-members-toggle { margin-left: 6px; font-size: 11px; color: var(--blue); cursor: pointer; user-select: none; }
+.labperm-members { list-style: none; margin: 2px 0 4px 22px; padding: 0; font-size: 11.5px; color: var(--muted); }
+.labperm-members .labfs-pick { font-size: inherit; }
+.labperm-legend { margin: 0; }
+.labperm-legend summary { cursor: pointer; font-size: 12px; color: var(--blue); }
+.labperm-filter { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 6px 0; font-size: 12px; }
+.labperm-filter label { display: inline-flex; align-items: center; gap: 3px; cursor: pointer; }
+.labperm-result-list { list-style: none; margin: 8px 0 0; padding: 0; font-size: 12.5px; }
+.labperm-result-list li { line-height: 1.9; }
+.labperm-toggle-members { display: inline-block; width: 1.1em; cursor: pointer; color: var(--muted); user-select: none; text-align: center; }
+.labperm-toggle-members.open { transform: rotate(90deg); }
+.labperm-count { font-size: 11px; color: var(--muted); }
+.labperm-group-users { list-style: none; margin: 2px 0 4px 26px; padding: 0; }
+
 @media (max-width: 860px) {
   .labfs-cols { grid-template-columns: 1fr; }
 }

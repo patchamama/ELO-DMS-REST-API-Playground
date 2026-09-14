@@ -28,9 +28,20 @@ from .config import get_settings
 from .elo_session import EloError, get_client, mock_client
 from .i18n import catalogue
 from .lab_fs import lab_fs_source, list_children, mirror_to_sandbox, upload_tree
+from .lab_perms import (
+    folder_principals,
+    group_members,
+    lab_perms_source,
+    list_principals,
+    subtree,
+)
 from .models import (
     EloCreds,
     LabMirrorRequest,
+    LabPermFolderPrincipalsRequest,
+    LabPermMembersRequest,
+    LabPermPrincipalsRequest,
+    LabPermSubtreeRequest,
     LabTreeRequest,
     LabUploadRequest,
     ProxyRequest,
@@ -292,6 +303,41 @@ def api_lab_upload(req: LabUploadRequest):
 def api_lab_fs_source():
     """Real source of the lab-fs backend module + frontend slice + topic YAML."""
     return lab_fs_source()
+
+
+# ---- Testing lab: user/folder permissions panel (live only) ---------- #
+@app.post("/api/lab/perm-principals")
+def api_lab_perm_principals(req: LabPermPrincipalsRequest):
+    return _lab_guard(lambda: list_principals(_lab_client(req.credentials)))
+
+
+@app.post("/api/lab/perm-members")
+def api_lab_perm_members(req: LabPermMembersRequest):
+    return _lab_guard(lambda: group_members(_lab_client(req.credentials), req.group_id, preview=req.preview))
+
+
+@app.post("/api/lab/perm-subtree")
+def api_lab_perm_subtree(req: LabPermSubtreeRequest):
+    return _lab_guard(
+        lambda: subtree(
+            _lab_client(req.credentials),
+            req.parent_id,
+            req.principal.model_dump(),
+            depth=req.depth,
+            max_nodes=req.max_nodes,
+        )
+    )
+
+
+@app.post("/api/lab/perm-folder-principals")
+def api_lab_perm_folder_principals(req: LabPermFolderPrincipalsRequest):
+    return _lab_guard(lambda: folder_principals(_lab_client(req.credentials), req.folder_id))
+
+
+@app.get("/api/lab/perm-source")
+def api_lab_perm_source():
+    """Real source of the lab-perms backend module + frontend slice + topic YAML."""
+    return lab_perms_source()
 
 
 @app.post("/api/elo/login-check")
