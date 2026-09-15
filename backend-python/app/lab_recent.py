@@ -26,6 +26,7 @@ does *not* include the last two): 5 name, 7 IDateIso, 17 ownerName,
 from __future__ import annotations
 
 import base64
+import fnmatch
 import io
 import re
 import zipfile
@@ -132,21 +133,48 @@ def _scan_window(client: Any, since: str, until: str, *, budget: int) -> tuple[l
     return rows, not more
 
 
+def compile_filter(pattern: str | None) -> list[str]:
+    """``"*.js, *.json"`` (or ``"js json"``) -> lower-case glob patterns
+    matched against ``name.ext``; a bare extension becomes ``*.ext``."""
+    out = []
+    for raw in re.split(r"[,;\s]+", str(pattern or "").strip()):
+        raw = raw.strip().lower()
+        if not raw:
+            continue
+        if raw.startswith("."):
+            raw = "*" + raw
+        elif "*" not in raw and "?" not in raw and "." not in raw:
+            raw = "*." + raw
+        out.append(raw)
+    return out
+
+
+def _matches_filter(name: str, ext: str, patterns: list[str]) -> bool:
+    if not patterns:
+        return True
+    full = f"{name}.{ext}".lower() if ext else name.lower()
+    return any(fnmatch.fnmatchcase(full, p) for p in patterns)
+
+
 def recent_files(
     client: Any,
     folder_id: str | int = "1",
     *,
     limit: int = 50,
     max_scan: int = 6000,
+    pattern: str | None = None,
     now: datetime | None = None,
 ) -> dict[str, Any]:
     """The *limit* newest documents in *folder_id* or any subfolder, newest
-    first. Walks the date windows backwards; ``complete`` says whether the
-    list is exact (the window the last match came from was fully scanned
-    within *max_scan*) or a best effort cut short by the scan budget."""
+    first, optionally only those whose ``name.ext`` matches *pattern*
+    (``"*.js, *.json"``). Walks the date windows backwards; ``complete``
+    says whether the list is exact (the window the last match came from was
+    fully scanned within *max_scan*) or a best effort cut short by the
+    scan budget."""
     fid = str(folder_id)
     at_root = fid in ("1", "0", "")
     now = now or datetime.now()
+    patterns = compile_filter(pattern)
     matches: list[dict[str, Any]] = []
     seen: set[str] = set()
     state = {"scanned": 0, "complete": True, "oldest": _iso_compact(now)}
@@ -162,9 +190,11 @@ def recent_files(
             if not at_root and fid not in ids and str(r.get("parentId")) != fid:
                 continue
             dv = r.get("docVersion") or {}
+            name, ext = str(r.get("name") or r.get("id")), str(dv.get("ext") or "").lower()
+            if not _matches_filter(name, ext, patterns):
+                continue
             matches.append({
-                "id": str(r.get("id")), "name": str(r.get("name") or r.get("id")),
-                "ext": str(dv.get("ext") or "").lower(), "size": _int(dv.get("size")),
+                "id": str(r.get("id")), "name": name, "ext": ext, "size": _int(dv.get("size")),
                 "modified_iso": str(r.get("IDateIso") or ""), "modified": _pretty_date(r.get("IDateIso")),
                 "path": path, "owner": str(r.get("ownerName") or ""), "parent_id": str(r.get("parentId") or ""),
             })
@@ -197,6 +227,7 @@ def recent_files(
         "oldest_scanned": _pretty_date(state["oldest"]),
         "complete": state["complete"],
         "total_matches": len(matches),
+        "pattern": patterns,
     }
 
 

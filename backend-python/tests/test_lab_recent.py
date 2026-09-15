@@ -167,3 +167,21 @@ def test_lab_sources_return_real_files():
     assert any("lab_recent.py" in f["title"] for f in src["backend"]) and "lab-recent slice" in src["frontend"][0]["code"]
     src = lab_workflows.lab_workflows_source()
     assert any("lab_workflows.py" in f["title"] for f in src["backend"]) and "lab-workflows slice" in src["frontend"][0]["code"]
+
+
+def test_compile_filter_accepts_globs_bare_extensions_and_dots():
+    assert lab_recent.compile_filter("*.js, *.json") == ["*.js", "*.json"]
+    assert lab_recent.compile_filter("js json") == ["*.js", "*.json"]
+    assert lab_recent.compile_filter(".XML;Config*") == ["*.xml", "config*"]
+    assert lab_recent.compile_filter("") == [] and lab_recent.compile_filter(None) == []
+
+
+def test_recent_files_applies_the_pattern_before_the_limit():
+    client = MockEloClient({
+        "findFirstSords": [_page([_doc(1, "a", "20260916090000", ext="txt"), _doc(2, "$$Config$$", "20260916080000", ext="js"),
+                                  _doc(3, "b", "20260916070000", ext="json")])],
+        "findClose": {},
+        "checkoutSord": {"sord": {"id": 1, "name": "Contelo"}},
+    })
+    res = lab_recent.recent_files(client, "1", limit=1, pattern="*.js, *.json", now=NOW)
+    assert [r["name"] for r in res["rows"]] == ["$$Config$$"] and res["total_matches"] == 2 and res["pattern"] == ["*.js", "*.json"]

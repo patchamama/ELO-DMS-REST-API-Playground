@@ -2221,7 +2221,8 @@ ${snippet}
           <section class="labfs-side" data-role="rec-files">
             <div class="labrepo-head">
               <div><h3>${esc(tr("labrec.files"))}</h3><p class="labrec-status hint">${esc(tr("labrec.selectHint"))}</p></div>
-              <label>${esc(tr("labrec.scanBudget"))} <select class="labrec-budget"><option value="3000">3 000</option><option value="6000" selected>6 000</option><option value="15000">15 000</option><option value="40000">40 000</option></select></label>
+              <label title="${esc(tr("labrec.filterTitle"))}">${esc(tr("labrec.filter"))} <input type="text" class="labrec-filter" placeholder="*.js, *.json" /></label>
+              <label title="${esc(tr("labrec.scanBudgetTitle"))}">${esc(tr("labrec.scanBudget"))} <select class="labrec-budget"><option value="3000">3 000</option><option value="6000" selected>6 000</option><option value="15000">15 000</option><option value="40000">40 000</option></select></label>
             </div>
             <div class="labrepo-table-wrap labrec-wrap">
               <table class="labrepo-table"><thead><tr><th>${esc(tr("labrec.colName"))}</th><th>${esc(tr("labrec.colPath"))}</th><th>${esc(tr("labrec.colDate"))}</th><th>${esc(tr("labrec.colSize"))}</th></tr></thead><tbody></tbody></table>
@@ -2245,6 +2246,7 @@ ${snippet}
     const filesSection = panel.querySelector('[data-role="rec-files"]');
     const status = filesSection.querySelector(".labrec-status");
     const budget = filesSection.querySelector(".labrec-budget");
+    const filter = filesSection.querySelector(".labrec-filter");
     const tbody = filesSection.querySelector("tbody");
     const EXT_ICON = { pdf: "📕", docx: "📘", doc: "📘", xlsx: "📗", png: "🖼", jpg: "🖼", jpeg: "🖼", gif: "🖼", js: "🟨", json: "🟨", xml: "📰", html: "📰", css: "🎨", md: "📝", txt: "📄", csv: "📊" };
     let CURRENT = null;
@@ -2254,7 +2256,7 @@ ${snippet}
       status.textContent = tr("labperm.loading");
       status.className = "labrec-status hint";
       tbody.innerHTML = "";
-      const res = await labPost("/api/lab/recent-files", { folder_id: String(folder.id), limit: 50, max_scan: Number(budget.value) });
+      const res = await labPost("/api/lab/recent-files", { folder_id: String(folder.id), limit: 50, max_scan: Number(budget.value), pattern: filter.value.trim() || null });
       if (res.error) {
         status.textContent = res.error;
         status.className = "labrec-status err";
@@ -2262,7 +2264,9 @@ ${snippet}
       }
       const n = res.rows.length;
       status.textContent =
-        `${n} ${tr("labrec.filesIn")} ${res.folder.name} · ${res.scanned} ${tr("labrec.scanned")} ${res.oldest_scanned}` +
+        `${n} ${tr("labrec.filesIn")} ${res.folder.name}` +
+        (res.pattern && res.pattern.length ? ` (${res.pattern.join(", ")})` : "") +
+        ` · ${res.scanned} ${tr("labrec.scanned")} ${res.oldest_scanned}` +
         (res.complete ? "" : ` · ⚠ ${tr("labrec.incomplete")}`);
       tbody.innerHTML =
         res.rows
@@ -2335,6 +2339,13 @@ ${snippet}
     });
     budget.addEventListener("change", () => {
       if (CURRENT) load(CURRENT);
+    });
+    // the filter applies on Enter or when the field loses focus
+    filter.addEventListener("change", () => {
+      if (CURRENT) load(CURRENT);
+    });
+    filter.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter" && CURRENT) load(CURRENT);
     });
     wireEloFolderTree(panel.querySelector('[data-role="rec-tree"]'), { labPost, onSelect: load });
   }
