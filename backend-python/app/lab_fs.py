@@ -20,9 +20,11 @@ browser proxy.
 from __future__ import annotations
 
 import base64
+import mimetypes
 import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
@@ -48,6 +50,9 @@ _BAD_NAME = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 METADATA_FILE = "metadata.opf"
 # The Sord map domain (see collectMapDomains); "objekte" is the object map.
 _MAP_DOMAIN = "objekte"
+_REPOSITORY_TEXT_EXTENSIONS = {".js", ".json", ".xml", ".css", ".csv", ".txt", ".md"}
+_REPOSITORY_WORD_EXTENSIONS = {".doc", ".docx"}
+_REPOSITORY_FILE_LIMIT = 2 * 1024 * 1024
 
 
 def _int_or(value: Any, default: int | None = 0) -> int | None:
@@ -60,6 +65,212 @@ def _int_or(value: Any, default: int | None = 0) -> int | None:
 def _sandbox_dir() -> Path:
     """``<project root>/sandbox/elo-archiv-structure`` - the mirror target."""
     return get_settings().project_root / "sandbox" / "elo-archiv-structure"
+
+
+# --------------------------------------------------------------------------- #
+# Configured local repository browser
+# --------------------------------------------------------------------------- #
+def _repository_root() -> Path:
+    """Resolve the sole filesystem root the repository browser may expose."""
+    root = Path(get_settings().local_repository_dir).expanduser().resolve()
+    if not root.is_dir():
+        raise EloError(f"configured local repository is not available: {root}")
+    return root
+
+
+def _repository_path(relative_path: str, *, directory: bool = False) -> Path:
+    """Resolve a POSIX repository-relative path without permitting escapes.
+
+    ``resolve`` also prevents a symlink inside the repository from exposing a
+    target outside it.  This check is deliberately shared by listing and file
+    reads so a path returned by the API cannot later be substituted.
+    """
+    root = _repository_root()
+    raw = str(relative_path or "").replace("\\", "/")
+    candidate = PurePosixPath(raw)
+    if candidate.is_absolute() or ".." in candidate.parts:
+        raise EloError("repository path must stay below the configured root")
+    target = root.joinpath(*candidate.parts).resolve()
+    try:
+        target.relative_to(root)
+    except ValueError as exc:
+        raise EloError("repository path must stay below the configured root") from exc
+    if directory and not target.is_dir():
+        raise EloError("repository folder was not found")
+    if not directory and not target.is_file():
+        raise EloError("repository file was not found")
+    return target
+
+
+def repository_folders() -> dict[str, Any]:
+    """All safe folders, represented as repository-relative POSIX paths."""
+    root = _repository_root()
+    folders = [""]
+    for current, dirs, _files in os.walk(root, followlinks=False):
+        current_path = Path(current)
+        # Do not include or descend into symlinks that resolve outside root.
+        safe_dirs: list[str] = []
+        for name in dirs:
+            child = current_path / name
+            try:
+                child.resolve().relative_to(root)
+            except ValueError:
+                continue
+            safe_dirs.append(name)
+            folders.append(child.relative_to(root).as_posix())
+        dirs[:] = safe_dirs
+    return {"folders": sorted(folders, key=lambda item: (item.casefold(), item))}
+
+
+def repository_files(folder: str = "Administration", *, limit: int = 50) -> dict[str, Any]:
+    """Newest regular files under a selected safe repository folder."""
+    target = _repository_path(folder, directory=True)
+    root = _repository_root()
+    rows: list[dict[str, Any]] = []
+    for current, dirs, names in os.walk(target, followlinks=False):
+        current_path = Path(current)
+        dirs[:] = [
+            name for name in dirs
+            if _is_within_repository(current_path / name, root)
+        ]
+        for name in names:
+            path = current_path / name
+            if not _is_within_repository(path, root) or not path.is_file():
+                continue
+            try:
+                stat = path.stat()
+            except OSError:
+                continue
+            rows.append({
+                "name": path.name,
+                "path": path.relative_to(root).as_posix(),
+                "modified": datetime.fromtimestamp(stat.st_mtime, timezone.utc).isoformat(),
+                "modified_ts": stat.st_mtime,
+            })
+    rows.sort(key=lambda item: (-item["modified_ts"], item["path"].casefold(), item["path"]))
+    for row in rows:
+        row.pop("modified_ts")
+    return {"folder": target.relative_to(root).as_posix(), "files": rows[:max(1, min(limit, 50))]}
+
+
+def _is_within_repository(path: Path, root: Path) -> bool:
+    try:
+        path.resolve().relative_to(root)
+        return True
+    except (OSError, ValueError):
+        return False
+
+
+def _repository_parts(relative_path: str) -> tuple[Path, tuple[str, ...]]:
+    """Validate a relative repository path before opening any filesystem node."""
+    root = _repository_root()
+    raw = str(relative_path or "").replace("\\", "/")
+    candidate = PurePosixPath(raw)
+    if not candidate.parts or candidate.is_absolute() or ".." in candidate.parts:
+        raise EloError("repository path must stay below the configured root")
+    return root, candidate.parts
+
+
+def _open_repository_file(relative_path: str) -> tuple[int, Path, str]:
+    """Open one repository file without a validate-then-read race.
+
+    POSIX uses descriptor-relative ``openat`` calls with ``O_NOFOLLOW`` for
+    every path component.  The returned descriptor, not a later pathname read,
+    is then stat'ed and consumed.  Platforms without ``dir_fd`` still verify
+    the opened descriptor's canonical path before accepting it.
+    """
+    root, parts = _repository_parts(relative_path)
+    nofollow = getattr(os, "O_NOFOLLOW", 0)
+    binary = getattr(os, "O_BINARY", 0)
+    directory = getattr(os, "O_DIRECTORY", 0)
+    if os.open in getattr(os, "supports_dir_fd", set()):
+        dir_fd = os.open(root, os.O_RDONLY | binary | directory)
+        try:
+            for part in parts[:-1]:
+                next_fd = os.open(part, os.O_RDONLY | binary | directory | nofollow, dir_fd=dir_fd)
+                os.close(dir_fd)
+                dir_fd = next_fd
+            file_fd = os.open(parts[-1], os.O_RDONLY | binary | nofollow, dir_fd=dir_fd)
+        finally:
+            os.close(dir_fd)
+    else:  # Windows: check the actual opened handle below, never a later pathname.
+        file_fd = os.open(str(root.joinpath(*parts)), os.O_RDONLY | binary | nofollow)
+
+    try:
+        actual = _opened_path(file_fd)
+        actual.relative_to(root)
+        return file_fd, actual, "/".join(parts)
+    except Exception:
+        os.close(file_fd)
+        raise
+
+
+def _opened_path(file_fd: int) -> Path:
+    """Canonical path of an already-open descriptor; fail closed if unknown."""
+    proc_path = Path(f"/proc/self/fd/{file_fd}")
+    if proc_path.exists():
+        return Path(os.readlink(proc_path)).resolve()
+    if os.name == "nt":  # pragma: no cover - exercised on Windows hosts
+        import ctypes
+        import msvcrt
+
+        buf = ctypes.create_unicode_buffer(32768)
+        size = ctypes.windll.kernel32.GetFinalPathNameByHandleW(
+            msvcrt.get_osfhandle(file_fd), buf, len(buf), 0
+        )
+        if size and size < len(buf):
+            return Path(buf.value.removeprefix("\\\\?\\")).resolve()
+    raise EloError("could not verify opened repository file")
+
+
+def _read_preview_bytes(file_fd: int) -> tuple[bytes, int]:
+    """Return bounded bytes from the pinned descriptor, rejecting growth too."""
+    file_stat = os.fstat(file_fd)
+    if not stat.S_ISREG(file_stat.st_mode):
+        raise EloError("repository preview requires a regular file")
+    if file_stat.st_size > _REPOSITORY_FILE_LIMIT:
+        raise EloError(f"repository file is too large to preview (max {_REPOSITORY_FILE_LIMIT // 1024 // 1024} MB)")
+    chunks: list[bytes] = []
+    remaining = _REPOSITORY_FILE_LIMIT + 1
+    while remaining:
+        chunk = os.read(file_fd, min(64 * 1024, remaining))
+        if not chunk:
+            break
+        chunks.append(chunk)
+        remaining -= len(chunk)
+    body = b"".join(chunks)
+    if len(body) > _REPOSITORY_FILE_LIMIT:
+        raise EloError(f"repository file is too large to preview (max {_REPOSITORY_FILE_LIMIT // 1024 // 1024} MB)")
+    return body, file_stat.st_size
+
+
+def repository_file(path: str) -> dict[str, Any]:
+    """Read one safe local repository file for a bounded browser preview."""
+    try:
+        file_fd, file_path, display_path = _open_repository_file(path)
+    except (OSError, ValueError) as exc:
+        raise EloError("repository file was not found or is outside the configured root") from exc
+    try:
+        body, size = _read_preview_bytes(file_fd)
+    finally:
+        os.close(file_fd)
+    suffix = file_path.suffix.lower()
+    result: dict[str, Any] = {
+        "name": file_path.name,
+        "path": display_path,
+        "extension": suffix,
+        "size": size,
+    }
+    if suffix in _REPOSITORY_TEXT_EXTENSIONS:
+        result.update({"kind": "text", "content": body.decode("utf-8", errors="replace")})
+    elif suffix == ".pdf":
+        result.update({"kind": "pdf", "mime": "application/pdf", "b64": base64.b64encode(body).decode("ascii")})
+    elif suffix in _REPOSITORY_WORD_EXTENSIONS:
+        mime = mimetypes.guess_type(file_path.name)[0] or "application/octet-stream"
+        result.update({"kind": "word", "mime": mime, "b64": base64.b64encode(body).decode("ascii")})
+    else:
+        result.update({"kind": "binary", "mime": mimetypes.guess_type(file_path.name)[0] or "application/octet-stream"})
+    return result
 
 
 def _safe_name(name: str, fallback: str = "item") -> str:

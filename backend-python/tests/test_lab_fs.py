@@ -4,6 +4,7 @@ The real ELO client is stood in for by MockEloClient, which has the same
 surface (call / download / upload) and reads canned responses.
 """
 import pytest
+from pathlib import Path
 from elo_playground import MockEloClient
 
 from app import lab_fs
@@ -12,6 +13,7 @@ from app import lab_fs
 class _FakeSettings:
     def __init__(self, root):
         self.project_root = root
+        self.local_repository_dir = root / "repository"
 
 
 class _RecordingClient(MockEloClient):
@@ -45,6 +47,70 @@ def test_list_children_parses_rows_and_classifies_type():
     assert [r["id"] for r in rows] == ["2", "40"]  # the parentId 999 row is filtered out
     assert rows[0]["is_folder"] is True and rows[0]["child_count"] == 7
     assert rows[1]["is_folder"] is False
+
+
+def test_repository_browser_lists_newest_files_and_blocks_escapes(monkeypatch, tmp_path):
+    settings = _FakeSettings(tmp_path)
+    admin = settings.local_repository_dir / "Administration" / "sub"
+    admin.mkdir(parents=True)
+    old = admin / "old.txt"
+    new = admin / "new.json"
+    old.write_text("old", encoding="utf-8")
+    new.write_text('{"new": true}', encoding="utf-8")
+    import os
+    os.utime(old, (1, 1))
+    os.utime(new, (2, 2))
+    monkeypatch.setattr(lab_fs, "get_settings", lambda: settings)
+
+    folders = lab_fs.repository_folders()["folders"]
+    assert "Administration" in folders and "Administration/sub" in folders
+    rows = lab_fs.repository_files("Administration")["files"]
+    assert [row["name"] for row in rows] == ["new.json", "old.txt"]
+    assert rows[0]["path"] == "Administration/sub/new.json"
+    preview = lab_fs.repository_file("Administration/sub/new.json")
+    assert preview["kind"] == "text" and '"new"' in preview["content"]
+    with pytest.raises(lab_fs.EloError):
+        lab_fs.repository_files("../outside")
+    with pytest.raises(lab_fs.EloError):
+        lab_fs.repository_file("Administration/../../outside.txt")
+
+
+def test_repository_browser_does_not_follow_symlinks_outside_root(monkeypatch, tmp_path):
+    settings = _FakeSettings(tmp_path)
+    settings.local_repository_dir.mkdir()
+    outside = tmp_path / "outside.txt"
+    outside.write_text("secret", encoding="utf-8")
+    link = settings.local_repository_dir / "escape.txt"
+    try:
+        link.symlink_to(outside)
+    except OSError:
+        pytest.skip("symlinks are unavailable on this host")
+    monkeypatch.setattr(lab_fs, "get_settings", lambda: settings)
+    assert lab_fs.repository_files("")["files"] == []
+    with pytest.raises(lab_fs.EloError):
+        lab_fs.repository_file("escape.txt")
+
+
+def test_repository_preview_reads_the_opened_descriptor_when_path_is_swapped(monkeypatch, tmp_path):
+    """A pathname replacement after open must not change the bytes previewed."""
+    if not Path("/proc/self/fd").is_dir():
+        pytest.skip("descriptor-path inspection is unavailable on this host")
+    settings = _FakeSettings(tmp_path)
+    settings.local_repository_dir.mkdir()
+    safe = settings.local_repository_dir / "document.txt"
+    outside = tmp_path / "outside.txt"
+    safe.write_text("safe", encoding="utf-8")
+    outside.write_text("outside", encoding="utf-8")
+    monkeypatch.setattr(lab_fs, "get_settings", lambda: settings)
+    opened_path = lab_fs._opened_path
+
+    def swap_after_open(fd):
+        safe.unlink()
+        safe.symlink_to(outside)
+        return opened_path(fd)
+
+    monkeypatch.setattr(lab_fs, "_opened_path", swap_after_open)
+    assert lab_fs.repository_file("document.txt")["content"] == "safe"
 
 
 # --------------------------------------------------------------------------- #
