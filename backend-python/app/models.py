@@ -130,6 +130,18 @@ class LabUploadRequest(BaseModel):
     max_bytes: int = 25 * 1024 * 1024
 
 
+class LabRepositoryBrowseRequest(BaseModel):
+    """Files below one folder of the configured local ELO repository."""
+
+    folder: str = "Administration"
+
+
+class LabRepositoryFileRequest(BaseModel):
+    """A repository-relative file path selected in the Test Lab browser."""
+
+    path: str
+
+
 # ---- Testing lab: user/folder permissions panel (live only) ---------- #
 class LabPrincipal(BaseModel):
     kind: Literal["user", "group"]
@@ -158,7 +170,7 @@ class LabPermSubtreeRequest(BaseModel):
     parent_id: str = "1"                     # "1" = repository root
     principal: LabPrincipal
     depth: int = 1
-    max_nodes: int = 300
+    max_nodes: int = 1500                    # one findFirstSords per level, so this is cheap
     credentials: EloCreds | None = None
 
 
@@ -167,4 +179,23 @@ class LabPermFolderPrincipalsRequest(BaseModel):
     "who can see this" view."""
 
     folder_id: str
+    credentials: EloCreds | None = None
+
+
+class LabPermSpecialRequest(BaseModel):
+    """Folders below ``parent_id`` whose effective ACL departs from their
+    parent's ("special permissions"), recursed up to ``depth`` levels."""
+
+    parent_id: str = "1"
+    depth: int = 3
+    max_nodes: int = 1500
+    credentials: EloCreds | None = None
+
+
+class LabPermFolderAclRequest(BaseModel):
+    """One folder's ACL, decoded, optionally with how ``principal`` resolves
+    against it - what the panel prints in its log when a folder is clicked."""
+
+    folder_id: str
+    principal: LabPrincipal | None = None
     credentials: EloCreds | None = None

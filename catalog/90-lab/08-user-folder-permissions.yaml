@@ -12,19 +12,28 @@ title:
 summary:
   en: >
     A read-only permissions explorer, live only (it never writes anything). Pick
-    a group or user and the folder tree shows each first-level folder's resolved
-    access, drilling into subfolders on click; or pick one folder and see every
-    user/group with access to it. `sord.aclItems` is the permission list - each
-    entry is `{id, type, access}` where `access` is a bitmask (1 R, 2 W, 4 D,
-    8 edit-rights, 16 L, 32 P; 63 = full), read via `checkoutSord`. There is no
-    "effective permission" RPC, so access is resolved here: a principal has
-    access to a folder when their own id is in its `aclItems`, or - for a user -
-    any group in their `UserInfo.groupList` is. The connected administrator
-    still sees everything regardless of what is shown for the picked principal -
-    that is ELO's own server-side ACL bypass, not something this panel fakes.
+    a group or user and the folder tree shows each folder's resolved access
+    (greyed out where there is none), drilling into subfolders on click; or pick
+    one folder and see every user/group with access to it. "Exclusive" narrows
+    both views to what the selection alone can reach (main administrators
+    bypass every ACL, so they are left out); "Special ACLs" lists the folders
+    whose ACL departs from their parent's - ELO copies the parent's ACL onto
+    each new child, so a difference means special permissions were set on
+    purpose. Clicking a folder dumps its decoded ACL, and how it differs from
+    the parent's, into the log. There is no "effective permission" RPC,
+    so the IX ACL model (`AclItemC` / `AccessC`) is applied here:
+    `sord.aclItems` entries are `{id, type, access, andGroups}` with `type`
+    0 = group, 1 = user, 100 = inherit the parent's ACL, 200 = the owner;
+    `access` is a bitmask (1 R, 2 W, 4 D, 8 E, 16 L, 32 P; 63 = full); an
+    `andGroups` entry needs membership in every listed group. Groups nest
+    (a group's own `groupList` names its parents) and a user's `groupList`
+    holds only direct memberships, so membership is the transitive closure.
+    `UserInfo.flags` bit 1 on a user OR a group is a main administrator and
+    bypasses every ACL server-side - so does the connected administrator, no
+    matter what is shown for the picked principal.
 
-  de: "Ein reiner Lese-Explorer für Berechtigungen, nur live (er schreibt nie etwas). Eine Gruppe oder einen Benutzer wählen, und der Ordnerbaum zeigt für jeden Ordner der ersten Ebene den aufgelösten Zugriff, per Klick geht es in Unterordner; oder einen Ordner wählen und jeden Benutzer/jede Gruppe mit Zugriff darauf sehen. `sord.aclItems` ist die Berechtigungsliste - jeder Eintrag ist `{id, type, access}`, wobei `access` eine Bitmaske ist (1 R, 2 W, 4 D, 8 Rechte, 16 L, 32 P; 63 = voll), gelesen über `checkoutSord`. Es gibt keinen RPC für \"effektive Berechtigung\", daher wird der Zugriff hier aufgelöst: ein Principal hat Zugriff auf einen Ordner, wenn seine eigene ID in dessen `aclItems` steht, oder - bei einem Benutzer - irgendeine Gruppe aus seiner `UserInfo.groupList`. Der angemeldete Administrator sieht weiterhin alles, unabhängig davon, was für den gewählten Principal angezeigt wird - das ist ELOs eigene serverseitige ACL-Umgehung, nichts, was dieses Panel vortäuscht."
-  es: "Un explorador de permisos de solo lectura, únicamente en vivo (nunca escribe nada). Elegís un grupo o usuario y el árbol de carpetas muestra el acceso resuelto de cada carpeta de primer nivel, navegando a las subcarpetas al hacer clic; o elegís una carpeta y ves todos los usuarios/grupos con acceso a ella. `sord.aclItems` es la lista de permisos - cada entrada es `{id, type, access}`, donde `access` es una máscara de bits (1 R, 2 W, 4 D, 8 derechos, 16 L, 32 P; 63 = total), leída con `checkoutSord`. No existe un RPC de \"permiso efectivo\", así que el acceso se resuelve acá: un principal tiene acceso a una carpeta cuando su propio id está en el `aclItems` de esa carpeta, o - para un usuario - cuando algún grupo de su `UserInfo.groupList` lo está. El administrador conectado sigue viendo todo igual, sin importar lo que se muestre para el principal elegido - eso es la propia evasión de ACL del lado del servidor de ELO, no algo que este panel simule."
+  de: "Ein reiner Lese-Explorer für Berechtigungen, nur live (er schreibt nie etwas). Eine Gruppe oder einen Benutzer wählen, und der Ordnerbaum zeigt den aufgelösten Zugriff jedes Ordners (ausgegraut ohne Zugriff), per Klick geht es in Unterordner; oder einen Ordner wählen und jeden Benutzer/jede Gruppe mit Zugriff darauf sehen. \"Exklusiv\" beschränkt beide Ansichten auf das, was die Auswahl allein erreicht (Hauptadministratoren umgehen jede ACL und bleiben außen vor); \"Spezielle ACLs\" listet die Ordner, deren ACL von der des Elternordners abweicht - ELO kopiert die ACL des Elternordners auf jeden neuen Unterordner, eine Abweichung bedeutet also absichtlich gesetzte Sonderberechtigungen. Ein Klick auf einen Ordner schreibt seine dekodierte ACL, und wie sie vom Elternordner abweicht, ins Protokoll. Es gibt keinen RPC für \"effektive Berechtigung\", daher wird hier das IX-ACL-Modell (`AclItemC` / `AccessC`) angewendet: `sord.aclItems`-Einträge sind `{id, type, access, andGroups}` mit `type` 0 = Gruppe, 1 = Benutzer, 100 = ACL des Elternordners erben, 200 = Eigentümer; `access` ist eine Bitmaske (1 R, 2 W, 4 D, 8 E, 16 L, 32 P; 63 = voll); ein `andGroups`-Eintrag verlangt Mitgliedschaft in jeder aufgeführten Gruppe. Gruppen sind verschachtelt (die eigene `groupList` einer Gruppe nennt ihre Eltern) und die `groupList` eines Benutzers enthält nur direkte Mitgliedschaften, Mitgliedschaft ist also die transitive Hülle. `UserInfo.flags` Bit 1 bei einem Benutzer ODER einer Gruppe ist ein Hauptadministrator und umgeht serverseitig jede ACL - ebenso der angemeldete Administrator, unabhängig davon, was für den gewählten Principal angezeigt wird."
+  es: "Un explorador de permisos de solo lectura, únicamente en vivo (nunca escribe nada). Elegís un grupo o usuario y el árbol de carpetas muestra el acceso resuelto de cada carpeta (en gris si no hay), navegando a las subcarpetas al hacer clic; o elegís una carpeta y ves todos los usuarios/grupos con acceso a ella. \"Exclusivo\" reduce ambas vistas a lo que alcanza la selección por sí sola (los administradores principales se saltan cualquier ACL, así que quedan fuera); \"ACL especiales\" lista las carpetas cuyo ACL difiere del de su padre - ELO copia el ACL del padre a cada carpeta hija nueva, así que una diferencia significa permisos especiales puestos a propósito. Un clic en una carpeta vuelca su ACL decodificado, y en qué difiere del padre, al registro. No existe un RPC de \"permiso efectivo\", así que acá se aplica el modelo ACL de IX (`AclItemC` / `AccessC`): las entradas de `sord.aclItems` son `{id, type, access, andGroups}` con `type` 0 = grupo, 1 = usuario, 100 = heredar el ACL del padre, 200 = el dueño; `access` es una máscara de bits (1 R, 2 W, 4 D, 8 E, 16 L, 32 P; 63 = total); una entrada con `andGroups` exige pertenecer a todos los grupos listados. Los grupos se anidan (el `groupList` propio de un grupo nombra a sus padres) y el `groupList` de un usuario solo tiene membresías directas, así que la membresía es la clausura transitiva. `UserInfo.flags` bit 1 en un usuario O en un grupo es administrador principal y se salta cualquier ACL del lado del servidor - igual que el administrador conectado, sin importar lo que se muestre para el principal elegido."
 
 elo_api:
 - method: findFirstUsers
@@ -81,8 +90,8 @@ snippets:
     elo = connect(base_url=ELO_BASE_URL, user=ELO_USER, password=ELO_PASS)
     ALL = "449304431574384639"  # SordC.mbAllIndex - every Sord field, incl. aclItems
 
-    # access bits: 1 R  2 W  4 D  8 edit-rights  16 L  32 P ; 63 = full
-    _ACCESS_BITS = [(1, "R"), (2, "W"), (4, "D"), (8, "ER"), (16, "L"), (32, "P")]
+    # access bits (AccessC.LUR_*): 1 R  2 W  4 D  8 E  16 L  32 P ; 63 = full
+    _ACCESS_BITS = [(1, "R"), (2, "W"), (4, "D"), (8, "E"), (16, "L"), (32, "P")]
 
 
     def access_label(bits):
@@ -176,8 +185,8 @@ snippets:
     const elo = await connect({ baseUrl: ELO_BASE_URL, user: ELO_USER, password: ELO_PASS });
     const ALL = "449304431574384639"; // SordC.mbAllIndex - every Sord field, incl. aclItems
 
-    // access bits: 1 R  2 W  4 D  8 edit-rights  16 L  32 P ; 63 = full
-    const ACCESS_BITS = [[1, "R"], [2, "W"], [4, "D"], [8, "ER"], [16, "L"], [32, "P"]];
+    // access bits (AccessC.LUR_*): 1 R  2 W  4 D  8 E  16 L  32 P ; 63 = full
+    const ACCESS_BITS = [[1, "R"], [2, "W"], [4, "D"], [8, "E"], [16, "L"], [32, "P"]];
 
     function accessLabel(bits) {
       if (bits === 63) return "full";

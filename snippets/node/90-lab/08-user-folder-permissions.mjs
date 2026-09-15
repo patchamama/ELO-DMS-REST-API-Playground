@@ -13,8 +13,8 @@ const ELO_PASS = process.env.ELOPG_ELO_PASSWORD || "elo"; // ELOPG_DEFAULT:passw
 const elo = await connect({ baseUrl: ELO_BASE_URL, user: ELO_USER, password: ELO_PASS });
 const ALL = "449304431574384639"; // SordC.mbAllIndex - every Sord field, incl. aclItems
 
-// access bits: 1 R  2 W  4 D  8 edit-rights  16 L  32 P ; 63 = full
-const ACCESS_BITS = [[1, "R"], [2, "W"], [4, "D"], [8, "ER"], [16, "L"], [32, "P"]];
+// access bits (AccessC.LUR_*): 1 R  2 W  4 D  8 E  16 L  32 P ; 63 = full
+const ACCESS_BITS = [[1, "R"], [2, "W"], [4, "D"], [8, "E"], [16, "L"], [32, "P"]];
 
 function accessLabel(bits) {
   if (bits === 63) return "full";
