@@ -353,6 +353,47 @@ button.fn-ref { background: none; border: 0; padding: 0; color: var(--blue); cur
 .labperm-group-users { list-style: none; margin: 2px 0 4px 26px; padding: 0; }
 .labperm-result-list .labperm-usergroups-toggle { color: var(--blue); }
 .labperm-result-list .labperm-usergroups-list { line-height: 1.5; }
+/* diagnostics: one collapsible block per finding code, coloured by severity */
+.labperm-diag-results { margin-top: 8px; font-size: 12.5px; }
+.labperm-diag-group { border: 1px solid var(--line); border-left-width: 4px; border-radius: 6px; margin-bottom: 8px; padding: 6px 10px; }
+.labperm-diag-group.sev-err { border-left-color: var(--err); }
+.labperm-diag-group.sev-warn { border-left-color: var(--warn); }
+.labperm-diag-group.sev-info { border-left-color: var(--blue); }
+.labperm-diag-group summary { cursor: pointer; font-weight: 600; }
+.labperm-diag-body p { margin: 6px 0; color: var(--muted); max-width: 90ch; line-height: 1.45; }
+.labperm-diag-body p b { color: var(--ink); }
+.labperm-diag-list { list-style: none; margin: 6px 0 2px; padding: 0 0 0 4px; }
+.labperm-diag-list li { line-height: 1.9; }
+.labperm-diag-folder { font-size: inherit; }
+
+/* org chart: a classic CSS tree - roots side by side, children below, lines
+   drawn with pseudo-elements. The root row has no connectors (a forest). */
+.labperm-org-host { overflow-x: auto; padding-bottom: 8px; }
+.labperm-orgtree ul { display: flex; padding: 20px 0 0; margin: 0; list-style: none; position: relative; justify-content: center; }
+.labperm-orgtree > ul { padding-top: 4px; justify-content: flex-start; flex-wrap: wrap; gap: 10px 4px; }
+.labperm-orgtree li { position: relative; padding: 20px 6px 0; text-align: center; }
+.labperm-orgtree li::before, .labperm-orgtree li::after {
+  content: ""; position: absolute; top: 0; right: 50%; width: 50%; height: 20px; border-top: 1px solid var(--line);
+}
+.labperm-orgtree li::after { right: auto; left: 50%; border-left: 1px solid var(--line); }
+.labperm-orgtree li:only-child::before, .labperm-orgtree li:only-child::after { display: none; }
+.labperm-orgtree li:only-child { padding-top: 0; }
+.labperm-orgtree li:first-child::before, .labperm-orgtree li:last-child::after { border: 0 none; }
+.labperm-orgtree li:last-child::before { border-right: 1px solid var(--line); border-radius: 0 5px 0 0; }
+.labperm-orgtree li:first-child::after { border-radius: 5px 0 0 0; }
+.labperm-orgtree ul ul::before { content: ""; position: absolute; top: 0; left: 50%; width: 0; height: 20px; border-left: 1px solid var(--line); }
+.labperm-orgtree > ul > li { padding-top: 0; }
+.labperm-orgtree > ul > li::before, .labperm-orgtree > ul > li::after { display: none; }
+.labperm-orgtree > ul > li > ul::before { height: 20px; }
+.labperm-org-node {
+  display: inline-block; border: 1px solid var(--line); border-radius: 6px; padding: 4px 9px;
+  background: var(--panel); font-size: 12px; cursor: pointer; white-space: nowrap; text-align: left;
+}
+.labperm-org-node:hover, .labperm-org-node.open { border-color: var(--blue); }
+.labperm-org-node.everyone { border-style: dashed; color: var(--muted); }
+.labperm-org-multi { color: var(--warn); cursor: help; font-size: 11px; }
+.labperm-org-members { margin-top: 4px; font-size: 11px; color: var(--muted); white-space: normal; max-width: 260px; line-height: 1.5; }
+
 .labperm-log-bar { display: flex; justify-content: flex-end; margin-top: 10px; }
 .labperm-log-bar button { background: none; border: 1px solid var(--line); border-radius: 6px; padding: 2px 10px; font-size: 11.5px; cursor: pointer; color: var(--muted); }
 .labperm-log-bar button:hover { color: var(--ink); }
