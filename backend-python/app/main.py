@@ -31,6 +31,8 @@ from .lab_fs import (
     lab_fs_source, list_children, mirror_to_sandbox, upload_tree,
     repository_folders, repository_files, repository_file,
 )
+from .lab_recent import file_preview, lab_recent_source, recent_files
+from .lab_workflows import lab_workflows_source, top_workflows
 from .lab_perms import (
     diagnose,
     folder_acl_detail,
@@ -45,6 +47,7 @@ from .lab_perms import (
 from .models import (
     EloCreds,
     LabMirrorRequest,
+    LabFilePreviewRequest,
     LabPermDiagnoseRequest,
     LabPermFolderAclRequest,
     LabPermFolderPrincipalsRequest,
@@ -53,6 +56,8 @@ from .models import (
     LabPermPrincipalsRequest,
     LabPermSpecialRequest,
     LabPermSubtreeRequest,
+    LabRecentFilesRequest,
+    LabWorkflowUsageRequest,
     LabTreeRequest,
     LabUploadRequest,
     LabRepositoryBrowseRequest,
@@ -397,6 +402,32 @@ def api_lab_perm_folder_acl(req: LabPermFolderAclRequest):
 def api_lab_perm_source():
     """Real source of the lab-perms backend module + frontend slice + topic YAML."""
     return lab_perms_source()
+
+
+# ---- Testing lab: recent files + workflow usage (live only) ------------ #
+@app.post("/api/lab/recent-files")
+def api_lab_recent_files(req: LabRecentFilesRequest):
+    return _lab_guard(lambda: recent_files(_lab_client(req.credentials), req.folder_id, limit=req.limit, max_scan=req.max_scan))
+
+
+@app.post("/api/lab/file-preview")
+def api_lab_file_preview(req: LabFilePreviewRequest):
+    return _lab_guard(lambda: file_preview(_lab_client(req.credentials), req.doc_id, max_bytes=req.max_bytes))
+
+
+@app.get("/api/lab/recent-source")
+def api_lab_recent_source():
+    return lab_recent_source()
+
+
+@app.post("/api/lab/workflow-usage")
+def api_lab_workflow_usage(req: LabWorkflowUsageRequest):
+    return _lab_guard(lambda: top_workflows(_lab_client(req.credentials), limit=req.limit))
+
+
+@app.get("/api/lab/workflows-source")
+def api_lab_workflows_source():
+    return lab_workflows_source()
 
 
 @app.post("/api/elo/login-check")

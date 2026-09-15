@@ -51,6 +51,8 @@ class Topic(BaseModel):
     attach_file: bool = False   # show a "Choose file" button on this topic
     lab_fs: bool = False        # render the interactive ELO <-> local filesystem panel
     lab_perms: bool = False     # render the interactive user/folder permissions panel
+    lab_recent: bool = False    # render the recent-files browser panel
+    lab_workflows: bool = False # render the workflow-usage panel
 
 
 class Attachment(BaseModel):
@@ -215,4 +217,25 @@ class LabPermFolderAclRequest(BaseModel):
 
     folder_id: str
     principal: LabPrincipal | None = None
+    credentials: EloCreds | None = None
+
+
+# ---- Testing lab: recent files + workflow usage (live only) ----------- #
+class LabRecentFilesRequest(BaseModel):
+    """Newest documents in ``folder_id`` or any subfolder."""
+
+    folder_id: str = "1"
+    limit: int = 50
+    max_scan: int = 6000                     # rows walked through the date windows at most
+    credentials: EloCreds | None = None
+
+
+class LabFilePreviewRequest(BaseModel):
+    doc_id: str
+    max_bytes: int = 2 * 1024 * 1024
+    credentials: EloCreds | None = None
+
+
+class LabWorkflowUsageRequest(BaseModel):
+    limit: int = 25
     credentials: EloCreds | None = None

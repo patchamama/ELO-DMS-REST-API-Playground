@@ -1,0 +1,257 @@
+id: lab.recent-files
+order: 9
+lab_recent: true
+category:
+  en: Testing lab
+  de: Testlabor
+  es: Laboratorio de pruebas
+title:
+  en: Browse folders and preview the newest files
+  de: Ordner durchsuchen und die neuesten Dateien ansehen
+  es: Navegar carpetas y ver los archivos más recientes
+summary:
+  en: >
+    Live only, read-only. The left side is the ELO folder tree; pick a folder
+    and the right side lists the 50 most recently modified documents in it
+    or anywhere below it (name, path, date, size), newest first. Click a
+    file to open it in a viewer: code and text with syntax highlighting
+    (.js, .json, .xml, .css, .csv, .txt, .md, .properties, ...), the text
+    inside a .docx, PDFs and images in the browser's own viewer. There is no
+    cheap "recursive children, newest first" query in IX - `findChildren`
+    with `endLevel: -1` walks the subtree server-side (10-30 s on a mid-size
+    repository) and `FindOptions.sortOrder` does not sort by date - so the
+    panel uses what *is* fast: the indexed `findByIndex.iDateIso` range
+    search (`"20260901000000...20260916000000"`, ~1200 rows/s with a lean
+    `sordZ`), walked backwards through date windows (1, 3, 7, 14, 30 ... days)
+    and filtered by `refPaths` (the folder ids on the way down; needs
+    `sordZ` bit 59, which `mbAllIndex` does not include). A window is scanned
+    whole before the next older one, so the list is exact unless the scan
+    budget runs out inside a window - then the panel says so. `docVersion`
+    (extension, size) needs bit 54. Content comes from `checkoutDoc` (a
+    download URL on the same session).
+  de: "Nur live, nur lesend. Links der ELO-Ordnerbaum; einen Ordner wählen, und rechts erscheinen die 50 zuletzt geänderten Dokumente darin oder irgendwo darunter (Name, Pfad, Datum, Größe), neueste zuerst. Ein Klick auf eine Datei öffnet sie in einem Viewer: Code und Text mit Syntaxhervorhebung (.js, .json, .xml, .css, .csv, .txt, .md, .properties, ...), der Text einer .docx, PDFs und Bilder im Viewer des Browsers. IX kennt keine günstige Abfrage \"rekursive Kinder, neueste zuerst\" - `findChildren` mit `endLevel: -1` läuft serverseitig durch den Teilbaum (10-30 s bei einem mittelgroßen Repository) und `FindOptions.sortOrder` sortiert nicht nach Datum -, daher nutzt das Panel, was schnell ist: die indizierte Bereichssuche `findByIndex.iDateIso` (`\"20260901000000...20260916000000\"`, ~1200 Zeilen/s mit schlankem `sordZ`), rückwärts durch Zeitfenster (1, 3, 7, 14, 30 ... Tage) und gefiltert über `refPaths` (die Ordner-IDs auf dem Weg nach unten; braucht `sordZ`-Bit 59, das in `mbAllIndex` fehlt). Ein Fenster wird komplett gelesen, bevor das nächste ältere drankommt - die Liste ist also exakt, außer das Budget geht innerhalb eines Fensters aus; dann sagt das Panel das. `docVersion` (Erweiterung, Größe) braucht Bit 54. Der Inhalt kommt per `checkoutDoc` (Download-URL in derselben Sitzung)."
+  es: "Solo en vivo, solo lectura. A la izquierda el árbol de carpetas de ELO; elegís una carpeta y a la derecha aparecen los 50 documentos modificados más recientemente en ella o en cualquier subcarpeta (nombre, ruta, fecha, tamaño), del más nuevo al más viejo. Un clic en un archivo lo abre en un visor: código y texto con resaltado de sintaxis (.js, .json, .xml, .css, .csv, .txt, .md, .properties, ...), el texto de un .docx, PDF e imágenes en el visor del propio navegador. IX no tiene una consulta barata de \"hijos recursivos, más nuevos primero\" - `findChildren` con `endLevel: -1` recorre el subárbol en el servidor (10-30 s en un repositorio mediano) y `FindOptions.sortOrder` no ordena por fecha -, así que el panel usa lo que sí es rápido: la búsqueda indexada por rango `findByIndex.iDateIso` (`\"20260901000000...20260916000000\"`, ~1200 filas/s con un `sordZ` reducido), recorrida hacia atrás por ventanas de tiempo (1, 3, 7, 14, 30 ... días) y filtrada por `refPaths` (los ids de carpeta del camino hacia abajo; requiere el bit 59 de `sordZ`, que `mbAllIndex` no incluye). Cada ventana se lee completa antes de pasar a la anterior, así que la lista es exacta salvo que el presupuesto de lectura se agote dentro de una ventana - y entonces el panel lo dice. `docVersion` (extensión, tamaño) requiere el bit 54. El contenido viene de `checkoutDoc` (URL de descarga en la misma sesión)."
+
+elo_api:
+- method: findFirstSords
+  rpc: POST /rest/IXServicePortIF/findFirstSords
+  doc_url: "{base}/rest/openapi.json"
+  spec: IXServicePortIF/findFirstSords
+  notes:
+    en: '`findByIndex: {iDateIso: "A...B"}` is an indexed range on the modification date; `findByType: {typeDocuments: true}` keeps documents only (`typeDocumentsOnly` is ignored here). `sordZ.bset` = 5 name, 7 IDateIso, 17 ownerName, 54 docVersion, 59 refPaths.'
+    de: '`findByIndex: {iDateIso: "A...B"}` ist ein indizierter Bereich auf dem Änderungsdatum; `findByType: {typeDocuments: true}` behält nur Dokumente (`typeDocumentsOnly` wird hier ignoriert). `sordZ.bset` = 5 name, 7 IDateIso, 17 ownerName, 54 docVersion, 59 refPaths.'
+    es: '`findByIndex: {iDateIso: "A...B"}` es un rango indexado sobre la fecha de modificación; `findByType: {typeDocuments: true}` deja solo documentos (`typeDocumentsOnly` se ignora acá). `sordZ.bset` = 5 name, 7 IDateIso, 17 ownerName, 54 docVersion, 59 refPaths.'
+- method: findNextSords
+  rpc: POST /rest/IXServicePortIF/findNextSords
+  doc_url: "{base}/rest/openapi.json"
+  spec: IXServicePortIF/findNextSords
+  notes:
+    en: 'Pages of 500 with `{searchId, idx, max, sordZ}` until `moreResults` is false; `findClose` releases the search.'
+    de: 'Seiten zu 500 mit `{searchId, idx, max, sordZ}` bis `moreResults` false ist; `findClose` gibt die Suche frei.'
+    es: 'Páginas de 500 con `{searchId, idx, max, sordZ}` hasta que `moreResults` sea false; `findClose` libera la búsqueda.'
+- method: checkoutDoc
+  rpc: POST /rest/IXServicePortIF/checkoutDoc
+  doc_url: "{base}/rest/openapi.json"
+  spec: IXServicePortIF/checkoutDoc
+  notes:
+    en: '`document.docs[0].url` is a download URL valid on the same session (`editInfoZ.bset: "320"`); the client GETs it. Same call as "Upload and download a document".'
+    de: '`document.docs[0].url` ist eine Download-URL für dieselbe Sitzung (`editInfoZ.bset: "320"`); der Client lädt sie per GET. Derselbe Aufruf wie in "Dokument hoch- und herunterladen".'
+    es: '`document.docs[0].url` es una URL de descarga válida en la misma sesión (`editInfoZ.bset: "320"`); el cliente la pide con GET. La misma llamada que en "Subir y descargar un documento".'
+
+result_shape: |
+  newest documents below 'Administration' (last 30 days, 3 found):
+  2026-09-08 11:25  xml   776 B  20260908000000            Administration / XC Base / STATS
+  2026-08-19 11:16  pdf   113 KB Rechnung 4711             Administration / Invoices
+  2026-08-01 09:02  js    1.5 KB $$Config$$                Administration / Business Solutions / common
+
+  --- 20260908000000 (xml) ---
+  <JobStatistics Guid="(8D077947-...)">
+
+snippets:
+  python: |
+    import os
+    from datetime import datetime, timedelta
+    from elo_playground import connect, EloError
+
+    # --- local ELO test box (override with ELOPG_* env vars or a .env) ---
+    ELO_BASE_URL = os.getenv("ELOPG_ELO_BASE_URL", "http://localhost:9090/ix-Repository1") # ELOPG_DEFAULT:base_url
+    ELO_USER = os.getenv("ELOPG_ELO_USER", "Administrator") # ELOPG_DEFAULT:user
+    ELO_PASS = os.getenv("ELOPG_ELO_PASSWORD", "elo") # ELOPG_DEFAULT:password
+
+    elo = connect(base_url=ELO_BASE_URL, user=ELO_USER, password=ELO_PASS)
+
+    # Only the Sord members the listing needs - paging stays fast. SordC bits:
+    # 5 name, 7 IDateIso (modified), 17 ownerName, 54 docVersion, 59 refPaths.
+    LEAN = str((1 << 5) | (1 << 7) | (1 << 17) | (1 << 54) | (1 << 59))
+    FOLDER_ID = "2"          # the folder to look below ("1" = repository root)
+    DAYS_BACK = 30
+
+    # An indexed range search on the modification date. There is no cheap
+    # "recursive children, newest first" in IX: findChildren endLevel -1 walks
+    # the whole subtree server-side and sortOrder does not sort by date.
+    since = (datetime.now() - timedelta(days=DAYS_BACK)).strftime("%Y%m%d%H%M%S")
+    until = (datetime.now() + timedelta(days=1)).strftime("%Y%m%d%H%M%S")
+    res = elo.call("findFirstSords", {
+        "findInfo": {"findByIndex": {"iDateIso": f"{since}...{until}"}, "findByType": {"typeDocuments": True}},
+        "max": 500,
+        "sordZ": {"bset": LEAN},
+    })
+    rows = list(res.get("sords") or [])
+    while res.get("moreResults"):
+        res = elo.call("findNextSords", {"searchId": res["searchId"], "idx": len(rows), "max": 500, "sordZ": {"bset": LEAN}})
+        page = res.get("sords") or []
+        if not page:
+            break
+        rows.extend(page)
+    if res.get("searchId"):
+        elo.call("findClose", {"searchId": res["searchId"]})
+
+
+    def path_of(row):
+        """refPaths[0].path = the folders from below the root down to the parent."""
+        first = (row.get("refPaths") or [{}])[0]
+        return [(str(p["id"]), p["name"]) for p in (first.get("path") or [])]
+
+
+    # keep documents that sit in FOLDER_ID or anywhere below it
+    hits = [r for r in rows if FOLDER_ID == "1" or FOLDER_ID in [i for i, _ in path_of(r)] or str(r.get("parentId")) == FOLDER_ID]
+    hits.sort(key=lambda r: r.get("IDateIso", ""), reverse=True)
+    print(f"newest documents below folder {FOLDER_ID} (last {DAYS_BACK} days, {len(hits)} found):")
+    for r in hits[:50]:
+        dv = r.get("docVersion") or {}
+        d = r["IDateIso"]
+        print(f"{d[:4]}-{d[4:6]}-{d[6:8]} {d[8:10]}:{d[10:12]}  {dv.get('ext', ''):5} {int(dv.get('size', 0)):>8} B  {r['name'][:40]:40} {' / '.join(n for _, n in path_of(r))}")
+
+    # preview the newest one: checkoutDoc hands out a download URL for this session
+    if hits:
+        doc = hits[0]
+        info = elo.call("checkoutDoc", {"objId": str(doc["id"]), "editInfoZ": {"bset": "320", "sordZ": {"bset": "0"}}})
+        first = (info.get("document") or {}).get("docs", [{}])[0]
+        try:
+            data = elo.download(first["url"], max_bytes=200_000)
+            text = data.decode("utf-8-sig", "replace")
+            print(f"\n--- {doc['name']} ({first.get('ext')}) ---\n" + "\n".join(text.splitlines()[:10]))
+        except EloError as exc:
+            print("could not download:", exc)
+
+    elo.close()
+
+  node: |
+    import { connect, EloError } from "elo-playground";
+
+    // --- local ELO test box (override with ELOPG_* env vars or a .env) ---
+    const ELO_BASE_URL = process.env.ELOPG_ELO_BASE_URL || "http://localhost:9090/ix-Repository1"; // ELOPG_DEFAULT:base_url
+    const ELO_USER = process.env.ELOPG_ELO_USER || "Administrator"; // ELOPG_DEFAULT:user
+    const ELO_PASS = process.env.ELOPG_ELO_PASSWORD || "elo"; // ELOPG_DEFAULT:password
+
+    const elo = await connect({ baseUrl: ELO_BASE_URL, user: ELO_USER, password: ELO_PASS });
+
+    // Only the Sord members the listing needs - paging stays fast. SordC bits:
+    // 5 name, 7 IDateIso (modified), 17 ownerName, 54 docVersion, 59 refPaths.
+    const LEAN = String((1n << 5n) | (1n << 7n) | (1n << 17n) | (1n << 54n) | (1n << 59n));
+    const FOLDER_ID = "2"; // the folder to look below ("1" = repository root)
+    const DAYS_BACK = 30;
+
+    const compact = (d) => d.toISOString().replace(/[-:T]/g, "").slice(0, 14);
+    const since = compact(new Date(Date.now() - DAYS_BACK * 86400e3));
+    const until = compact(new Date(Date.now() + 86400e3));
+
+    // An indexed range search on the modification date - there is no cheap
+    // "recursive children, newest first" query in IX.
+    let res = await elo.call("findFirstSords", {
+      findInfo: { findByIndex: { iDateIso: `${since}...${until}` }, findByType: { typeDocuments: true } },
+      max: 500,
+      sordZ: { bset: LEAN },
+    });
+    const rows = [...(res.sords || [])];
+    while (res.moreResults) {
+      res = await elo.call("findNextSords", { searchId: res.searchId, idx: rows.length, max: 500, sordZ: { bset: LEAN } });
+      if (!(res.sords || []).length) break;
+      rows.push(...res.sords);
+    }
+    if (res.searchId) await elo.call("findClose", { searchId: res.searchId });
+
+    // refPaths[0].path = the folders from below the root down to the parent
+    const pathOf = (row) => (((row.refPaths || [])[0] || {}).path || []).map((p) => [String(p.id), p.name]);
+
+    const hits = rows
+      .filter((r) => FOLDER_ID === "1" || pathOf(r).some(([id]) => id === FOLDER_ID) || String(r.parentId) === FOLDER_ID)
+      .sort((a, b) => (b.IDateIso || "").localeCompare(a.IDateIso || ""));
+    console.log(`newest documents below folder ${FOLDER_ID} (last ${DAYS_BACK} days, ${hits.length} found):`);
+    for (const r of hits.slice(0, 50)) {
+      const dv = r.docVersion || {};
+      const d = r.IDateIso;
+      console.log(`${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)} ${d.slice(8, 10)}:${d.slice(10, 12)}  ${(dv.ext || "").padEnd(5)} ${String(dv.size || 0).padStart(8)} B  ${r.name.slice(0, 40).padEnd(40)} ${pathOf(r).map(([, n]) => n).join(" / ")}`);
+    }
+
+    // preview the newest one: checkoutDoc hands out a download URL for this session
+    if (hits.length) {
+      const doc = hits[0];
+      const info = await elo.call("checkoutDoc", { objId: String(doc.id), editInfoZ: { bset: "320", sordZ: { bset: "0" } } });
+      const first = ((info.document || {}).docs || [{}])[0];
+      try {
+        const text = await elo.download(first.url, { maxBytes: 200000 });
+        console.log(`\n--- ${doc.name} (${first.ext}) ---\n` + String(text).split("\n").slice(0, 10).join("\n"));
+      } catch (exc) {
+        if (exc instanceof EloError) console.log("could not download:", exc.message);
+        else throw exc;
+      }
+    }
+    elo.close();
+
+mock:
+  findFirstSords:
+    searchId: "(MOCK-RECENT)"
+    moreResults: false
+    sords:
+    - id: 5001
+      parentId: 4711
+      name: "20260908000000"
+      type: 297
+      IDateIso: "20260908112500"
+      ownerName: "ELO Service"
+      docVersion: {ext: "xml", size: 776}
+      refPaths:
+      - path:
+        - {id: 2, name: "Administration"}
+        - {id: 4710, name: "XC Base"}
+        - {id: 4711, name: "STATS"}
+    - id: 5002
+      parentId: 4720
+      name: "Rechnung 4711"
+      type: 254
+      IDateIso: "20260819111600"
+      ownerName: "Administrator"
+      docVersion: {ext: "pdf", size: 113921}
+      refPaths:
+      - path:
+        - {id: 2, name: "Administration"}
+        - {id: 4720, name: "Invoices"}
+    - id: 5003
+      parentId: 4730
+      name: "$$Config$$"
+      type: 297
+      IDateIso: "20260801090200"
+      ownerName: "Administrator"
+      docVersion: {ext: "js", size: 1579}
+      refPaths:
+      - path:
+        - {id: 2, name: "Administration"}
+        - {id: 1469, name: "Business Solutions"}
+        - {id: 4730, name: "common"}
+    - id: 5004
+      parentId: 900
+      name: "Elsewhere"
+      type: 254
+      IDateIso: "20260901000000"
+      ownerName: "Administrator"
+      docVersion: {ext: "txt", size: 12}
+      refPaths:
+      - path:
+        - {id: 900, name: "Sales"}
+  findClose: {}
+  checkoutDoc:
+    document:
+      docs:
+      - {url: "http://mock/ix/download/5001", ext: "xml"}
+  _download: "<JobStatistics Guid=\"(8D077947-B675-4483-9E43-1F2C0C1E0A11)\">\n  <Job name=\"RECHNUNGSEINGANG\" count=\"12\"/>\n</JobStatistics>\n"

@@ -1,0 +1,212 @@
+id: lab.workflow-usage
+order: 10
+lab_workflows: true
+category:
+  en: Testing lab
+  de: Testlabor
+  es: Laboratorio de pruebas
+title:
+  en: Most used workflows
+  de: Meistgenutzte Workflows
+  es: Workflows más usados
+summary:
+  en: >
+    Live only, read-only. A table of the 25 workflow templates that were
+    started most often, with how many instances are active / finished, when
+    a workflow was last started from the template (and on which object),
+    the first start, the template's description, owner, node count and
+    version. ELO keeps no usage counter on a template, but every started
+    workflow records its `templateId`, so the panel lists the templates
+    (`findFirstWorkflows` with `findInfo.type.bset: "2"`,
+    `WFTypeC.TEMPLATE`), the active instances (`"1"`) and the finished ones
+    (`"4"`) and counts per template. Finished workflows exist only until an
+    administrator or the workflow cleanup job removes them, so "finished"
+    counts what is still on the server. Templates have no description
+    field: the start node's comment (or the version comment) is the closest
+    thing. `wfDiagramZ.bset` picks the `WFDiagram` members - bits 0
+    id/name/version, 4 completionDateIso, 5 nodes, 9 startDateIso, 11
+    ownerName, 15 templateName, 23 objName.
+  de: "Nur live, nur lesend. Eine Tabelle der 25 am häufigsten gestarteten Workflow-Vorlagen mit der Zahl aktiver / beendeter Instanzen, dem letzten Start aus der Vorlage (und dem Objekt dazu), dem ersten Start, Beschreibung, Eigentümer, Knotenzahl und Version. ELO führt keinen Nutzungszähler an der Vorlage, aber jeder gestartete Workflow trägt seine `templateId` - das Panel liest also die Vorlagen (`findFirstWorkflows` mit `findInfo.type.bset: \"2\"`, `WFTypeC.TEMPLATE`), die aktiven Instanzen (`\"1\"`) und die beendeten (`\"4\"`) und zählt je Vorlage. Beendete Workflows existieren nur, bis ein Administrator oder der Workflow-Bereinigungsjob sie entfernt - \"beendet\" zählt also, was noch auf dem Server liegt. Vorlagen haben kein Beschreibungsfeld; der Kommentar des Startknotens (oder der Versionskommentar) kommt dem am nächsten. `wfDiagramZ.bset` wählt die `WFDiagram`-Felder - Bits 0 id/name/version, 4 completionDateIso, 5 nodes, 9 startDateIso, 11 ownerName, 15 templateName, 23 objName."
+  es: "Solo en vivo, solo lectura. Una tabla con las 25 plantillas de workflow más iniciadas, con cuántas instancias hay activas / terminadas, cuándo se inició por última vez un workflow desde la plantilla (y sobre qué objeto), el primer inicio, la descripción de la plantilla, dueño, número de nodos y versión. ELO no lleva un contador de uso en la plantilla, pero cada workflow iniciado registra su `templateId`, así que el panel lista las plantillas (`findFirstWorkflows` con `findInfo.type.bset: \"2\"`, `WFTypeC.TEMPLATE`), las instancias activas (`\"1\"`) y las terminadas (`\"4\"`) y cuenta por plantilla. Los workflows terminados existen solo hasta que un administrador o el job de limpieza los borra, así que \"terminados\" cuenta lo que todavía está en el servidor. Las plantillas no tienen campo de descripción; el comentario del nodo inicial (o el de la versión) es lo más parecido. `wfDiagramZ.bset` elige los campos de `WFDiagram` - bits 0 id/name/version, 4 completionDateIso, 5 nodes, 9 startDateIso, 11 ownerName, 15 templateName, 23 objName."
+
+elo_api:
+- method: findFirstWorkflows
+  rpc: POST /rest/IXServicePortIF/findFirstWorkflows
+  doc_url: "{base}/rest/openapi.json"
+  spec: IXServicePortIF/findFirstWorkflows
+  notes:
+    en: '`findInfo.type` is a `WFTypeZ` bitset, not an int: `{bset: "2"}` templates, `"1"` active, `"4"` finished. Rows come back in `workflows`; page with `findNextWorkflows {searchId, idx, max, wfDiagramZ}` and release with `findClose`.'
+    de: '`findInfo.type` ist ein `WFTypeZ`-Bitset, kein int: `{bset: "2"}` Vorlagen, `"1"` aktiv, `"4"` beendet. Die Zeilen stehen in `workflows`; blättern mit `findNextWorkflows {searchId, idx, max, wfDiagramZ}`, freigeben mit `findClose`.'
+    es: '`findInfo.type` es un bitset `WFTypeZ`, no un int: `{bset: "2"}` plantillas, `"1"` activos, `"4"` terminados. Las filas vienen en `workflows`; paginá con `findNextWorkflows {searchId, idx, max, wfDiagramZ}` y liberá con `findClose`.'
+- method: findNextWorkflows
+  rpc: POST /rest/IXServicePortIF/findNextWorkflows
+  doc_url: "{base}/rest/openapi.json"
+  spec: IXServicePortIF/findNextWorkflows
+  notes:
+    en: 'Same paging contract as findNextSords.'
+    de: 'Dasselbe Blätter-Schema wie findNextSords.'
+    es: 'El mismo esquema de paginación que findNextSords.'
+
+result_shape: |
+  315 templates, 1 active, 0 finished workflows on the server
+
+   #  started  active  finished  last start        template                              nodes  v
+   1        1       1         0  2026-08-19 11:16  sol.contract.contract.extend              4  3.0
+   2        0       0         0                    Bestellanforderung                       17  1.0
+
+snippets:
+  python: |
+    import os
+    from collections import defaultdict
+    from elo_playground import connect
+
+    # --- local ELO test box (override with ELOPG_* env vars or a .env) ---
+    ELO_BASE_URL = os.getenv("ELOPG_ELO_BASE_URL", "http://localhost:9090/ix-Repository1") # ELOPG_DEFAULT:base_url
+    ELO_USER = os.getenv("ELOPG_ELO_USER", "Administrator") # ELOPG_DEFAULT:user
+    ELO_PASS = os.getenv("ELOPG_ELO_PASSWORD", "elo") # ELOPG_DEFAULT:password
+
+    elo = connect(base_url=ELO_BASE_URL, user=ELO_USER, password=ELO_PASS)
+
+    # WFTypeC: 1 = active, 2 = template, 4 = finished (a WFTypeZ bitset, not an int).
+    # WFDiagramC bits: 0 id/name/version, 4 completionDateIso, 5 nodes,
+    # 9 startDateIso, 11 ownerName, 15 templateName, 23 objName.
+    TEMPLATE_Z = str((1 << 0) | (1 << 5) | (1 << 11))
+    INSTANCE_Z = str((1 << 0) | (1 << 4) | (1 << 9) | (1 << 11) | (1 << 15) | (1 << 23))
+
+
+    def find_workflows(wf_type, bset):
+        """findFirstWorkflows / findNextWorkflows / findClose - rows in 'workflows'."""
+        res = elo.call("findFirstWorkflows", {"findInfo": {"type": {"bset": wf_type}}, "max": 500, "wfDiagramZ": {"bset": bset}})
+        rows = list(res.get("workflows") or [])
+        while res.get("moreResults"):
+            res = elo.call("findNextWorkflows", {"searchId": res["searchId"], "idx": len(rows), "max": 500, "wfDiagramZ": {"bset": bset}})
+            if not res.get("workflows"):
+                break
+            rows.extend(res["workflows"])
+        if res.get("searchId"):
+            elo.call("findClose", {"searchId": res["searchId"]})
+        return rows
+
+
+    templates = find_workflows("2", TEMPLATE_Z)
+    active = find_workflows("1", INSTANCE_Z)
+    finished = find_workflows("4", INSTANCE_Z)     # only what cleanup has not removed yet
+    print(f"{len(templates)} templates, {len(active)} active, {len(finished)} finished workflows on the server\n")
+
+    # ELO keeps no usage counter: count the instances per templateId ourselves.
+    stats = defaultdict(lambda: {"started": 0, "active": 0, "finished": 0, "last": "", "last_obj": ""})
+    names = {str(t["id"]): t["name"] for t in templates}
+    for kind, rows in (("active", active), ("finished", finished)):
+        for w in rows:
+            s = stats[str(w.get("templateId"))]
+            s["started"] += 1
+            s[kind] += 1
+            if w.get("startDateIso", "") > s["last"]:
+                s["last"], s["last_obj"] = w["startDateIso"], w.get("objName", "")
+    for t in templates:                      # unused templates still show up, with 0
+        stats.setdefault(str(t["id"]), stats.default_factory())
+
+    ranked = sorted(stats.items(), key=lambda kv: (-kv[1]["started"], names.get(kv[0], kv[0]).lower()))
+    print(f" {'#':>2}  {'started':>7}  {'active':>6}  {'finished':>8}  {'last start':16}  {'template':40}  nodes")
+    for i, (tid, s) in enumerate(ranked[:25], 1):
+        tpl = next((t for t in templates if str(t["id"]) == tid), {})
+        d = s["last"]
+        last = f"{d[:4]}-{d[4:6]}-{d[6:8]} {d[8:10]}:{d[10:12]}" if d else ""
+        # templates carry no description field; the start node's comment is the closest thing
+        desc = ((tpl.get("nodes") or [{}])[0].get("comment") or "").strip()
+        print(f" {i:>2}  {s['started']:>7}  {s['active']:>6}  {s['finished']:>8}  {last:16}  {names.get(tid, tid)[:40]:40}  {len(tpl.get('nodes') or []):>5}" + (f"   {desc[:40]}" if desc else ""))
+
+    elo.close()
+
+  node: |
+    import { connect } from "elo-playground";
+
+    // --- local ELO test box (override with ELOPG_* env vars or a .env) ---
+    const ELO_BASE_URL = process.env.ELOPG_ELO_BASE_URL || "http://localhost:9090/ix-Repository1"; // ELOPG_DEFAULT:base_url
+    const ELO_USER = process.env.ELOPG_ELO_USER || "Administrator"; // ELOPG_DEFAULT:user
+    const ELO_PASS = process.env.ELOPG_ELO_PASSWORD || "elo"; // ELOPG_DEFAULT:password
+
+    const elo = await connect({ baseUrl: ELO_BASE_URL, user: ELO_USER, password: ELO_PASS });
+
+    // WFTypeC: 1 = active, 2 = template, 4 = finished (a WFTypeZ bitset, not an int).
+    // WFDiagramC bits: 0 id/name/version, 4 completionDateIso, 5 nodes,
+    // 9 startDateIso, 11 ownerName, 15 templateName, 23 objName.
+    const TEMPLATE_Z = String((1 << 0) | (1 << 5) | (1 << 11));
+    const INSTANCE_Z = String((1 << 0) | (1 << 4) | (1 << 9) | (1 << 11) | (1 << 15) | (1 << 23));
+
+    async function findWorkflows(wfType, bset) {
+      // findFirstWorkflows / findNextWorkflows / findClose - rows in "workflows"
+      let res = await elo.call("findFirstWorkflows", { findInfo: { type: { bset: wfType } }, max: 500, wfDiagramZ: { bset } });
+      const rows = [...(res.workflows || [])];
+      while (res.moreResults) {
+        res = await elo.call("findNextWorkflows", { searchId: res.searchId, idx: rows.length, max: 500, wfDiagramZ: { bset } });
+        if (!(res.workflows || []).length) break;
+        rows.push(...res.workflows);
+      }
+      if (res.searchId) await elo.call("findClose", { searchId: res.searchId });
+      return rows;
+    }
+
+    const templates = await findWorkflows("2", TEMPLATE_Z);
+    const active = await findWorkflows("1", INSTANCE_Z);
+    const finished = await findWorkflows("4", INSTANCE_Z); // only what cleanup has not removed yet
+    console.log(`${templates.length} templates, ${active.length} active, ${finished.length} finished workflows on the server\n`);
+
+    // ELO keeps no usage counter: count the instances per templateId ourselves.
+    const stats = new Map();
+    const bucket = (tid) => stats.get(tid) || stats.set(tid, { started: 0, active: 0, finished: 0, last: "", lastObj: "" }).get(tid);
+    for (const [kind, rows] of [["active", active], ["finished", finished]]) {
+      for (const w of rows) {
+        const s = bucket(String(w.templateId));
+        s.started += 1;
+        s[kind] += 1;
+        if ((w.startDateIso || "") > s.last) { s.last = w.startDateIso; s.lastObj = w.objName || ""; }
+      }
+    }
+    for (const t of templates) bucket(String(t.id)); // unused templates still show up, with 0
+
+    const names = new Map(templates.map((t) => [String(t.id), t.name]));
+    const ranked = [...stats.entries()].sort((a, b) => b[1].started - a[1].started || (names.get(a[0]) || a[0]).localeCompare(names.get(b[0]) || b[0]));
+    console.log(`  #  started  active  finished  last start        template                                  nodes`);
+    ranked.slice(0, 25).forEach(([tid, s], i) => {
+      const tpl = templates.find((t) => String(t.id) === tid) || {};
+      const d = s.last;
+      const last = d ? `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)} ${d.slice(8, 10)}:${d.slice(10, 12)}` : "";
+      // templates carry no description field; the start node's comment is the closest thing
+      const desc = (((tpl.nodes || [])[0] || {}).comment || "").trim();
+      console.log(` ${String(i + 1).padStart(2)}  ${String(s.started).padStart(7)}  ${String(s.active).padStart(6)}  ${String(s.finished).padStart(8)}  ${last.padEnd(16)}  ${(names.get(tid) || tid).slice(0, 40).padEnd(40)}  ${String((tpl.nodes || []).length).padStart(5)}` + (desc ? `   ${desc.slice(0, 40)}` : ""));
+    });
+    elo.close();
+
+mock:
+  findFirstWorkflows:
+  - searchId: "(MOCK-TEMPLATES)"
+    moreResults: false
+    workflows:
+    - id: 55
+      name: "sol.contract.contract.extend"
+      ownerName: "Administrator"
+      version: {version: "3.0", comment: ""}
+      nodes:
+      - {id: 0, name: "Start", comment: "Extend a contract: collect the new end date, get approval, update the file."}
+      - {id: 1, name: "Approve"}
+      - {id: 2, name: "Update"}
+      - {id: 3, name: "End"}
+    - id: 60
+      name: "Bestellanforderung"
+      ownerName: "Administrator"
+      version: {version: "1.0", comment: ""}
+      nodes:
+      - {id: 0, name: "Start", comment: ""}
+      - {id: 1, name: "Check"}
+      - {id: 2, name: "End"}
+  - searchId: "(MOCK-ACTIVE)"
+    moreResults: false
+    workflows:
+    - {id: 7463, name: "CD000008 Support", templateId: 55, templateName: "sol.contract.contract.extend", startDateIso: "20260819111600", objName: "CD000008 Support", ownerName: "ELO Service"}
+  - searchId: "(MOCK-FINISHED)"
+    moreResults: false
+    workflows:
+    - {id: 7001, name: "CD000003 Hosting", templateId: 55, templateName: "sol.contract.contract.extend", startDateIso: "20260301090000", completionDateIso: "20260302100000", objName: "CD000003 Hosting", ownerName: "Administrator"}
+    - {id: 7002, name: "BANF 2026-17", templateId: 60, templateName: "Bestellanforderung", startDateIso: "20260410120000", completionDateIso: "20260411080000", objName: "BANF 2026-17", ownerName: "Administrator"}
+  findClose: {}

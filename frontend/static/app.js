@@ -2121,6 +2121,301 @@ ${snippet}
   }
   // <<< lab-perms slice
 
+  // Shared by the two panels below: a lazy ELO folder tree (fed by
+  // /api/lab/elo-children) and the "show the code" details block.
+  function wireEloFolderTree(section, { labPost, onSelect }) {
+    const treeEl = section.querySelector(".labfs-tree");
+    const rootUl = treeEl.querySelector(".labfs-root");
+    const loadBtn = treeEl.querySelector(".labfs-load");
+    const selEl = section.querySelector(".labfs-selected");
+    const rowHtml = (r) =>
+      `<li><span class="labfs-toggle${r.child_count ? "" : " leaf"}">${r.child_count ? "▸" : "·"}</span>` +
+      `<button class="labfs-pick" data-id="${esc(r.id)}" data-name="${esc(r.name)}">${esc(r.name)}</button><ul hidden></ul></li>`;
+    async function fill(ul, parentId) {
+      ul.innerHTML = `<li class="hint">…</li>`;
+      const res = await labPost("/api/lab/elo-children", { parent_id: String(parentId) });
+      if (res.error) {
+        ul.innerHTML = `<li class="err">${esc(res.error)}</li>`;
+        return;
+      }
+      ul.innerHTML = (res.rows || []).filter((r) => r.is_folder).map(rowHtml).join("") || `<li class="hint">(empty)</li>`;
+      ul.dataset.loaded = "1";
+    }
+    loadBtn.addEventListener("click", async () => {
+      loadBtn.disabled = true;
+      await fill(rootUl, "1");
+      rootUl.hidden = false;
+      loadBtn.hidden = true;
+    });
+    treeEl.addEventListener("click", async (ev) => {
+      const tog = ev.target.closest(".labfs-toggle");
+      if (tog && !tog.classList.contains("leaf")) {
+        const li = tog.closest("li");
+        const ul = li.querySelector("ul");
+        if (!ul.dataset.loaded) await fill(ul, li.querySelector(".labfs-pick").dataset.id);
+        ul.hidden = !ul.hidden;
+        tog.classList.toggle("open", !ul.hidden);
+        return;
+      }
+      const pick = ev.target.closest(".labfs-pick");
+      if (pick) {
+        treeEl.querySelectorAll(".labfs-pick.active").forEach((b) => b.classList.remove("active"));
+        pick.classList.add("active");
+        if (selEl) selEl.textContent = `${tr("labfs.selected")}: ${pick.dataset.name} (id ${pick.dataset.id})`;
+        onSelect({ id: pick.dataset.id, name: pick.dataset.name });
+      }
+    });
+  }
+  function wireShowCode(panel, url) {
+    let loaded = false;
+    const details = panel.querySelector(".labfs-src");
+    details.addEventListener("toggle", async () => {
+      if (!details.open || loaded) return;
+      loaded = true;
+      const holder = panel.querySelector(".labfs-src-host");
+      holder.innerHTML = `<p class="hint">${esc(tr("run.running"))}</p>`;
+      try {
+        const data = await getJSON(url);
+        const files = [].concat(data.backend || [], data.frontend || []);
+        holder.innerHTML = files
+          .map((f) => `<div class="lib-file"><div class="lib-file-name">${esc(f.title)}</div><pre class="code"><code class="language-${/\.py\b/.test(f.title) ? "python" : "javascript"}">${esc(f.code)}</code></pre></div>`)
+          .join("");
+        if (window.hljs) holder.querySelectorAll("pre code").forEach((el) => window.hljs.highlightElement(el));
+      } catch (e) {
+        holder.innerHTML = `<p class="err">${esc(String(e))}</p>`;
+      }
+    });
+  }
+  function labLiveGuard(panel) {
+    if (!(STATIC || isMock())) return false;
+    const note = panel.querySelector(".labfs-note");
+    note.hidden = false;
+    note.textContent = tr("labfs.needsBackend");
+    panel.querySelectorAll("button, input, select").forEach((el) => {
+      if (el.closest(".labfs-src")) return;
+      if ("disabled" in el) el.disabled = true;
+      el.classList.add("is-off");
+    });
+    return true;
+  }
+  const fmtBytes = (n) => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : n >= 1024 ? `${(n / 1024).toFixed(1)} KB` : `${n} B`);
+
+  // >>> lab-recent slice  (Testing lab: folder tree + newest files + viewer)
+  //
+  // Rendered for a topic with `lab_recent: true`. Live-only endpoints:
+  //   /api/lab/elo-children   - one level of the folder tree
+  //   /api/lab/recent-files   - newest documents below a folder (date windows
+  //                             over findByIndex.iDateIso, see lab_recent.py)
+  //   /api/lab/file-preview   - one document, decoded for the viewer
+  //   GET /api/lab/recent-source
+  function labRecentPanelHtml() {
+    return `
+      <div class="labfs-panel labrec-panel">
+        <p class="labfs-note" hidden></p>
+        <div class="labfs-cols labrec-cols">
+          <section class="labfs-side" data-role="rec-tree">
+            <h3>${esc(tr("labrec.tree"))}</h3>
+            <div class="labfs-tree"><button class="labfs-load">${esc(tr("labfs.loadTree"))}</button><ul class="labfs-root" hidden></ul></div>
+            <p class="labfs-selected">${esc(tr("labrec.selectHint"))}</p>
+          </section>
+          <section class="labfs-side" data-role="rec-files">
+            <div class="labrepo-head">
+              <div><h3>${esc(tr("labrec.files"))}</h3><p class="labrec-status hint">${esc(tr("labrec.selectHint"))}</p></div>
+              <label>${esc(tr("labrec.scanBudget"))} <select class="labrec-budget"><option value="3000">3 000</option><option value="6000" selected>6 000</option><option value="15000">15 000</option><option value="40000">40 000</option></select></label>
+            </div>
+            <div class="labrepo-table-wrap labrec-wrap">
+              <table class="labrepo-table"><thead><tr><th>${esc(tr("labrec.colName"))}</th><th>${esc(tr("labrec.colPath"))}</th><th>${esc(tr("labrec.colDate"))}</th><th>${esc(tr("labrec.colSize"))}</th></tr></thead><tbody></tbody></table>
+            </div>
+          </section>
+        </div>
+        <details class="labfs-src">
+          <summary>${esc(tr("labfs.showCode"))}</summary>
+          <div class="labfs-src-host"></div>
+        </details>
+      </div>`;
+  }
+
+  function wireLabRecent(host) {
+    const panel = host.querySelector(".labrec-panel");
+    if (!panel) return;
+    const labPost = (url, body) => postJSON(url, Object.assign({ credentials: isMock() ? null : creds() }, body));
+    wireShowCode(panel, "/api/lab/recent-source");
+    if (labLiveGuard(panel)) return;
+
+    const filesSection = panel.querySelector('[data-role="rec-files"]');
+    const status = filesSection.querySelector(".labrec-status");
+    const budget = filesSection.querySelector(".labrec-budget");
+    const tbody = filesSection.querySelector("tbody");
+    const EXT_ICON = { pdf: "📕", docx: "📘", doc: "📘", xlsx: "📗", png: "🖼", jpg: "🖼", jpeg: "🖼", gif: "🖼", js: "🟨", json: "🟨", xml: "📰", html: "📰", css: "🎨", md: "📝", txt: "📄", csv: "📊" };
+    let CURRENT = null;
+
+    async function load(folder) {
+      CURRENT = folder;
+      status.textContent = tr("labperm.loading");
+      status.className = "labrec-status hint";
+      tbody.innerHTML = "";
+      const res = await labPost("/api/lab/recent-files", { folder_id: String(folder.id), limit: 50, max_scan: Number(budget.value) });
+      if (res.error) {
+        status.textContent = res.error;
+        status.className = "labrec-status err";
+        return;
+      }
+      const n = res.rows.length;
+      status.textContent =
+        `${n} ${tr("labrec.filesIn")} ${res.folder.name} · ${res.scanned} ${tr("labrec.scanned")} ${res.oldest_scanned}` +
+        (res.complete ? "" : ` · ⚠ ${tr("labrec.incomplete")}`);
+      tbody.innerHTML =
+        res.rows
+          .map(
+            (f) =>
+              `<tr><td><button class="labrepo-file labrec-file" data-id="${esc(f.id)}" title="id ${esc(f.id)} · ${esc(f.owner)}">${EXT_ICON[f.ext] || "📄"} ${esc(f.name)}</button>` +
+              (f.ext ? ` <span class="labperm-count">.${esc(f.ext)}</span>` : "") +
+              `</td><td><code>${esc(f.path)}</code></td><td>${esc(f.modified)}</td><td>${fmtBytes(f.size)}</td></tr>`
+          )
+          .join("") || `<tr><td colspan="4" class="hint">${esc(tr("labrec.none"))}</td></tr>`;
+    }
+
+    // --- the viewer: one modal, content by kind ------------------------------
+    function closeModal(modal) {
+      if (modal.dataset.objectUrl) URL.revokeObjectURL(modal.dataset.objectUrl);
+      modal.remove();
+    }
+    async function openPreview(docId) {
+      status.textContent = tr("labperm.loading");
+      const data = await labPost("/api/lab/file-preview", { doc_id: String(docId) });
+      if (data.error) {
+        status.textContent = data.error;
+        status.className = "labrec-status err";
+        return;
+      }
+      status.className = "labrec-status hint";
+      status.textContent = `${data.name} · ${data.kind}`;
+      const modal = document.createElement("div");
+      modal.className = "labrepo-modal";
+      modal.setAttribute("role", "dialog");
+      modal.setAttribute("aria-modal", "true");
+      let content = "";
+      if (data.kind === "text" || data.kind === "docx") {
+        content = `<pre class="labrepo-code"><code class="language-${esc(data.language || "plaintext")}">${esc(data.text)}</code></pre>`;
+      } else if (data.kind === "pdf" || data.kind === "image") {
+        const bytes = Uint8Array.from(atob(data.b64), (c) => c.charCodeAt(0));
+        const objectUrl = URL.createObjectURL(new Blob([bytes], { type: data.content_type }));
+        modal.dataset.objectUrl = objectUrl;
+        content =
+          data.kind === "pdf"
+            ? `<iframe class="labrepo-pdf" title="${esc(data.name)}" src="${esc(objectUrl)}"></iframe>`
+            : `<img class="labrec-img" alt="${esc(data.name)}" src="${esc(objectUrl)}" />`;
+        content += `<p class="hint"><a href="${esc(objectUrl)}" download="${esc(data.name)}.${esc(data.ext)}">${esc(tr("labrec.download"))}</a></p>`;
+      } else {
+        content = `<p class="hint">${esc(tr("labrec.noPreview"))}: ${esc(data.reason || data.ext)}</p>`;
+      }
+      const meta = `${data.path ? data.path + " / " : ""}${data.name} · ${data.modified} · ${fmtBytes(data.size)}` + (data.truncated ? ` · ${tr("labrec.truncated")}` : "");
+      modal.innerHTML =
+        `<div class="labrepo-dialog"><div class="labrepo-dialog-head"><div><h2>${esc(data.name)}${data.ext ? `.${esc(data.ext)}` : ""}</h2><p>${esc(meta)}</p></div>` +
+        `<button type="button" aria-label="${esc(tr("runtime.close"))}">×</button></div>${content}</div>`;
+      modal.addEventListener("click", (ev) => {
+        if (ev.target === modal) closeModal(modal);
+      });
+      modal.querySelector("button").addEventListener("click", () => closeModal(modal));
+      const onKey = (ev) => {
+        if (ev.key === "Escape") {
+          closeModal(modal);
+          document.removeEventListener("keydown", onKey);
+        }
+      };
+      document.addEventListener("keydown", onKey);
+      document.body.append(modal);
+      const code = modal.querySelector("code");
+      if (window.hljs && code && data.text.length < 400000) window.hljs.highlightElement(code);
+    }
+
+    tbody.addEventListener("click", (ev) => {
+      const b = ev.target.closest(".labrec-file");
+      if (b) openPreview(b.dataset.id);
+    });
+    budget.addEventListener("change", () => {
+      if (CURRENT) load(CURRENT);
+    });
+    wireEloFolderTree(panel.querySelector('[data-role="rec-tree"]'), { labPost, onSelect: load });
+  }
+  // <<< lab-recent slice
+
+  // >>> lab-workflows slice  (Testing lab: most used workflow templates)
+  //
+  // Rendered for a topic with `lab_workflows: true`. Live-only endpoints:
+  //   /api/lab/workflow-usage  - templates ranked by started instances
+  //   GET /api/lab/workflows-source
+  function labWorkflowsPanelHtml() {
+    return `
+      <div class="labfs-panel labwf-panel">
+        <p class="labfs-note" hidden></p>
+        <div class="labrepo-head">
+          <div><h3>${esc(tr("labwf.title"))}</h3><p class="labwf-status hint">${esc(tr("labwf.hint"))}</p></div>
+          <label>${esc(tr("labwf.limit"))} <select class="labwf-limit"><option value="10">10</option><option value="25" selected>25</option><option value="50">50</option><option value="1000">${esc(tr("labwf.all"))}</option></select></label>
+          <button class="labfs-load labwf-load">${esc(tr("labwf.load"))}</button>
+        </div>
+        <div class="labrepo-table-wrap labwf-wrap" hidden>
+          <table class="labrepo-table labwf-table"><thead><tr>
+            <th>#</th><th>${esc(tr("labwf.colTemplate"))}</th><th>${esc(tr("labwf.colStarted"))}</th><th>${esc(tr("labwf.colActive"))}</th><th>${esc(tr("labwf.colFinished"))}</th><th>${esc(tr("labwf.colLast"))}</th><th>${esc(tr("labwf.colFirst"))}</th><th>${esc(tr("labwf.colNodes"))}</th><th>${esc(tr("labwf.colVersion"))}</th><th>${esc(tr("labwf.colOwner"))}</th>
+          </tr></thead><tbody></tbody></table>
+        </div>
+        <details class="labfs-src">
+          <summary>${esc(tr("labfs.showCode"))}</summary>
+          <div class="labfs-src-host"></div>
+        </details>
+      </div>`;
+  }
+
+  function wireLabWorkflows(host) {
+    const panel = host.querySelector(".labwf-panel");
+    if (!panel) return;
+    const labPost = (url, body) => postJSON(url, Object.assign({ credentials: isMock() ? null : creds() }, body));
+    wireShowCode(panel, "/api/lab/workflows-source");
+    if (labLiveGuard(panel)) return;
+
+    const status = panel.querySelector(".labwf-status");
+    const limitSel = panel.querySelector(".labwf-limit");
+    const loadBtn = panel.querySelector(".labwf-load");
+    const wrap = panel.querySelector(".labwf-wrap");
+    const tbody = panel.querySelector("tbody");
+
+    async function load() {
+      loadBtn.disabled = true;
+      status.textContent = tr("labperm.loading");
+      status.className = "labwf-status hint";
+      const res = await labPost("/api/lab/workflow-usage", { limit: Number(limitSel.value) });
+      loadBtn.disabled = false;
+      if (res.error) {
+        status.textContent = res.error;
+        status.className = "labwf-status err";
+        return;
+      }
+      const t = res.totals;
+      status.textContent =
+        `${t.templates} ${tr("labwf.templates")}, ${t.used_templates} ${tr("labwf.used")} · ${t.active} ${tr("labwf.colActive").toLowerCase()}, ${t.finished} ${tr("labwf.colFinished").toLowerCase()}` +
+        (t.finished === 0 ? ` · ${tr("labwf.noFinished")}` : "");
+      wrap.hidden = false;
+      tbody.innerHTML =
+        res.rows
+          .map((r, i) => {
+            const desc = r.description ? `<div class="labwf-desc">${esc(r.description)}</div>` : "";
+            const missing = r.template_exists === false ? ` <span class="labperm-cond" title="${esc(tr("labwf.templateGone"))}">†</span>` : "";
+            const last = r.last_used ? `${esc(r.last_used)}${r.last_object ? `<div class="hint">${esc(r.last_object)}</div>` : ""}` : `<span class="hint">—</span>`;
+            return (
+              `<tr class="${r.count ? "" : "labwf-unused"}"><td>${i + 1}</td><td><b>${esc(r.name)}</b>${missing}${desc}</td>` +
+              `<td class="num">${r.count}</td><td class="num">${r.active}</td><td class="num">${r.finished}</td>` +
+              `<td>${last}</td><td>${esc(r.first_used || "")}</td><td class="num">${r.nodes || ""}</td><td>${esc(r.version || "")}</td><td>${esc(r.owner || "")}</td></tr>`
+            );
+          })
+          .join("") || `<tr><td colspan="10" class="hint">(none)</td></tr>`;
+    }
+    loadBtn.addEventListener("click", load);
+    limitSel.addEventListener("change", () => {
+      if (!wrap.hidden) load();
+    });
+  }
+  // <<< lab-workflows slice
+
   async function openTopic(id) {
     store.set(LS.topic, "t:" + id);
     markActiveNav(`.topiclink[data-topic="${cssEsc(id)}"]`);
@@ -2188,6 +2483,8 @@ ${snippet}
 
         ${topic.lab_fs ? labFsPanelHtml() : ""}
         ${topic.lab_perms ? labPermsPanelHtml() : ""}
+        ${topic.lab_recent ? labRecentPanelHtml() : ""}
+        ${topic.lab_workflows ? labWorkflowsPanelHtml() : ""}
 
         <div class="subtabs">${tabs}</div>
         <div class="snippet-host"></div>
@@ -2244,6 +2541,8 @@ ${snippet}
     if (topic.lab_fs) wireLabFs(host);
     // ---- interactive user/folder permissions panel (topic.lab_perms) --
     if (topic.lab_perms) wireLabPerms(host);
+    if (topic.lab_recent) wireLabRecent(host);
+    if (topic.lab_workflows) wireLabWorkflows(host);
 
     const sub = host.querySelector(".subtabs");
     const snipHost = host.querySelector(".snippet-host");
