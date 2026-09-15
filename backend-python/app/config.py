@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     run_output_cap: int = 262_144     # 256 KiB per stream
 
     project_root: Path = _PROJECT_ROOT
+    # The only local filesystem root exposed by the Test Lab repository browser.
+    # Keep it separate from arbitrary server-side paths accepted by the import tool.
+    local_repository_dir: Path = _PROJECT_ROOT / "sandbox" / "elo-archiv-structure"
 
     # ---- derived paths ------------------------------------------------- #
     @property
