@@ -227,6 +227,7 @@ class LabRecentFilesRequest(BaseModel):
     folder_id: str = "1"
     limit: int = 50
     max_scan: int = 6000                     # rows walked through the date windows at most
+    pattern: str | None = None               # "*.js, *.json" - matched against name.ext
     credentials: EloCreds | None = None
 
 

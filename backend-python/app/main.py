@@ -407,7 +407,7 @@ def api_lab_perm_source():
 # ---- Testing lab: recent files + workflow usage (live only) ------------ #
 @app.post("/api/lab/recent-files")
 def api_lab_recent_files(req: LabRecentFilesRequest):
-    return _lab_guard(lambda: recent_files(_lab_client(req.credentials), req.folder_id, limit=req.limit, max_scan=req.max_scan))
+    return _lab_guard(lambda: recent_files(_lab_client(req.credentials), req.folder_id, limit=req.limit, max_scan=req.max_scan, pattern=req.pattern))
 
 
 @app.post("/api/lab/file-preview")
