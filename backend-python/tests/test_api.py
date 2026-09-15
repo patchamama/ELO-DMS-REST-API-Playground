@@ -118,6 +118,9 @@ def test_lab_endpoints_need_credentials_and_never_500():
         ("/api/lab/perm-special", {"parent_id": "1"}),
         ("/api/lab/perm-diagnose", {"parent_id": "1"}),
         ("/api/lab/perm-org-chart", {}),
+        ("/api/lab/recent-files", {"folder_id": "1"}),
+        ("/api/lab/file-preview", {"doc_id": "1"}),
+        ("/api/lab/workflow-usage", {}),
     ):
         r = client.post(path, json=body)
         assert r.status_code == 200

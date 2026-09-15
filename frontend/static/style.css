@@ -460,3 +460,13 @@ button.fn-ref { background: none; border: 0; padding: 0; color: var(--blue); cur
 @keyframes runtime-progress-slide { 0% { margin-left: 0%; } 50% { margin-left: 65%; } 100% { margin-left: 0%; } }
 .runtime-progress-log { max-height: 7rem; overflow-y: auto; margin: .45rem 0 0; padding: .5rem .6rem; border: 1px solid var(--line); border-radius: .35rem; background: var(--code-bg); font-size: .78rem; line-height: 1.5; white-space: pre-wrap; }
 .runtime-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .5rem; margin-top: .8rem; }
+
+/* ---- Testing lab: recent files + workflow usage ---- */
+.labrec-cols { grid-template-columns: 300px 1fr; }
+.labrec-wrap { max-height: 520px; }
+.labrec-img { display: block; max-width: 100%; max-height: 70vh; margin: 0 auto; }
+.labwf-wrap { margin-top: 10px; max-height: 600px; }
+.labwf-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.labwf-table tr.labwf-unused td { color: var(--muted); }
+.labwf-desc { font-size: 11px; color: var(--muted); margin-top: 2px; max-width: 48ch; }
+.labwf-load { margin-left: auto; }
