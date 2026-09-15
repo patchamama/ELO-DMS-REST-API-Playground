@@ -14,8 +14,8 @@ ELO_PASS = os.getenv("ELOPG_ELO_PASSWORD", "elo") # ELOPG_DEFAULT:password
 elo = connect(base_url=ELO_BASE_URL, user=ELO_USER, password=ELO_PASS)
 ALL = "449304431574384639"  # SordC.mbAllIndex - every Sord field, incl. aclItems
 
-# access bits: 1 R  2 W  4 D  8 edit-rights  16 L  32 P ; 63 = full
-_ACCESS_BITS = [(1, "R"), (2, "W"), (4, "D"), (8, "ER"), (16, "L"), (32, "P")]
+# access bits (AccessC.LUR_*): 1 R  2 W  4 D  8 E  16 L  32 P ; 63 = full
+_ACCESS_BITS = [(1, "R"), (2, "W"), (4, "D"), (8, "E"), (16, "L"), (32, "P")]
 
 
 def access_label(bits):

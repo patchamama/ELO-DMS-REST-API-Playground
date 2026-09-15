@@ -114,6 +114,8 @@ def test_lab_endpoints_need_credentials_and_never_500():
         ("/api/lab/perm-members", {"group_id": "9999"}),
         ("/api/lab/perm-subtree", {"principal": {"kind": "group", "id": "9999"}}),
         ("/api/lab/perm-folder-principals", {"folder_id": "1"}),
+        ("/api/lab/perm-folder-acl", {"folder_id": "1"}),
+        ("/api/lab/perm-special", {"parent_id": "1"}),
     ):
         r = client.post(path, json=body)
         assert r.status_code == 200

@@ -265,6 +265,32 @@ button.fn-ref { background: none; border: 0; padding: 0; color: var(--blue); cur
 .labfs-src summary { cursor: pointer; font-size: 12px; color: var(--blue); }
 .labfs-src-host { margin-top: 8px; }
 
+/* ---- Testing lab: configured local repository browser ---- */
+.labrepo-panel { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+.labrepo-head { display: flex; align-items: end; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+.labrepo-head h3 { margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.labrepo-head .hint { margin: 4px 0 0; font-size: 12px; }
+.labrepo-head label { display: grid; gap: 3px; color: var(--muted); font-size: 12px; }
+.labrepo-folder { min-width: 220px; padding: 4px 7px; border: 1px solid var(--line); border-radius: 5px; font: inherit; }
+.labrepo-status { margin: 9px 0 6px; font-size: 12px; }
+.labrepo-table-wrap { max-height: 300px; overflow: auto; background: #fff; border: 1px solid var(--line); border-radius: 6px; }
+.labrepo-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.labrepo-table th, .labrepo-table td { padding: 7px 9px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+.labrepo-table th { position: sticky; top: 0; background: var(--panel); color: var(--muted); font-size: 11px; }
+.labrepo-table tr:last-child td { border-bottom: 0; }
+.labrepo-table code { font-size: 11px; overflow-wrap: anywhere; }
+.labrepo-file { padding: 0; border: 0; background: none; color: var(--blue); font: inherit; cursor: pointer; text-align: left; }
+.labrepo-file:hover { text-decoration: underline; }
+.labrepo-modal { position: fixed; inset: 0; z-index: 1100; display: grid; place-items: center; padding: 1rem; background: rgba(10,20,35,.58); }
+.labrepo-dialog { width: min(70rem, 100%); max-height: calc(100vh - 2rem); overflow: auto; padding: 1rem; border-radius: 8px; background: #fff; box-shadow: 0 1rem 3rem rgba(0,0,0,.28); }
+.labrepo-dialog-head { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; margin-bottom: .75rem; }
+.labrepo-dialog-head h2 { margin: 0; font-size: 16px; }
+.labrepo-dialog-head p { margin: .25rem 0 0; color: var(--muted); font: 11px monospace; overflow-wrap: anywhere; }
+.labrepo-dialog-head button { min-width: 2rem; font-size: 20px; line-height: 1; cursor: pointer; }
+.labrepo-code { max-height: calc(100vh - 11rem); overflow: auto; margin: 0; padding: 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--code-bg); }
+.labrepo-code code.hljs { padding: 0; background: none; }
+.labrepo-pdf, .labrepo-word { display: block; width: 100%; height: min(70vh, 52rem); border: 1px solid var(--line); }
+
 /* ---- Testing lab: user/folder permissions panel ---- */
 .labperm-modes { display: flex; gap: 6px; margin-bottom: 10px; }
 .labperm-modes button { background: none; border: 1px solid var(--line); border-radius: 6px; padding: 4px 12px; font-size: 12.5px; cursor: pointer; color: var(--ink); }
@@ -283,9 +309,34 @@ button.fn-ref { background: none; border: 0; padding: 0; color: var(--blue); cur
 .labperm-controls { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 0 0 8px; font-size: 12px; color: var(--muted); }
 .labperm-depth { width: 3em; padding: 2px 6px; border: 1px solid var(--line); border-radius: 6px; font: inherit; }
 .labperm-access { font-style: italic; color: var(--muted); margin-left: 4px; font-size: 11.5px; }
-.labperm-noaccess { color: var(--muted); text-decoration: line-through; opacity: .6; }
-.labperm-tree.hide-noaccess .labperm-noaccess { display: none; }
+/* Child combinator on purpose: a struck-through parent row must not drag its
+   nested (possibly accessible) children into the strikethrough. */
+.labperm-noaccess > .labfs-pick, .labperm-noaccess > .labperm-name, .labperm-noaccess > .labperm-access {
+  color: var(--muted); text-decoration: line-through; opacity: .6;
+}
+.labperm-tree.hide-noaccess .labperm-hideable { display: none; }
+.labperm-tree.hide-nonexclusive .labperm-nonexclusive { display: none; }
+.labperm-tree.hide-plain .labperm-plain { display: none; }
+.labperm-cond { color: var(--warn); font-size: 11px; cursor: help; }
+.labperm-excl { color: var(--blue); font-size: 10px; cursor: help; }
+.labperm-diff {
+  display: inline-block; margin-left: 4px; padding: 0 5px; border: 1px solid var(--warn); border-radius: 4px;
+  color: var(--warn); font-size: 10.5px; line-height: 1.5; cursor: help; white-space: nowrap;
+}
+.labperm-inherit { color: var(--muted); font-size: 11px; cursor: help; }
+.labperm-special > .labfs-pick { font-weight: 600; }
 .labperm-usergroups { font-style: italic; color: var(--muted); font-size: 11px; }
+.labperm-usergroups-toggle { color: var(--blue); cursor: pointer; font-size: 11.5px; user-select: none; }
+.labperm-usergroups-list { margin: 2px 0 4px 22px; font-size: 11.5px; color: var(--muted); }
+.labperm-inline-group { font-size: inherit; }
+.labperm-spinner {
+  display: inline-block; width: 11px; height: 11px; margin-right: 3px; vertical-align: -1px;
+  border: 2px solid var(--line); border-top-color: var(--blue); border-radius: 50%;
+  animation: labperm-spin .7s linear infinite;
+}
+@keyframes labperm-spin { to { transform: rotate(360deg); } }
+.labperm-loading { color: var(--muted); }
+.labperm-empty-msg { margin: 6px 0 0; }
 .labperm-admin-badge { color: var(--warn); font-size: 11px; cursor: help; text-decoration: none !important; }
 .labperm-members-toggle { margin-left: 6px; font-size: 11px; color: var(--blue); cursor: pointer; user-select: none; }
 .labperm-members { list-style: none; margin: 2px 0 4px 22px; padding: 0; font-size: 11.5px; color: var(--muted); }
@@ -300,6 +351,12 @@ button.fn-ref { background: none; border: 0; padding: 0; color: var(--blue); cur
 .labperm-toggle-members.open { transform: rotate(90deg); }
 .labperm-count { font-size: 11px; color: var(--muted); }
 .labperm-group-users { list-style: none; margin: 2px 0 4px 26px; padding: 0; }
+.labperm-result-list .labperm-usergroups-toggle { color: var(--blue); }
+.labperm-result-list .labperm-usergroups-list { line-height: 1.5; }
+.labperm-log-bar { display: flex; justify-content: flex-end; margin-top: 10px; }
+.labperm-log-bar button { background: none; border: 1px solid var(--line); border-radius: 6px; padding: 2px 10px; font-size: 11.5px; cursor: pointer; color: var(--muted); }
+.labperm-log-bar button:hover { color: var(--ink); }
+.labperm-log-bar + .labfs-log { margin-top: 4px; }
 
 @media (max-width: 860px) {
   .labfs-cols { grid-template-columns: 1fr; }

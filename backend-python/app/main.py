@@ -27,23 +27,32 @@ from .client_lib import client_lib
 from .config import get_settings
 from .elo_session import EloError, get_client, mock_client
 from .i18n import catalogue
-from .lab_fs import lab_fs_source, list_children, mirror_to_sandbox, upload_tree
+from .lab_fs import (
+    lab_fs_source, list_children, mirror_to_sandbox, upload_tree,
+    repository_folders, repository_files, repository_file,
+)
 from .lab_perms import (
+    folder_acl_detail,
     folder_principals,
     group_members,
     lab_perms_source,
     list_principals,
+    special_folders,
     subtree,
 )
 from .models import (
     EloCreds,
     LabMirrorRequest,
+    LabPermFolderAclRequest,
     LabPermFolderPrincipalsRequest,
     LabPermMembersRequest,
     LabPermPrincipalsRequest,
+    LabPermSpecialRequest,
     LabPermSubtreeRequest,
     LabTreeRequest,
     LabUploadRequest,
+    LabRepositoryBrowseRequest,
+    LabRepositoryFileRequest,
     ProxyRequest,
     RuntimeUpdateRequest,
     RunRequest,
@@ -305,6 +314,22 @@ def api_lab_fs_source():
     return lab_fs_source()
 
 
+# ---- Testing lab: configured local ELO repository browser ---------------- #
+@app.post("/api/lab/repository-folders")
+def api_lab_repository_folders():
+    return _lab_guard(repository_folders)
+
+
+@app.post("/api/lab/repository-files")
+def api_lab_repository_files(req: LabRepositoryBrowseRequest):
+    return _lab_guard(lambda: repository_files(req.folder))
+
+
+@app.post("/api/lab/repository-file")
+def api_lab_repository_file(req: LabRepositoryFileRequest):
+    return _lab_guard(lambda: repository_file(req.path))
+
+
 # ---- Testing lab: user/folder permissions panel (live only) ---------- #
 @app.post("/api/lab/perm-principals")
 def api_lab_perm_principals(req: LabPermPrincipalsRequest):
@@ -332,6 +357,24 @@ def api_lab_perm_subtree(req: LabPermSubtreeRequest):
 @app.post("/api/lab/perm-folder-principals")
 def api_lab_perm_folder_principals(req: LabPermFolderPrincipalsRequest):
     return _lab_guard(lambda: folder_principals(_lab_client(req.credentials), req.folder_id))
+
+
+@app.post("/api/lab/perm-special")
+def api_lab_perm_special(req: LabPermSpecialRequest):
+    return _lab_guard(
+        lambda: special_folders(_lab_client(req.credentials), req.parent_id, depth=req.depth, max_nodes=req.max_nodes)
+    )
+
+
+@app.post("/api/lab/perm-folder-acl")
+def api_lab_perm_folder_acl(req: LabPermFolderAclRequest):
+    return _lab_guard(
+        lambda: folder_acl_detail(
+            _lab_client(req.credentials),
+            req.folder_id,
+            req.principal.model_dump() if req.principal else None,
+        )
+    )
 
 
 @app.get("/api/lab/perm-source")
