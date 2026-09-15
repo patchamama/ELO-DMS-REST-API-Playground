@@ -10,6 +10,9 @@ primitives back the interactive panel:
 * by folder - :func:`folder_principals` resolves every group/user's access to
   one folder, for the reverse "who can see this" view, and
   :func:`folder_acl_detail` lists one folder's raw ACL, decoded, for the log.
+* :func:`special_folders` (ACLs departing from the parent's),
+  :func:`diagnose` (ACL smells with a code the UI explains) and
+  :func:`org_chart` (group nesting + supervisor tree) reuse the same walk.
 
 ELO has no "effective permission" RPC, so :func:`resolve_access` applies the
 IX ACL model (``de.elo.ix.client.AclItemC`` / ``AccessC``) itself:
@@ -168,7 +171,15 @@ def _all_users_with_groups(client: Any) -> list[dict[str, Any]]:
     out = []
     for u in users:
         d = details.get(int(u["id"]), {})
-        out.append({**u, "group_ids": _group_ids_of(d), "is_main_admin": _is_admin(d)})
+        uid = int(u["id"])
+        # UserInfo.superiorId: "ID of the user's superior. If the user does
+        # not have a superior, this value is equal to id." -> None here.
+        sup = _int(d.get("superiorId"), uid)
+        out.append({
+            **u, "group_ids": _group_ids_of(d), "is_main_admin": _is_admin(d),
+            "superior_id": None if sup in (uid, -1) else sup,
+            "org_unit_ids": [_int(o, -1) for o in (d.get("orgUnitIds") or []) if _int(o, -1) >= 0],
+        })
     return out
 
 
@@ -624,6 +635,170 @@ def folder_acl_detail(client: Any, folder_id: str | int, principal: dict[str, An
             **resolve_access(eff, ctx, owner_id=owner_id),
         }
     return out
+
+
+# --------------------------------------------------------------------------- #
+#  org chart: group nesting + supervisor tree
+# --------------------------------------------------------------------------- #
+def org_chart(client: Any) -> dict[str, Any]:
+    """The raw material for two charts. ELO has no org-chart RPC; the
+    structure lives in ``UserInfo``: a *group's* ``groupList`` names its
+    parent groups (nesting), a *user's* ``groupList`` its direct groups and
+    ``superiorId`` its supervisor (equal to the user's own id when there is
+    none). Groups also say whether every user belongs to them (``everyone``,
+    e.g. "Jeder") so a chart can park them aside instead of drawing an edge
+    from every user."""
+    directory = _Directory(client)
+    users = _all_users_with_groups(client)
+    closures = {int(u["id"]): directory.closure(u["group_ids"]) for u in users}
+    direct_count: dict[int, int] = {gid: 0 for gid in directory.name_of}
+    total_count: dict[int, int] = {gid: 0 for gid in directory.name_of}
+    for u in users:
+        for gid in u["group_ids"]:
+            if gid in direct_count:
+                direct_count[gid] += 1
+        for gid in closures[int(u["id"])]:
+            if gid in total_count:
+                total_count[gid] += 1
+    groups = [
+        {
+            "id": g["id"], "name": g["name"],
+            "parent_ids": sorted((str(p) for p in directory.parents.get(int(g["id"]), ())), key=int),
+            "is_main_admin": int(g["id"]) in directory.admin_groups,
+            "member_count": direct_count.get(int(g["id"]), 0),
+            "total_members": total_count.get(int(g["id"]), 0),
+            "everyone": bool(users) and total_count.get(int(g["id"]), 0) == len(users),
+        }
+        for g in directory.groups
+    ]
+    user_ids = {int(u["id"]) for u in users}
+    users_out = [
+        {
+            "id": u["id"], "name": u["name"], "display_name": u["display_name"],
+            "group_ids": sorted((str(g) for g in u["group_ids"]), key=int),
+            "superior_id": str(u["superior_id"]) if u["superior_id"] in user_ids else None,
+            "is_main_admin": u["is_main_admin"],
+        }
+        for u in users
+    ]
+    return {"groups": groups, "users": users_out}
+
+
+# --------------------------------------------------------------------------- #
+#  diagnostics: ACL smells a human should look at
+# --------------------------------------------------------------------------- #
+# bits that make no sense without Read
+_NEEDS_READ = 2 | 4 | 8 | 32
+
+
+def diagnose(client: Any, parent_id: str | int, *, depth: int = 3, max_nodes: int = 1500) -> dict[str, Any]:
+    """Walk the tree below *parent_id* and report ACL findings, each with a
+    ``code`` the UI explains (why it matters, how to fix it):
+
+    * ``orphan_entry``   - an entry names a group/user id that no longer exists
+    * ``admin_only``     - nobody but main administrators can reach the folder
+    * ``write_without_read`` - W/D/E/P granted without R (a trap: the user
+      cannot open what they may change)
+    * ``everyone_full``  - an everyone-group ("Jeder") gains full access here
+      although the parent did not grant it
+    * ``empty_group``    - a granted group has no (transitive) members
+    * ``and_unsatisfiable`` - an AND-group entry no existing user satisfies
+    * ``users_without_groups`` / ``groups_without_members`` - global, once
+    """
+    directory = _Directory(client)
+    users = _all_users_with_groups(client)
+    user_by_id = {int(u["id"]): u for u in users}
+    closures = {int(u["id"]): directory.closure(u["group_ids"]) for u in users}
+    admin_users = {uid for uid, u in user_by_id.items() if u["is_main_admin"]}
+    total_members = {gid: sum(1 for c in closures.values() if gid in c) for gid in directory.name_of}
+    everyone_groups = {gid for gid, n in total_members.items() if users and n == len(users)}
+    findings: list[dict[str, Any]] = []
+    state = {"n": 0, "truncated": False}
+
+    def name_of(entry: dict[str, Any]) -> str:
+        etype, eid = _int(entry.get("type", TYPE_GROUP)), _int(entry.get("id", -1), -1)
+        if entry.get("name"):
+            return str(entry["name"])
+        if etype == TYPE_GROUP:
+            return directory.name_of.get(eid, str(eid))
+        if etype == TYPE_USER and eid in user_by_id:
+            return user_by_id[eid]["name"]
+        return str(eid)
+
+    def add(code: str, folder: dict[str, Any], entry: dict[str, Any] | None = None, **extra: Any) -> None:
+        item: dict[str, Any] = {"code": code, "folder": folder}
+        if entry is not None:
+            etype = _int(entry.get("type", TYPE_GROUP))
+            item["entry"] = {"kind": _TYPE_NAMES.get(etype, str(etype)), "id": str(entry.get("id", "")),
+                             "name": name_of(entry), "access": _int(entry.get("access", 0)),
+                             "label": access_label(_int(entry.get("access", 0)))}
+        item.update(extra)
+        findings.append(item)
+
+    def check(folder: dict[str, Any], eff: list[dict[str, Any]], p_eff: list[dict[str, Any]], owner_id: int | None) -> None:
+        non_admin_reach = False
+        parent_norm = _norm_acl(p_eff)
+        for e in eff:
+            etype, eid, bits = _int(e.get("type", TYPE_GROUP)), _int(e.get("id", -1), -1), _int(e.get("access", 0))
+            if etype == TYPE_GROUP:
+                if eid not in directory.name_of:
+                    add("orphan_entry", folder, e)
+                    continue
+                if bits and eid not in directory.admin_groups:
+                    non_admin_reach = True
+                if bits and total_members.get(eid, 0) == 0:
+                    add("empty_group", folder, e)
+                ands = {_int(a.get("id"), -1) for a in (e.get("andGroups") or []) if isinstance(a, dict)}
+                if bits and ands and not any(eid in c and ands <= c for c in closures.values()):
+                    add("and_unsatisfiable", folder, e, and_groups=[directory.name_of.get(a, str(a)) for a in sorted(ands)])
+                if eid in everyone_groups and bits == _ACCESS_FULL and parent_norm.get(_acl_key(e), 0) != _ACCESS_FULL:
+                    add("everyone_full", folder, e)
+            elif etype == TYPE_USER:
+                if eid not in user_by_id:
+                    add("orphan_entry", folder, e)
+                    continue
+                if bits and eid not in admin_users:
+                    non_admin_reach = True
+            elif etype == TYPE_OWNER:
+                if bits and owner_id is not None and owner_id in user_by_id and owner_id not in admin_users:
+                    non_admin_reach = True
+            if bits & _NEEDS_READ and not bits & 1 and etype in (TYPE_GROUP, TYPE_USER, TYPE_OWNER):
+                add("write_without_read", folder, e)
+        if not non_admin_reach:
+            add("admin_only", folder, entries=len(eff))
+
+    def visit(p: str | int, p_path: str, levels_remaining: int, p_eff: list[dict[str, Any]]) -> None:
+        for child in folder_children(client, p):
+            if state["n"] >= max_nodes:
+                state["truncated"] = True
+                return
+            state["n"] += 1
+            eff = _effective_acl(child["acl_items"], p_eff)
+            folder = {"id": child["id"], "name": child["name"], "path": f"{p_path} / {child['name']}" if p_path else child["name"]}
+            check(folder, eff, p_eff, child["owner_id"])
+            if levels_remaining > 1 and child["child_count"] and not state["truncated"]:
+                visit(child["id"], folder["path"], levels_remaining - 1, eff)
+
+    parent_sord = _sord(client, parent_id)
+    visit(parent_id, "", max(1, depth), effective_acl_of(client, parent_id, sord=parent_sord))
+
+    # global, directory-level findings - once, not per folder
+    for u in users:
+        if not u["is_main_admin"] and not (u["group_ids"] - everyone_groups):
+            findings.append({"code": "users_without_groups", "entry": {"kind": "user", "id": u["id"], "name": u["name"]}})
+    for g in directory.groups:
+        gid = int(g["id"])
+        if total_members.get(gid, 0) == 0 and gid not in directory.admin_groups:
+            findings.append({"code": "groups_without_members", "entry": {"kind": "group", "id": g["id"], "name": g["name"]}})
+
+    summary: dict[str, int] = {}
+    for f in findings:
+        summary[f["code"]] = summary.get(f["code"], 0) + 1
+    return {
+        "parent": {"id": str(parent_id), "name": str(parent_sord.get("name") or parent_id)},
+        "scanned": state["n"], "truncated": state["truncated"],
+        "findings": findings, "summary": summary,
+    }
 
 
 # --------------------------------------------------------------------------- #

@@ -396,6 +396,67 @@ def test_folder_acl_detail_at_the_root_has_no_diff():
 
 
 # --------------------------------------------------------------------------- #
+#  org chart + diagnostics
+# --------------------------------------------------------------------------- #
+_USERS_DETAIL_SUP = {"result": [
+    {"id": 0, "name": "Administrator", "flags": 1, "groupList": [9999], "superiorId": 0},
+    {"id": 12, "name": "m.muster", "flags": 0, "groupList": [9999, 151], "superiorId": 13},
+    {"id": 13, "name": "a.gruber", "flags": 0, "groupList": [9999], "superiorId": 13},
+]}
+
+
+def test_org_chart_reports_parent_groups_member_counts_and_supervisors():
+    client = MockEloClient({"findFirstUsers": [_GROUPS_PAGE, _USERS_PAGE],
+                            "checkoutUsers": [_GROUPS_DETAIL, _USERS_DETAIL_SUP], "findClose": {}})
+    res = lab_perms.org_chart(client)
+    g = {x["name"]: x for x in res["groups"]}
+    assert g["Sales-Leads"]["parent_ids"] == ["150"] and g["Sales-Team"]["parent_ids"] == ["9999"]
+    assert g["Sales-Team"]["member_count"] == 0 and g["Sales-Team"]["total_members"] == 1   # via Sales-Leads
+    assert g["Jeder"]["everyone"] is True and g["Sales-Team"]["everyone"] is False
+    u = {x["name"]: x for x in res["users"]}
+    assert u["m.muster"]["superior_id"] == "13" and u["a.gruber"]["superior_id"] is None
+    assert u["Administrator"]["superior_id"] is None and u["Administrator"]["is_main_admin"] is True
+
+
+def test_diagnose_reports_each_smell_once_with_its_code():
+    # _Directory (findFirstUsers#1 + checkoutUsers#1), users (findFirstUsers#2
+    # + checkoutUsers#2), checkoutSord(parent), findFirstSords per level.
+    rows = {"searchId": "(root)", "sords": [
+        {"id": 1, "parentId": 1, "name": "Ghost", "type": 1, "childCount": 0, "ownerId": 0,
+         "aclItems": [{"id": 4242, "type": 0, "access": 63}, {"id": 0, "type": 1, "access": 63}]},          # orphan group + admin -> admin_only too
+        {"id": 2, "parentId": 1, "name": "WriteOnly", "type": 1, "childCount": 0, "ownerId": 0,
+         "aclItems": [{"id": 150, "type": 0, "access": 2}]},                                               # W without R
+        {"id": 3, "parentId": 1, "name": "OpenBar", "type": 1, "childCount": 0, "ownerId": 0,
+         "aclItems": [{"id": 9999, "type": 0, "access": 63}]},                                             # everyone gains full (parent gave R)
+        {"id": 4, "parentId": 1, "name": "Empty", "type": 1, "childCount": 0, "ownerId": 0,
+         "aclItems": [{"id": 152, "type": 0, "access": 63}]},                                              # group without members
+        {"id": 5, "parentId": 1, "name": "Impossible", "type": 1, "childCount": 0, "ownerId": 0,
+         "aclItems": [{"id": 150, "type": 0, "access": 63, "andGroups": [{"id": 152, "name": "Nobody"}]}]},  # AND nobody satisfies
+        {"id": 6, "parentId": 1, "name": "Fine", "type": 1, "childCount": 0, "ownerId": 0,
+         "aclItems": [{"id": 150, "type": 0, "access": 63}]},
+    ]}
+    groups_page = {"moreResults": False, "sortedResult": _GROUPS_PAGE["sortedResult"] + [{"id": 152, "name": "Nobody", "type": 0}]}
+    groups_detail = {"result": _GROUPS_DETAIL["result"] + [{"id": 152, "name": "Nobody", "flags": 0, "groupList": []}]}
+    root = {"sord": {"id": 1, "name": "Contelo", "parentId": 0, "aclItems": [{"id": 9999, "type": 0, "access": 1}]}}
+    client = MockEloClient({"findFirstUsers": [groups_page, _USERS_PAGE], "checkoutUsers": [groups_detail, _USERS_DETAIL_SUP],
+                            "checkoutSord": root, "findFirstSords": rows, "findClose": {}})
+    res = lab_perms.diagnose(client, "1", depth=1)
+    by_code = {}
+    for f in res["findings"]:
+        by_code.setdefault(f["code"], []).append(f)
+    assert [f["folder"]["name"] for f in by_code["orphan_entry"]] == ["Ghost"] and by_code["orphan_entry"][0]["entry"]["id"] == "4242"
+    assert [f["folder"]["name"] for f in by_code["admin_only"]] == ["Ghost"]
+    assert [f["folder"]["name"] for f in by_code["write_without_read"]] == ["WriteOnly"]
+    assert [f["folder"]["name"] for f in by_code["everyone_full"]] == ["OpenBar"]
+    assert [f["folder"]["name"] for f in by_code["empty_group"]] == ["Empty"]
+    assert [f["folder"]["name"] for f in by_code["and_unsatisfiable"]] == ["Impossible"] and by_code["and_unsatisfiable"][0]["and_groups"] == ["Nobody"]
+    assert [f["entry"]["name"] for f in by_code["users_without_groups"]] == ["a.gruber"]   # only in Jeder
+    assert [f["entry"]["name"] for f in by_code["groups_without_members"]] == ["Nobody"]
+    assert res["scanned"] == 6 and res["summary"]["admin_only"] == 1
+    assert by_code["everyone_full"][0]["folder"]["path"] == "OpenBar"
+
+
+# --------------------------------------------------------------------------- #
 def test_lab_perms_source_returns_real_files():
     src = lab_perms.lab_perms_source()
     assert any("lab_perms.py" in f["title"] for f in src["backend"])

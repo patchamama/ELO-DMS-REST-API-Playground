@@ -32,20 +32,24 @@ from .lab_fs import (
     repository_folders, repository_files, repository_file,
 )
 from .lab_perms import (
+    diagnose,
     folder_acl_detail,
     folder_principals,
     group_members,
     lab_perms_source,
     list_principals,
+    org_chart,
     special_folders,
     subtree,
 )
 from .models import (
     EloCreds,
     LabMirrorRequest,
+    LabPermDiagnoseRequest,
     LabPermFolderAclRequest,
     LabPermFolderPrincipalsRequest,
     LabPermMembersRequest,
+    LabPermOrgChartRequest,
     LabPermPrincipalsRequest,
     LabPermSpecialRequest,
     LabPermSubtreeRequest,
@@ -364,6 +368,18 @@ def api_lab_perm_special(req: LabPermSpecialRequest):
     return _lab_guard(
         lambda: special_folders(_lab_client(req.credentials), req.parent_id, depth=req.depth, max_nodes=req.max_nodes)
     )
+
+
+@app.post("/api/lab/perm-diagnose")
+def api_lab_perm_diagnose(req: LabPermDiagnoseRequest):
+    return _lab_guard(
+        lambda: diagnose(_lab_client(req.credentials), req.parent_id, depth=req.depth, max_nodes=req.max_nodes)
+    )
+
+
+@app.post("/api/lab/perm-org-chart")
+def api_lab_perm_org_chart(req: LabPermOrgChartRequest):
+    return _lab_guard(lambda: org_chart(_lab_client(req.credentials)))
 
 
 @app.post("/api/lab/perm-folder-acl")

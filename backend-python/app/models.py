@@ -192,6 +192,23 @@ class LabPermSpecialRequest(BaseModel):
     credentials: EloCreds | None = None
 
 
+class LabPermDiagnoseRequest(BaseModel):
+    """ACL findings below ``parent_id`` (orphan entries, admin-only folders,
+    write-without-read, ...), recursed up to ``depth`` levels."""
+
+    parent_id: str = "1"
+    depth: int = 3
+    max_nodes: int = 1500
+    credentials: EloCreds | None = None
+
+
+class LabPermOrgChartRequest(BaseModel):
+    """Groups with their parent groups and users with their direct groups
+    and supervisor - the data behind the org chart."""
+
+    credentials: EloCreds | None = None
+
+
 class LabPermFolderAclRequest(BaseModel):
     """One folder's ACL, decoded, optionally with how ``principal`` resolves
     against it - what the panel prints in its log when a folder is clicked."""

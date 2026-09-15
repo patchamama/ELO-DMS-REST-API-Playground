@@ -1202,6 +1202,8 @@ ${snippet}
             <button type="button" class="active" data-mode="byPrincipal">${esc(tr("labperm.modeByPrincipal"))}</button>
             <button type="button" data-mode="byFolder">${esc(tr("labperm.modeByFolder"))}</button>
             <button type="button" data-mode="bySpecial" title="${esc(tr("labperm.modeSpecialTitle"))}">${esc(tr("labperm.modeSpecial"))}</button>
+            <button type="button" data-mode="byDiag" title="${esc(tr("labperm.modeDiagTitle"))}">${esc(tr("labperm.modeDiag"))}</button>
+            <button type="button" data-mode="byOrg" title="${esc(tr("labperm.modeOrgTitle"))}">${esc(tr("labperm.modeOrg"))}</button>
           </div>
           <label class="labperm-only-access"><input type="checkbox" class="labperm-only-access-cb" /> ${esc(tr("labperm.onlyWithAccess"))}</label>
           <label class="labperm-only-access" title="${esc(tr("labperm.exclusiveTitle"))}"><input type="checkbox" class="labperm-exclusive-cb" /> ${esc(tr("labperm.exclusive"))}</label>
@@ -1261,6 +1263,33 @@ ${snippet}
             </div>
             <div class="labfs-tree labperm-tree"><button class="labfs-load labperm-load-special">${esc(tr("labperm.loadSpecial"))}</button><ul class="labperm-special-root" hidden></ul></div>
             <p class="labperm-empty-msg hint" hidden>${esc(tr("labperm.noSpecialFolders"))}</p>
+          </section>
+        </div>
+
+        <div class="labperm-mode-host" data-mode-host="byDiag" hidden>
+          <section class="labfs-side" data-role="perm-diag">
+            <div class="labperm-controls">
+              <label>${esc(tr("labperm.depthLabel"))} <input type="number" class="labperm-depth" min="1" max="6" value="3" /></label>
+              <button class="labfs-load labperm-run-diag">${esc(tr("labperm.runDiag"))}</button>
+              <span class="labperm-diag-status hint"></span>
+            </div>
+            <div class="labperm-diag-results"></div>
+          </section>
+        </div>
+
+        <div class="labperm-mode-host" data-mode-host="byOrg" hidden>
+          <section class="labfs-side" data-role="perm-org">
+            <div class="labperm-controls">
+              <div class="labperm-modes">
+                <button type="button" class="active" data-chart="groups">${esc(tr("labperm.orgGroups"))}</button>
+                <button type="button" data-chart="superiors">${esc(tr("labperm.orgSuperiors"))}</button>
+              </div>
+              <button class="labfs-load labperm-load-org">${esc(tr("labperm.loadOrg"))}</button>
+              <label><input type="checkbox" class="labperm-org-hide-empty" checked /> ${esc(tr("labperm.orgHideEmpty"))}</label>
+              <span class="labperm-org-status hint"></span>
+              <details class="labperm-legend"><summary>${esc(tr("labperm.legend"))}</summary><p class="hint">${esc(tr("labperm.orgLegend"))}</p></details>
+            </div>
+            <div class="labperm-org-host"></div>
           </section>
         </div>
 
@@ -1488,15 +1517,15 @@ ${snippet}
     const modeHosts = panel.querySelectorAll(".labperm-mode-host");
     const onlyAccessCb = panel.querySelector(".labperm-only-access-cb");
     const exclusiveCb = panel.querySelector(".labperm-exclusive-cb");
-    const wired = { byPrincipal: false, byFolder: false, bySpecial: false };
-    const wireFor = { byPrincipal: wireByPrincipal, byFolder: wireByFolder, bySpecial: wireBySpecial };
+    const wired = { byPrincipal: false, byFolder: false, bySpecial: false, byDiag: false, byOrg: false };
+    const wireFor = { byPrincipal: wireByPrincipal, byFolder: wireByFolder, bySpecial: wireBySpecial, byDiag: wireDiagnostics, byOrg: wireOrgChart };
     modeButtons.forEach((btn) => {
       btn.addEventListener("click", () => {
         const mode = btn.dataset.mode;
         modeButtons.forEach((b) => b.classList.toggle("active", b === btn));
         modeHosts.forEach((h) => (h.hidden = h.dataset.modeHost !== mode));
         // the two topbar filters only mean something in modes A and B
-        panel.querySelectorAll(".labperm-only-access").forEach((l) => (l.hidden = mode === "bySpecial"));
+        panel.querySelectorAll(".labperm-only-access").forEach((l) => (l.hidden = mode !== "byPrincipal" && mode !== "byFolder"));
         if (!wired[mode]) {
           wired[mode] = true;
           wireFor[mode]();
@@ -1884,6 +1913,206 @@ ${snippet}
       onlySpecial.addEventListener("change", () => {
         treeEl.classList.toggle("hide-plain", onlySpecial.checked);
         refreshEmptyState();
+      });
+    }
+
+    // --- Mode D: diagnostics - ACL smells, each explained (why / how to fix) --
+    // The backend only emits a `code` per finding; the wording lives in i18n
+    // as labperm.diag.<code>.{title,why,fix}, so the explanations translate.
+    const DIAG_SEVERITY = {
+      write_without_read: "err", everyone_full: "err",
+      orphan_entry: "warn", admin_only: "warn", and_unsatisfiable: "warn",
+      empty_group: "info", users_without_groups: "info", groups_without_members: "info",
+    };
+    const DIAG_ORDER = Object.keys(DIAG_SEVERITY);
+    const SEV_ICON = { err: "⛔", warn: "⚠", info: "ℹ" };
+    function wireDiagnostics() {
+      const section = panel.querySelector('[data-role="perm-diag"]');
+      const depthInput = section.querySelector(".labperm-depth");
+      const runBtn = section.querySelector(".labperm-run-diag");
+      const status = section.querySelector(".labperm-diag-status");
+      const results = section.querySelector(".labperm-diag-results");
+
+      const entryHtml = (e) =>
+        e ? `<span class="labperm-name">${ACL_ICON[e.kind] || "•"} ${esc(e.name)}</span>` + (e.label ? ` <em class="labperm-access">(${esc(e.label)})</em>` : "") : "";
+      const findingHtml = (f) => {
+        const folder = f.folder
+          ? `<button class="labfs-pick labperm-diag-folder" data-id="${esc(f.folder.id)}" title="id ${esc(f.folder.id)}">📁 ${esc(f.folder.path || f.folder.name)}</button>`
+          : "";
+        const ands = f.and_groups ? ` <span class="hint">AND ${esc(f.and_groups.join(", "))}</span>` : "";
+        const n = typeof f.entries === "number" ? ` <span class="hint">(${f.entries} ${tr("labperm.diagEntries")})</span>` : "";
+        return `<li>${folder}${folder && f.entry ? " — " : ""}${entryHtml(f.entry)}${ands}${n}</li>`;
+      };
+
+      function render(res) {
+        const groups = new Map();
+        res.findings.forEach((f) => {
+          if (!groups.has(f.code)) groups.set(f.code, []);
+          groups.get(f.code).push(f);
+        });
+        const codes = DIAG_ORDER.filter((c) => groups.has(c)).concat(Array.from(groups.keys()).filter((c) => !DIAG_ORDER.includes(c)));
+        if (!codes.length) {
+          results.innerHTML = `<p class="hint">✓ ${esc(tr("labperm.diagNone"))}</p>`;
+          return;
+        }
+        results.innerHTML = codes
+          .map((code) => {
+            const sev = DIAG_SEVERITY[code] || "info";
+            const items = groups.get(code);
+            const t = (k) => tr(`labperm.diag.${code}.${k}`);
+            return (
+              `<details class="labperm-diag-group sev-${sev}"${sev === "err" ? " open" : ""}>` +
+              `<summary><span class="labperm-diag-sev">${SEV_ICON[sev]}</span> ${esc(t("title"))} <span class="labperm-count">[${items.length}]</span></summary>` +
+              `<div class="labperm-diag-body">` +
+              `<p><b>${esc(tr("labperm.diagWhy"))}</b> ${esc(t("why"))}</p>` +
+              `<p><b>${esc(tr("labperm.diagFix"))}</b> ${esc(t("fix"))}</p>` +
+              `<ul class="labperm-diag-list">${items.map(findingHtml).join("")}</ul>` +
+              `</div></details>`
+            );
+          })
+          .join("");
+      }
+
+      runBtn.addEventListener("click", async () => {
+        runBtn.disabled = true;
+        status.textContent = tr("labperm.loading");
+        results.innerHTML = "";
+        const depth = Math.max(1, Math.min(6, Number(depthInput.value) || 1));
+        const res = await labPost("/api/lab/perm-diagnose", { parent_id: "1", depth });
+        runBtn.disabled = false;
+        if (res.error) {
+          status.textContent = "";
+          results.innerHTML = `<p class="err">${esc(explainError(res.error))}</p>`;
+          return;
+        }
+        status.textContent = `${res.scanned} ${tr("labperm.diagScanned")}, ${res.findings.length} ${tr("labperm.diagFindings")}` + (res.truncated ? ` — ${tr("labperm.truncated")}` : "");
+        render(res);
+        say(`  ${tr("labperm.modeDiag")} (${res.parent.name}): ` + Object.entries(res.summary).map(([c, n]) => `${tr(`labperm.diag.${c}.title`)}: ${n}`).join(" · "));
+      });
+
+      // a finding's folder dumps its ACL into the log, like everywhere else
+      results.addEventListener("click", async (ev) => {
+        const pick = ev.target.closest(".labperm-diag-folder");
+        if (!pick) return;
+        const res = await labPost("/api/lab/perm-folder-acl", { folder_id: String(pick.dataset.id) });
+        if (res.error) return say("! " + explainError(res.error), true);
+        sayAcl(res.folder, res.entries, res.owner, null, res.diff);
+      });
+    }
+
+    // --- Mode E: org chart - group nesting, or the supervisor tree -----------
+    // ELO has no org-chart RPC; a group's UserInfo.groupList names its parent
+    // groups and a user's superiorId its supervisor. Drawn as a CSS tree:
+    // roots side by side, children below. A group under several parents is
+    // drawn under each (marked ↗). Clicking a node reveals its members
+    // (groups) or its groups (users).
+    function wireOrgChart() {
+      const section = panel.querySelector('[data-role="perm-org"]');
+      const chartButtons = section.querySelectorAll(".labperm-modes button");
+      const loadBtn = section.querySelector(".labperm-load-org");
+      const status = section.querySelector(".labperm-org-status");
+      const host = section.querySelector(".labperm-org-host");
+      const hideEmpty = section.querySelector(".labperm-org-hide-empty");
+      let DATA = null;
+      let CHART = "groups";
+      hideEmpty.addEventListener("change", () => render());
+
+      const admin = (p) => (p.is_main_admin ? ` <span class="labperm-admin-badge" title="${esc(tr("labperm.mainAdmin"))}">★</span>` : "");
+
+      function groupsForest() {
+        const byId = new Map(DATA.groups.map((g) => [g.id, g]));
+        // an everyone-group ("Jeder") is the parent of half the directory and
+        // says nothing about structure - it is drawn as a lone dashed node
+        // and never as a parent.
+        const realParents = (g) => g.parent_ids.filter((p) => byId.has(p) && !byId.get(p).everyone);
+        const children = new Map();
+        DATA.groups.forEach((g) => realParents(g).forEach((p) => {
+          if (!children.has(p)) children.set(p, []);
+          children.get(p).push(g);
+        }));
+        const membersOf = (gid) => DATA.users.filter((u) => u.group_ids.includes(gid));
+        const shown = (g) => !hideEmpty.checked || g.total_members > 0 || (children.get(g.id) || []).length > 0;
+        const node = (g, path) => {
+          const kids = (children.get(g.id) || []).filter((k) => !path.has(k.id) && shown(k));
+          const parents = realParents(g);
+          const again = parents.length > 1 ? ` <span class="labperm-org-multi" title="${esc(tr("labperm.orgMultiParent"))}: ${esc(parents.map((p) => byId.get(p).name).join(", "))}">↗</span>` : "";
+          const members = membersOf(g.id);
+          return (
+            `<li><div class="labperm-org-node${g.everyone ? " everyone" : ""}" data-kind="group" data-id="${esc(g.id)}" title="id ${esc(g.id)} · ${members.length} ${esc(tr("labperm.showMembers"))}, ${g.total_members} ${esc(tr("labperm.orgTotal"))}">` +
+            `👥 ${esc(g.name)}${admin(g)}${again} <span class="labperm-count">[👤 ${members.length}]</span>` +
+            `<div class="labperm-org-members" hidden>${members.length ? members.map((u) => `👤 ${esc(u.name)}${admin(u)}`).join(", ") : `<span class="hint">${esc(tr("labperm.emptyGroup"))}</span>`}</div>` +
+            `</div>` +
+            (kids.length ? `<ul>${kids.map((k) => node(k, new Set([...path, g.id]))).join("")}</ul>` : "") +
+            `</li>`
+          );
+        };
+        const roots = DATA.groups.filter((g) => realParents(g).length === 0 && shown(g));
+        // nested groups first (they make a tree), then the flat ones, then everyone-groups
+        roots.sort((a, b) => ((children.get(b.id) || []).length - (children.get(a.id) || []).length) || (a.everyone - b.everyone) || a.name.localeCompare(b.name));
+        return `<ul>${roots.map((g) => node(g, new Set())).join("")}</ul>`;
+      }
+
+      function superiorsForest() {
+        const byId = new Map(DATA.users.map((u) => [u.id, u]));
+        const groupName = new Map(DATA.groups.map((g) => [g.id, g.name]));
+        const reports = new Map();
+        DATA.users.forEach((u) => {
+          if (u.superior_id && byId.has(u.superior_id) && u.superior_id !== u.id) {
+            if (!reports.has(u.superior_id)) reports.set(u.superior_id, []);
+            reports.get(u.superior_id).push(u);
+          }
+        });
+        const node = (u, path) => {
+          const kids = (reports.get(u.id) || []).filter((k) => !path.has(k.id));
+          const groups = u.group_ids.map((g) => groupName.get(g) || g).sort((a, b) => a.localeCompare(b));
+          return (
+            `<li><div class="labperm-org-node" data-kind="user" data-id="${esc(u.id)}" title="id ${esc(u.id)}">` +
+            `👤 ${esc(u.display_name || u.name)}${admin(u)}` + (kids.length ? ` <span class="labperm-count">[👤 ${kids.length}]</span>` : "") +
+            `<div class="labperm-org-members" hidden>${groups.length ? `👥 ${groups.map(esc).join(", ")}` : `<span class="hint">${esc(tr("labperm.orgNoGroups"))}</span>`}</div>` +
+            `</div>` +
+            (kids.length ? `<ul>${kids.map((k) => node(k, new Set([...path, u.id]))).join("")}</ul>` : "") +
+            `</li>`
+          );
+        };
+        const roots = DATA.users.filter((u) => !u.superior_id || !byId.has(u.superior_id));
+        roots.sort((a, b) => ((reports.get(b.id) || []).length - (reports.get(a.id) || []).length) || a.name.localeCompare(b.name));
+        return `<ul>${roots.map((u) => node(u, new Set())).join("")}</ul>`;
+      }
+
+      function render() {
+        if (!DATA) return;
+        host.innerHTML = `<div class="labperm-orgtree">${CHART === "groups" ? groupsForest() : superiorsForest()}</div>`;
+        const withBoss = DATA.users.filter((u) => u.superior_id).length;
+        status.textContent = `${DATA.groups.length} ${tr("labperm.groupsTab")}, ${DATA.users.length} ${tr("labperm.usersTab")}, ${withBoss} ${tr("labperm.orgWithSuperior")}`;
+      }
+
+      chartButtons.forEach((b) =>
+        b.addEventListener("click", () => {
+          chartButtons.forEach((x) => x.classList.toggle("active", x === b));
+          CHART = b.dataset.chart;
+          render();
+        })
+      );
+      loadBtn.addEventListener("click", async () => {
+        loadBtn.disabled = true;
+        status.textContent = tr("labperm.loading");
+        const res = await labPost("/api/lab/perm-org-chart", {});
+        loadBtn.disabled = false;
+        if (res.error) {
+          status.textContent = "";
+          host.innerHTML = `<p class="err">${esc(explainError(res.error))}</p>`;
+          return;
+        }
+        DATA = res;
+        render();
+      });
+      // a node toggles its members / groups box
+      host.addEventListener("click", (ev) => {
+        const node = ev.target.closest(".labperm-org-node");
+        if (!node) return;
+        const box = node.querySelector(".labperm-org-members");
+        box.hidden = !box.hidden;
+        node.classList.toggle("open", !box.hidden);
       });
     }
 
