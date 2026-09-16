@@ -1,5 +1,5 @@
 # import the shared client:  from elo_playground import connect
-# topic:    Copy a GRP (index) field value into a MAP field
+# topic:    Copy between GRP (index) fields and MAP fields
 # category: Testing lab
 # id:       lab.grp-to-map
 
@@ -45,6 +45,28 @@ try:
         "keyNames": ["*"], "lockZ": {"bset": "0"},
     })
     print("MAP read-back:", got.get("items"))
+
+    # --- the other way round: MAP -> GRP -------------------------------
+    # A GRP field is a line of the object's mask, so it must already exist
+    # (the interactive panel can add one). Write a MAP value, then set the
+    # matching objKeys entry and check the Sord in.
+    elo.call("checkinMap", {
+        "objId": int(obj_id), "domainName": "objekte",
+        "data": [{"key": "map_src", "value": "MAP-2026-0099"}],
+        "unlockZ": {"bset": "1"},
+    })
+    sord = elo.call("checkoutSord", {"objId": obj_id,
+                                     "editInfoZ": {"bset": "1", "sordZ": {"bset": ALL}}})["sord"]
+    target = next((k for k in sord.get("objKeys", []) if k.get("name") == "INVOICE_NO"), None)
+    if target is None:
+        print("MAP -> GRP: this mask has no INVOICE_NO line - add it to the mask first")
+    else:
+        target["data"] = ["MAP-2026-0099"]
+        elo.call("checkinSord", {"sord": sord, "sordZ": {"bset": ALL}, "unlockZ": {"bset": "1"}})
+        print("MAP -> GRP: wrote INVOICE_NO = MAP-2026-0099")
+        back = elo.call("checkoutSord", {"objId": obj_id,
+                                         "editInfoZ": {"bset": "1", "sordZ": {"bset": ALL}}})["sord"]
+        print("GRP read-back:", [k["data"] for k in back.get("objKeys", []) if k.get("name") == "INVOICE_NO"][0])
 except EloError as exc:
     print("map operation failed:", exc)
 finally:

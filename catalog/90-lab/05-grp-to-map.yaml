@@ -1,26 +1,34 @@
 id: lab.grp-to-map
 order: 5
+lab_fields: true
 category:
   en: Testing lab
   de: Testlabor
   es: Laboratorio de pruebas
 title:
-  en: Copy a GRP (index) field value into a MAP field
-  de: Einen GRP-(Index-)Feldwert in ein MAP-Feld kopieren
-  es: Copiar el valor de un campo GRP (índice) a un campo MAP
+  en: Copy between GRP (index) fields and MAP fields
+  de: Zwischen GRP-(Index-)Feldern und MAP-Feldern kopieren
+  es: Copiar entre campos GRP (índice) y campos MAP
 summary:
   en: >
-    `sord.objKeys` are the mask's indexed (GRP) fields - `{ name, data: [ ... ] }`.
-    A MAP is free-form key/value storage attached to the same object. To copy
-    one across: read the Sord, take the GRP value, then `checkinMap` with
-    `domainName` "objekte" (the Sord map domain - `collectMapDomains` lists
-    them), `objId` as an int, `data` a list of `{ key, value }`, and
-    `unlockZ { bset: "1" }` to commit. `checkoutMap` reads it back. The snippet
-    provisions its own scratch object. NOTE: the write is reliable; the
-    immediate read-back is occasionally empty on this test instance - re-run or
-    read the map a moment later.
-  de: "`sord.objKeys` sind die indexierten (GRP-)Felder der Maske - `{ name, data: [ ... ] }`. Eine MAP ist freier Schlüssel/Wert-Speicher am selben Objekt. Zum Kopieren: das Sord lesen, den GRP-Wert nehmen, dann `checkinMap` mit `domainName` „objekte“ (die Sord-Map-Domain - `collectMapDomains` listet sie), `objId` als int, `data` eine Liste von `{ key, value }`, und `unlockZ { bset: \"1\" }` zum Bestätigen. `checkoutMap` liest es zurück. Das Snippet legt sein Wegwerf-Objekt selbst an. HINWEIS: der Schreibvorgang ist zuverlässig; das sofortige Zurücklesen ist auf dieser Testinstanz gelegentlich leer - erneut ausführen oder die Map kurz später lesen."
-  es: "`sord.objKeys` son los campos indexados (GRP) de la máscara - `{ name, data: [ ... ] }`. Una MAP es almacenamiento libre clave/valor sobre el mismo objeto. Para copiar uno: leé el Sord, tomá el valor GRP, y luego `checkinMap` con `domainName` «objekte» (el dominio de map del Sord - `collectMapDomains` los lista), `objId` como int, `data` una lista de `{ key, value }`, y `unlockZ { bset: \"1\" }` para confirmar. `checkoutMap` lo lee de vuelta. El snippet crea su propio objeto desechable. NOTA: la escritura es confiable; la lectura inmediata a veces vuelve vacía en esta instancia de prueba - volvé a correrlo o leé la map un instante después."
+    `sord.objKeys` are the mask's indexed (GRP) fields - `{ id, name, data: [ ... ] }`,
+    one entry per line of the mask. A MAP is free-form key/value storage
+    attached to the same object (`checkoutMap` / `checkinMap`, `domainName`
+    "objekte", `objId` as an int, `unlockZ { bset: "1" }` to commit). The
+    snippet copies both ways on a scratch object: GRP → MAP with `checkinMap`,
+    MAP → GRP by setting the `objKeys` entry and `checkinSord`. A GRP field
+    only exists as a **line of a mask**: the interactive panel below lets
+    you pick a mask, add a new line to it (`checkoutDocMask` → append a
+    `DocMaskLine { id, key, name, type }` → `checkinDocMask`; every object
+    of the mask then shows the new key in its `objKeys`), pick the MAP key
+    and copy - in either direction - across every object indexed with the
+    mask (`findFirstSords` with `findByIndex.maskId`), after a dry run that
+    shows what would be written. It writes to the repository: masks are
+    global configuration, so create fields on a test mask first. NOTE: the
+    immediate MAP read-back is occasionally empty on this test instance -
+    re-run or read the map a moment later.
+  de: "`sord.objKeys` sind die indexierten (GRP-)Felder der Maske - `{ id, name, data: [ ... ] }`, ein Eintrag je Maskenzeile. Eine MAP ist freier Schlüssel/Wert-Speicher am selben Objekt (`checkoutMap` / `checkinMap`, `domainName` „objekte“, `objId` als int, `unlockZ { bset: \"1\" }` zum Bestätigen). Das Snippet kopiert an einem Wegwerf-Objekt in beide Richtungen: GRP → MAP per `checkinMap`, MAP → GRP durch Setzen des `objKeys`-Eintrags und `checkinSord`. Ein GRP-Feld existiert nur als **Zeile einer Maske**: das Panel unten lässt eine Maske wählen, ihr eine neue Zeile hinzufügen (`checkoutDocMask` → `DocMaskLine { id, key, name, type }` anhängen → `checkinDocMask`; jedes Objekt der Maske zeigt den neuen Schlüssel dann in seinen `objKeys`), den MAP-Schlüssel wählen und über alle Objekte der Maske (`findFirstSords` mit `findByIndex.maskId`) in beide Richtungen kopieren - nach einem Probelauf, der zeigt, was geschrieben würde. Es schreibt ins Repository: Masken sind globale Konfiguration, Felder also zuerst an einer Testmaske anlegen. HINWEIS: das sofortige Zurücklesen der MAP ist auf dieser Testinstanz gelegentlich leer - erneut ausführen oder die Map kurz später lesen."
+  es: "`sord.objKeys` son los campos indexados (GRP) de la máscara - `{ id, name, data: [ ... ] }`, una entrada por línea de la máscara. Una MAP es almacenamiento libre clave/valor sobre el mismo objeto (`checkoutMap` / `checkinMap`, `domainName` «objekte», `objId` como int, `unlockZ { bset: \"1\" }` para confirmar). El snippet copia en ambos sentidos sobre un objeto desechable: GRP → MAP con `checkinMap`, MAP → GRP fijando la entrada de `objKeys` y `checkinSord`. Un campo GRP solo existe como **línea de una máscara**: el panel de abajo permite elegir una máscara, agregarle una línea nueva (`checkoutDocMask` → añadir un `DocMaskLine { id, key, name, type }` → `checkinDocMask`; todo objeto de la máscara muestra entonces la clave nueva en sus `objKeys`), elegir la clave MAP y copiar - en cualquier sentido - sobre todos los objetos indexados con la máscara (`findFirstSords` con `findByIndex.maskId`), tras una prueba en seco que muestra qué se escribiría. Escribe en el repositorio: las máscaras son configuración global, así que probá primero en una máscara de prueba. NOTA: la lectura inmediata de la MAP a veces vuelve vacía en esta instancia de prueba - volvé a correrlo o leé la map un instante después."
 
 elo_api:
   - method: checkoutSord
@@ -48,11 +56,46 @@ elo_api:
       de: 'Liest zurück. Body { objId, id: "<objId>", domainName: "objekte", keyNames: ["*"], lockZ: {bset: "0"} }; result.items = [{key, value}].'
       es: 'Lee de vuelta. Cuerpo { objId, id: "<objId>", domainName: "objekte", keyNames: ["*"], lockZ: {bset: "0"} }; result.items = [{key, value}].'
 
+  - method: checkoutDocMask
+    rpc: POST /rest/IXServicePortIF/checkoutDocMask
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/checkoutDocMask
+    notes:
+      en: 'Body { maskId, docMaskZ: {bset}, lockZ: {bset: "1"} } - DocMask.lines are the GRP fields (DocMaskLine { id, key, name, type; 3000 = text }). Lock it when you intend to change it.'
+      de: 'Body { maskId, docMaskZ: {bset}, lockZ: {bset: "1"} } - DocMask.lines sind die GRP-Felder (DocMaskLine { id, key, name, type; 3000 = Text }). Sperren, wenn geändert werden soll.'
+      es: 'Cuerpo { maskId, docMaskZ: {bset}, lockZ: {bset: "1"} } - DocMask.lines son los campos GRP (DocMaskLine { id, key, name, type; 3000 = texto }). Bloqueala si vas a cambiarla.'
+  - method: checkinDocMask
+    rpc: POST /rest/IXServicePortIF/checkinDocMask
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/checkinDocMask
+    notes:
+      en: 'Body { docMask, docMaskZ, unlockZ: {bset: "1"} } writes the whole mask back - append the new line to the lines you checked out, never send a partial mask.'
+      de: 'Body { docMask, docMaskZ, unlockZ: {bset: "1"} } schreibt die ganze Maske zurück - die neue Zeile an die ausgecheckten lines anhängen, nie eine Teilmaske senden.'
+      es: 'Cuerpo { docMask, docMaskZ, unlockZ: {bset: "1"} } escribe la máscara completa - añadí la línea nueva a las lines que sacaste, nunca mandes una máscara parcial.'
+  - method: findFirstSords
+    rpc: POST /rest/IXServicePortIF/findFirstSords
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/findFirstSords
+    notes:
+      en: '`findInfo.findByIndex.maskId` = every object indexed with the mask; sordZ bit 53 puts objKeys on the rows, bit 59 the folder path.'
+      de: '`findInfo.findByIndex.maskId` = jedes mit der Maske indexierte Objekt; sordZ-Bit 53 liefert objKeys in den Zeilen, Bit 59 den Ordnerpfad.'
+      es: '`findInfo.findByIndex.maskId` = todo objeto indexado con la máscara; el bit 53 de sordZ pone objKeys en las filas, el 59 la ruta.'
+  - method: checkinSord
+    rpc: POST /rest/IXServicePortIF/checkinSord
+    doc_url: "{base}/rest/openapi.json"
+    spec: IXServicePortIF/checkinSord
+    notes:
+      en: 'MAP → GRP: set objKeys[i].data = [value] on the checked-out Sord and check it in with unlockZ {bset: "1"}.'
+      de: 'MAP → GRP: objKeys[i].data = [Wert] am ausgecheckten Sord setzen und mit unlockZ {bset: "1"} einchecken.'
+      es: 'MAP → GRP: fijá objKeys[i].data = [valor] en el Sord sacado y hacé check-in con unlockZ {bset: "1"}.'
+
 result_shape: |
   scratch object: 5700
   GRP source value: INV-2026-0042
   wrote MAP grp_copy = INV-2026-0042
   MAP read-back: [{'key': 'grp_copy', 'value': 'INV-2026-0042'}]
+  MAP -> GRP: wrote INVOICE_NO = MAP-2026-0099
+  GRP read-back: ['MAP-2026-0099']
   cleaned up
 
 snippets:
@@ -99,6 +142,28 @@ snippets:
             "keyNames": ["*"], "lockZ": {"bset": "0"},
         })
         print("MAP read-back:", got.get("items"))
+
+        # --- the other way round: MAP -> GRP -------------------------------
+        # A GRP field is a line of the object's mask, so it must already exist
+        # (the interactive panel can add one). Write a MAP value, then set the
+        # matching objKeys entry and check the Sord in.
+        elo.call("checkinMap", {
+            "objId": int(obj_id), "domainName": "objekte",
+            "data": [{"key": "map_src", "value": "MAP-2026-0099"}],
+            "unlockZ": {"bset": "1"},
+        })
+        sord = elo.call("checkoutSord", {"objId": obj_id,
+                                         "editInfoZ": {"bset": "1", "sordZ": {"bset": ALL}}})["sord"]
+        target = next((k for k in sord.get("objKeys", []) if k.get("name") == "INVOICE_NO"), None)
+        if target is None:
+            print("MAP -> GRP: this mask has no INVOICE_NO line - add it to the mask first")
+        else:
+            target["data"] = ["MAP-2026-0099"]
+            elo.call("checkinSord", {"sord": sord, "sordZ": {"bset": ALL}, "unlockZ": {"bset": "1"}})
+            print("MAP -> GRP: wrote INVOICE_NO = MAP-2026-0099")
+            back = elo.call("checkoutSord", {"objId": obj_id,
+                                             "editInfoZ": {"bset": "1", "sordZ": {"bset": ALL}}})["sord"]
+            print("GRP read-back:", [k["data"] for k in back.get("objKeys", []) if k.get("name") == "INVOICE_NO"][0])
     except EloError as exc:
         print("map operation failed:", exc)
     finally:
@@ -157,6 +222,31 @@ snippets:
         keyNames: ["*"], lockZ: { bset: "0" },
       });
       console.log("MAP read-back:", got.items);
+
+      // --- the other way round: MAP -> GRP ---------------------------------
+      // A GRP field is a line of the object's mask, so it must already exist
+      // (the interactive panel can add one). Write a MAP value, then set the
+      // matching objKeys entry and check the Sord in.
+      await elo.call("checkinMap", {
+        objId: Number(objId), domainName: "objekte",
+        data: [{ key: "map_src", value: "MAP-2026-0099" }],
+        unlockZ: { bset: "1" },
+      });
+      const sord2 = (await elo.call("checkoutSord", {
+        objId, editInfoZ: { bset: "1", sordZ: { bset: ALL } },
+      })).sord;
+      const target = (sord2.objKeys || []).find((k) => k.name === "INVOICE_NO");
+      if (!target) {
+        console.log("MAP -> GRP: this mask has no INVOICE_NO line - add it to the mask first");
+      } else {
+        target.data = ["MAP-2026-0099"];
+        await elo.call("checkinSord", { sord: sord2, sordZ: { bset: ALL }, unlockZ: { bset: "1" } });
+        console.log("MAP -> GRP: wrote INVOICE_NO = MAP-2026-0099");
+        const back = (await elo.call("checkoutSord", {
+          objId, editInfoZ: { bset: "1", sordZ: { bset: ALL } },
+        })).sord;
+        console.log("GRP read-back:", (back.objKeys || []).find((k) => k.name === "INVOICE_NO").data);
+      }
     } catch (exc) {
       if (exc instanceof EloError) console.log("map operation failed:", exc.message);
       else throw exc;
@@ -215,6 +305,31 @@ snippets:
         keyNames: ["*"], lockZ: { bset: "0" },
       });
       console.log("MAP read-back:", got.items);
+
+      // --- the other way round: MAP -> GRP ---------------------------------
+      // A GRP field is a line of the object's mask, so it must already exist
+      // (the interactive panel can add one). Write a MAP value, then set the
+      // matching objKeys entry and check the Sord in.
+      await elo.call("checkinMap", {
+        objId: Number(objId), domainName: "objekte",
+        data: [{ key: "map_src", value: "MAP-2026-0099" }],
+        unlockZ: { bset: "1" },
+      });
+      const sord2 = (await elo.call("checkoutSord", {
+        objId, editInfoZ: { bset: "1", sordZ: { bset: ALL } },
+      })).sord;
+      const target = (sord2.objKeys || []).find((k) => k.name === "INVOICE_NO");
+      if (!target) {
+        console.log("MAP -> GRP: this mask has no INVOICE_NO line - add it to the mask first");
+      } else {
+        target.data = ["MAP-2026-0099"];
+        await elo.call("checkinSord", { sord: sord2, sordZ: { bset: ALL }, unlockZ: { bset: "1" } });
+        console.log("MAP -> GRP: wrote INVOICE_NO = MAP-2026-0099");
+        const back = (await elo.call("checkoutSord", {
+          objId, editInfoZ: { bset: "1", sordZ: { bset: ALL } },
+        })).sord;
+        console.log("GRP read-back:", (back.objKeys || []).find((k) => k.name === "INVOICE_NO").data);
+      }
     } catch (exc) {
       console.log("map operation failed:", exc.message);
     } finally {
@@ -232,11 +347,21 @@ mock:
     sord: { id: 0, name: "", parentId: 1 }
   checkinSord: 5700
   checkoutSord:
-    sord:
+  - sord:
       id: 5700
       name: "pg-grp2map"
       objKeys:
-        - { name: "INVOICE_NO", data: ["INV-2026-0042"] }
+        - { id: 0, name: "INVOICE_NO", data: ["INV-2026-0042"] }
+  - sord:
+      id: 5700
+      name: "pg-grp2map"
+      objKeys:
+        - { id: 0, name: "INVOICE_NO", data: ["INV-2026-0042"] }
+  - sord:
+      id: 5700
+      name: "pg-grp2map"
+      objKeys:
+        - { id: 0, name: "INVOICE_NO", data: ["MAP-2026-0099"] }
   checkinMap: {}
   checkoutMap:
     items:

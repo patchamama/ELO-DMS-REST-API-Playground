@@ -121,6 +121,11 @@ def test_lab_endpoints_need_credentials_and_never_500():
         ("/api/lab/recent-files", {"folder_id": "1"}),
         ("/api/lab/file-preview", {"doc_id": "1"}),
         ("/api/lab/workflow-usage", {}),
+        ("/api/lab/fields-masks", {}),
+        ("/api/lab/fields-mask", {"mask_id": "0"}),
+        ("/api/lab/fields-map-keys", {"mask_id": "0"}),
+        ("/api/lab/fields-add-grp", {"mask_id": "0", "key": "X"}),
+        ("/api/lab/fields-copy", {"mask_id": "0", "map_key": "a", "grp_key": "B"}),
     ):
         r = client.post(path, json=body)
         assert r.status_code == 200

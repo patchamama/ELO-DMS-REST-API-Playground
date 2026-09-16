@@ -2427,6 +2427,283 @@ ${snippet}
   }
   // <<< lab-workflows slice
 
+  // >>> lab-fields slice  (Testing lab: GRP <-> MAP field copy across a mask)
+  //
+  // Rendered for a topic with `lab_fields: true`. Live-only - and it WRITES:
+  //   /api/lab/fields-masks     - every mask
+  //   /api/lab/fields-mask      - one mask's GRP lines (+ next free line id)
+  //   /api/lab/fields-map-keys  - MAP keys seen on the mask's first N objects
+  //   /api/lab/fields-add-grp   - append a GRP line to the mask (checkinDocMask)
+  //   /api/lab/fields-copy      - dry run (dry_run: true) or commit
+  //   GET /api/lab/fields-source
+  // A GRP field is a line of a mask, so the flow is: mask -> direction ->
+  // GRP line (existing or new) -> MAP key -> preview -> execute.
+  function labFieldsPanelHtml() {
+    const opt = (v, t) => `<option value="${esc(v)}">${esc(t)}</option>`;
+    return `
+      <div class="labfs-panel labfld-panel">
+        <p class="labfs-note" hidden></p>
+        <p class="labfld-warn">⚠ ${esc(tr("labfld.writes"))}</p>
+        <ol class="labfld-steps">
+          <li>
+            <b>${esc(tr("labfld.stepMask"))}</b>
+            <button class="labfs-load labfld-load-masks">${esc(tr("labfld.loadMasks"))}</button>
+            <select class="labfld-mask" hidden></select>
+            <span class="labfld-mask-info hint"></span>
+          </li>
+          <li>
+            <b>${esc(tr("labfld.stepDirection"))}</b>
+            <div class="labperm-modes labfld-dir">
+              <button type="button" class="active" data-dir="map_to_grp">MAP → GRP</button>
+              <button type="button" data-dir="grp_to_map">GRP → MAP</button>
+            </div>
+          </li>
+          <li>
+            <b>${esc(tr("labfld.stepGrp"))}</b>
+            <select class="labfld-grp" disabled>${opt("", tr("labfld.pickMaskFirst"))}</select>
+            <div class="labfld-new" hidden>
+              <input type="text" class="labfld-new-key" placeholder="MY_FIELD" maxlength="30" title="${esc(tr("labfld.keyRule"))}" />
+              <input type="text" class="labfld-new-name" placeholder="${esc(tr("labfld.labelPlaceholder"))}" maxlength="80" />
+              <button class="labfs-load labfld-create">${esc(tr("labfld.createField"))}</button>
+              <span class="hint">${esc(tr("labfld.keyRule"))}</span>
+            </div>
+          </li>
+          <li>
+            <b>${esc(tr("labfld.stepMap"))}</b>
+            <button class="labfs-load labfld-scan" disabled>${esc(tr("labfld.scanMap"))}</button>
+            <input type="text" class="labfld-map" list="labfld-map-keys" placeholder="map_key" />
+            <datalist id="labfld-map-keys"></datalist>
+            <span class="labfld-map-info hint"></span>
+          </li>
+          <li>
+            <b>${esc(tr("labfld.stepOptions"))}</b>
+            <label><input type="checkbox" class="labfld-overwrite" /> ${esc(tr("labfld.overwrite"))}</label>
+            <label>${esc(tr("labfld.limit"))} <select class="labfld-limit">${opt("100", "100")}${opt("500", "500")}${opt("2000", "2 000")}</select></label>
+          </li>
+          <li>
+            <b>${esc(tr("labfld.stepRun"))}</b>
+            <button class="labfs-load labfld-preview" disabled>${esc(tr("labfld.preview"))}</button>
+            <button class="labfs-load labfld-execute" disabled>${esc(tr("labfld.execute"))}</button>
+            <span class="labfld-status hint"></span>
+          </li>
+        </ol>
+        <div class="labrepo-table-wrap labfld-wrap" hidden>
+          <table class="labrepo-table"><thead><tr>
+            <th>${esc(tr("labfld.colObject"))}</th><th>${esc(tr("labfld.colPath"))}</th><th class="labfld-col-src">MAP</th><th class="labfld-col-dst">GRP</th><th>${esc(tr("labfld.colAction"))}</th>
+          </tr></thead><tbody></tbody></table>
+        </div>
+        <div class="labperm-log-bar" hidden><button type="button" class="labperm-clear-log">${esc(tr("labperm.clearLog"))}</button></div>
+        <pre class="labfs-log" hidden></pre>
+        <details class="labfs-src">
+          <summary>${esc(tr("labfs.showCode"))}</summary>
+          <div class="labfs-src-host"></div>
+        </details>
+      </div>`;
+  }
+
+  function wireLabFields(host) {
+    const panel = host.querySelector(".labfld-panel");
+    if (!panel) return;
+    const labPost = (url, body) => postJSON(url, Object.assign({ credentials: isMock() ? null : creds() }, body));
+    wireShowCode(panel, "/api/lab/fields-source");
+    if (labLiveGuard(panel)) return;
+
+    const q = (sel) => panel.querySelector(sel);
+    const log = q(".labfs-log");
+    const logBar = q(".labperm-log-bar");
+    const say = (line, isErr) => {
+      log.hidden = false;
+      logBar.hidden = false;
+      log.textContent += (log.textContent ? "\n" : "") + line;
+      if (isErr) log.classList.add("err");
+    };
+    q(".labperm-clear-log").addEventListener("click", () => {
+      log.textContent = "";
+      log.classList.remove("err");
+      log.hidden = true;
+      logBar.hidden = true;
+    });
+    const status = q(".labfld-status");
+    const setStatus = (text, isErr) => {
+      status.textContent = text;
+      status.className = "labfld-status " + (isErr ? "err" : "hint");
+    };
+
+    const maskSel = q(".labfld-mask");
+    const maskInfo = q(".labfld-mask-info");
+    const grpSel = q(".labfld-grp");
+    const newBox = q(".labfld-new");
+    const newKey = q(".labfld-new-key");
+    const newName = q(".labfld-new-name");
+    const mapInput = q(".labfld-map");
+    const mapList = q("#labfld-map-keys");
+    const mapInfo = q(".labfld-map-info");
+    const scanBtn = q(".labfld-scan");
+    const previewBtn = q(".labfld-preview");
+    const executeBtn = q(".labfld-execute");
+    const wrap = q(".labfld-wrap");
+    const tbody = q("tbody");
+    let DIR = "map_to_grp";
+    let MASK = null;      // {id, name}
+    let LINES = [];
+    let PLAN = null;      // last dry run
+
+    const NEW = "__new__";
+    function refreshButtons() {
+      const grpOk = grpSel.value && grpSel.value !== NEW;
+      previewBtn.disabled = !(MASK && grpOk && mapInput.value.trim());
+      executeBtn.disabled = !(PLAN && PLAN.summary.write > 0);
+      scanBtn.disabled = !MASK;
+    }
+    function invalidatePlan() {
+      PLAN = null;
+      refreshButtons();
+    }
+
+    // 1. masks
+    q(".labfld-load-masks").addEventListener("click", async () => {
+      setStatus(tr("labperm.loading"));
+      const res = await labPost("/api/lab/fields-masks", {});
+      if (res.error) return setStatus(explainErr(res.error), true);
+      maskSel.innerHTML =
+        `<option value="">${esc(tr("labfld.chooseMask"))}</option>` +
+        res.masks.map((m) => `<option value="${esc(m.id)}">${m.document_mask ? "📄" : ""}${m.folder_mask ? "📁" : ""} ${esc(m.display_name)}${m.display_name !== m.name ? ` (${esc(m.name)})` : ""} · id ${esc(m.id)}</option>`).join("");
+      maskSel.hidden = false;
+      q(".labfld-load-masks").hidden = true;
+      setStatus(`${res.masks.length} ${tr("labfld.masks")}`);
+    });
+    const explainErr = (msg) => String(msg || "");
+
+    async function loadLines(selectKey) {
+      const res = await labPost("/api/lab/fields-mask", { mask_id: MASK.id });
+      if (res.error) return setStatus(explainErr(res.error), true);
+      LINES = res.lines;
+      MASK.name = res.mask.name;
+      grpSel.innerHTML =
+        `<option value="">${esc(tr("labfld.chooseGrp"))}</option>` +
+        LINES.map((l) => `<option value="${esc(l.key)}"${l.hidden ? ' class="hint"' : ""}>${esc(l.key)} — ${esc(l.name)} (${esc(l.type_name)}${l.read_only ? ", read-only" : ""}${l.hidden ? ", hidden" : ""})</option>`).join("") +
+        `<option value="${NEW}">＋ ${esc(tr("labfld.newField"))}</option>`;
+      grpSel.disabled = false;
+      if (selectKey) grpSel.value = selectKey;
+      newBox.hidden = grpSel.value !== NEW;
+      maskInfo.textContent = `${LINES.length} ${tr("labfld.lines")} · ${tr("labfld.nextLineId")} ${res.next_line_id}`;
+    }
+    maskSel.addEventListener("change", async () => {
+      MASK = maskSel.value ? { id: maskSel.value, name: maskSel.selectedOptions[0].textContent } : null;
+      grpSel.innerHTML = "";
+      grpSel.disabled = true;
+      mapList.innerHTML = "";
+      mapInfo.textContent = "";
+      wrap.hidden = true;
+      invalidatePlan();
+      if (MASK) await loadLines();
+      refreshButtons();
+    });
+
+    // 2. direction
+    panel.querySelectorAll(".labfld-dir button").forEach((b) =>
+      b.addEventListener("click", () => {
+        panel.querySelectorAll(".labfld-dir button").forEach((x) => x.classList.toggle("active", x === b));
+        DIR = b.dataset.dir;
+        invalidatePlan();
+      })
+    );
+
+    // 3. GRP line - existing, or a new one appended to the mask
+    grpSel.addEventListener("change", () => {
+      newBox.hidden = grpSel.value !== NEW;
+      if (grpSel.value === NEW) newKey.focus();
+      invalidatePlan();
+    });
+    newKey.addEventListener("input", () => {
+      newKey.value = newKey.value.toUpperCase().replace(/[^A-Z0-9_]/g, "");
+    });
+    q(".labfld-create").addEventListener("click", async () => {
+      const key = newKey.value.trim();
+      if (!/^[A-Z][A-Z0-9_]{0,29}$/.test(key)) return setStatus(tr("labfld.keyRule"), true);
+      if (!window.confirm(`${tr("labfld.confirmCreate")}\n\n${MASK.name}\n${key} — ${newName.value.trim() || key}`)) return;
+      setStatus(tr("labperm.loading"));
+      const res = await labPost("/api/lab/fields-add-grp", { mask_id: MASK.id, key, name: newName.value.trim() });
+      if (res.error) return setStatus(explainErr(res.error), true);
+      say(`+ ${tr("labfld.created")}: ${MASK.name} → ${res.created.key} (${res.created.name}, ${res.created.type_name}, id ${res.created.id})`);
+      LINES = res.lines;
+      await loadLines(res.created.key);
+      newKey.value = "";
+      newName.value = "";
+      setStatus(`${tr("labfld.created")}: ${res.created.key}`);
+      invalidatePlan();
+    });
+
+    // 4. MAP key
+    scanBtn.addEventListener("click", async () => {
+      scanBtn.disabled = true;
+      mapInfo.textContent = tr("labperm.loading");
+      const res = await labPost("/api/lab/fields-map-keys", { mask_id: MASK.id, sample: 50 });
+      scanBtn.disabled = false;
+      if (res.error) return setStatus(explainErr(res.error), true);
+      mapList.innerHTML = res.keys.map((k) => `<option value="${esc(k.key)}">${esc(k.key)} (${k.count}${k.example ? `: ${esc(k.example)}` : ""})</option>`).join("");
+      mapInfo.textContent = `${res.keys.length} ${tr("labfld.mapKeysFound")} (${res.sampled} ${tr("labfld.objectsSampled")})` + (res.keys.length ? `: ${res.keys.slice(0, 8).map((k) => k.key).join(", ")}${res.keys.length > 8 ? ", …" : ""}` : "");
+      if (!mapInput.value && res.keys.length) mapInput.value = res.keys[0].key;
+      refreshButtons();
+    });
+    mapInput.addEventListener("input", invalidatePlan);
+    q(".labfld-overwrite").addEventListener("change", invalidatePlan);
+    q(".labfld-limit").addEventListener("change", invalidatePlan);
+
+    // 5./6. preview then execute
+    const ACTION_CLS = { write: "labfld-write", same: "labfld-same", skip_empty_source: "labfld-skip", skip_target_has_value: "labfld-skip", failed: "labfld-err", written: "labfld-write", skipped: "labfld-skip" };
+    function render(res) {
+      const m2g = res.direction === "map_to_grp";
+      q(".labfld-col-src").textContent = m2g ? `MAP ${res.map_key}` : `GRP ${res.grp_key}`;
+      q(".labfld-col-dst").textContent = m2g ? `GRP ${res.grp_key}` : `MAP ${res.map_key}`;
+      tbody.innerHTML =
+        res.rows
+          .map((r) => {
+            const shown = r.result || r.action;
+            return (
+              `<tr class="${ACTION_CLS[shown] || ""}"><td>${esc(r.name)} <span class="labperm-count">id ${esc(r.id)}</span></td><td><code>${esc(r.path)}</code></td>` +
+              `<td>${esc(r.source_value)}</td><td>${esc(r.target_value)}</td><td>${esc(tr(`labfld.act.${shown}`))}${r.error ? `<div class="err">${esc(r.error)}</div>` : ""}</td></tr>`
+            );
+          })
+          .join("") || `<tr><td colspan="5" class="hint">${esc(tr("labfld.noObjects"))}</td></tr>`;
+      wrap.hidden = false;
+    }
+    const body = () => ({
+      mask_id: MASK.id, direction: DIR, map_key: mapInput.value.trim(), grp_key: grpSel.value,
+      limit: Number(q(".labfld-limit").value), overwrite: q(".labfld-overwrite").checked,
+    });
+    previewBtn.addEventListener("click", async () => {
+      previewBtn.disabled = true;
+      setStatus(tr("labperm.loading"));
+      const res = await labPost("/api/lab/fields-copy", { ...body(), dry_run: true });
+      previewBtn.disabled = false;
+      if (res.error) return setStatus(explainErr(res.error), true);
+      PLAN = res;
+      render(res);
+      const s = res.summary;
+      setStatus(`${tr("labfld.previewDone")}: ${s.total} ${tr("labfld.objects")} · ${s.write || 0} ${tr("labfld.act.write")} · ${s.same || 0} ${tr("labfld.act.same")} · ${(s.skip_empty_source || 0) + (s.skip_target_has_value || 0)} ${tr("labfld.skipped")}`);
+      refreshButtons();
+    });
+    executeBtn.addEventListener("click", async () => {
+      if (!PLAN) return;
+      const n = PLAN.summary.write || 0;
+      const m2g = PLAN.direction === "map_to_grp";
+      if (!window.confirm(`${tr("labfld.confirmExecute")}\n\n${MASK.name}\n${m2g ? `MAP ${PLAN.map_key} → GRP ${PLAN.grp_key}` : `GRP ${PLAN.grp_key} → MAP ${PLAN.map_key}`}\n${n} ${tr("labfld.objects")}`)) return;
+      executeBtn.disabled = true;
+      setStatus(tr("labperm.loading"));
+      const res = await labPost("/api/lab/fields-copy", { ...body(), dry_run: false });
+      if (res.error) return setStatus(explainErr(res.error), true);
+      render(res);
+      const s = res.summary;
+      setStatus(`${tr("labfld.executed")}: ${s.written} ${tr("labfld.act.written")}, ${s.failed} ${tr("labfld.act.failed")}, ${s.skipped} ${tr("labfld.skipped")}`);
+      say(`= ${MASK.name}: ${m2g ? `MAP ${res.map_key} → GRP ${res.grp_key}` : `GRP ${res.grp_key} → MAP ${res.map_key}`} — ${s.written} ${tr("labfld.act.written")}, ${s.failed} ${tr("labfld.act.failed")}, ${s.skipped} ${tr("labfld.skipped")}`);
+      res.rows.filter((r) => r.error).forEach((r) => say(`  ! ${r.name} (id ${r.id}): ${r.error}`, true));
+      PLAN = null;
+      refreshButtons();
+    });
+  }
+  // <<< lab-fields slice
+
   async function openTopic(id) {
     store.set(LS.topic, "t:" + id);
     markActiveNav(`.topiclink[data-topic="${cssEsc(id)}"]`);
@@ -2496,6 +2773,7 @@ ${snippet}
         ${topic.lab_perms ? labPermsPanelHtml() : ""}
         ${topic.lab_recent ? labRecentPanelHtml() : ""}
         ${topic.lab_workflows ? labWorkflowsPanelHtml() : ""}
+        ${topic.lab_fields ? labFieldsPanelHtml() : ""}
 
         <div class="subtabs">${tabs}</div>
         <div class="snippet-host"></div>
@@ -2554,6 +2832,7 @@ ${snippet}
     if (topic.lab_perms) wireLabPerms(host);
     if (topic.lab_recent) wireLabRecent(host);
     if (topic.lab_workflows) wireLabWorkflows(host);
+    if (topic.lab_fields) wireLabFields(host);
 
     const sub = host.querySelector(".subtabs");
     const snipHost = host.querySelector(".snippet-host");

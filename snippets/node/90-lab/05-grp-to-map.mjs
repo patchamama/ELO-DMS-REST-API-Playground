@@ -1,5 +1,5 @@
 // import the shared client:  import { connect } from "elo-playground";
-// topic:    Copy a GRP (index) field value into a MAP field
+// topic:    Copy between GRP (index) fields and MAP fields
 // category: Testing lab
 // id:       lab.grp-to-map
 
@@ -46,6 +46,31 @@ try {
     keyNames: ["*"], lockZ: { bset: "0" },
   });
   console.log("MAP read-back:", got.items);
+
+  // --- the other way round: MAP -> GRP ---------------------------------
+  // A GRP field is a line of the object's mask, so it must already exist
+  // (the interactive panel can add one). Write a MAP value, then set the
+  // matching objKeys entry and check the Sord in.
+  await elo.call("checkinMap", {
+    objId: Number(objId), domainName: "objekte",
+    data: [{ key: "map_src", value: "MAP-2026-0099" }],
+    unlockZ: { bset: "1" },
+  });
+  const sord2 = (await elo.call("checkoutSord", {
+    objId, editInfoZ: { bset: "1", sordZ: { bset: ALL } },
+  })).sord;
+  const target = (sord2.objKeys || []).find((k) => k.name === "INVOICE_NO");
+  if (!target) {
+    console.log("MAP -> GRP: this mask has no INVOICE_NO line - add it to the mask first");
+  } else {
+    target.data = ["MAP-2026-0099"];
+    await elo.call("checkinSord", { sord: sord2, sordZ: { bset: ALL }, unlockZ: { bset: "1" } });
+    console.log("MAP -> GRP: wrote INVOICE_NO = MAP-2026-0099");
+    const back = (await elo.call("checkoutSord", {
+      objId, editInfoZ: { bset: "1", sordZ: { bset: ALL } },
+    })).sord;
+    console.log("GRP read-back:", (back.objKeys || []).find((k) => k.name === "INVOICE_NO").data);
+  }
 } catch (exc) {
   if (exc instanceof EloError) console.log("map operation failed:", exc.message);
   else throw exc;

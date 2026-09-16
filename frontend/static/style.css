@@ -470,3 +470,20 @@ button.fn-ref { background: none; border: 0; padding: 0; color: var(--blue); cur
 .labwf-table tr.labwf-unused td { color: var(--muted); }
 .labwf-desc { font-size: 11px; color: var(--muted); margin-top: 2px; max-width: 48ch; }
 .labwf-load { margin-left: auto; }
+
+/* ---- Testing lab: GRP <-> MAP field copy ---- */
+.labfld-warn { margin: 0 0 10px; padding: 6px 10px; border: 1px solid var(--warn); border-radius: 6px; color: var(--warn); font-size: 12px; }
+.labfld-steps { margin: 0; padding-left: 22px; font-size: 12.5px; }
+.labfld-steps > li { margin: 0 0 10px; }
+.labfld-steps > li > b { display: inline-block; min-width: 9em; color: var(--muted); font-weight: 600; }
+.labfld-steps select, .labfld-steps input[type="text"] { padding: 3px 7px; border: 1px solid var(--line); border-radius: 5px; font: inherit; max-width: 100%; }
+.labfld-steps .labperm-modes { display: inline-flex; margin: 0; vertical-align: middle; }
+.labfld-steps .labfs-load { margin: 0 4px 0 0; }
+.labfld-steps label { margin-right: 12px; }
+.labfld-new { margin: 6px 0 0 9.6em; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.labfld-new-key { width: 14em; font-family: monospace; }
+.labfld-wrap { margin-top: 10px; max-height: 480px; }
+.labfld-write td:last-child { color: var(--ok); font-weight: 600; }
+.labfld-same td:last-child { color: var(--muted); }
+.labfld-skip td { color: var(--muted); }
+.labfld-err td:last-child { color: var(--err); font-weight: 600; }

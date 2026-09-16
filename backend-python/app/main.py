@@ -31,6 +31,7 @@ from .lab_fs import (
     lab_fs_source, list_children, mirror_to_sandbox, upload_tree,
     repository_folders, repository_files, repository_file,
 )
+from .lab_fields import add_grp_field, execute_copy, lab_fields_source, list_masks, map_keys_for_mask, mask_fields, plan_copy
 from .lab_recent import file_preview, lab_recent_source, recent_files
 from .lab_workflows import lab_workflows_source, top_workflows
 from .lab_perms import (
@@ -47,6 +48,11 @@ from .lab_perms import (
 from .models import (
     EloCreds,
     LabMirrorRequest,
+    LabFieldsAddGrpRequest,
+    LabFieldsCopyRequest,
+    LabFieldsMapKeysRequest,
+    LabFieldsMaskRequest,
+    LabFieldsMasksRequest,
     LabFilePreviewRequest,
     LabPermDiagnoseRequest,
     LabPermFolderAclRequest,
@@ -428,6 +434,41 @@ def api_lab_workflow_usage(req: LabWorkflowUsageRequest):
 @app.get("/api/lab/workflows-source")
 def api_lab_workflows_source():
     return lab_workflows_source()
+
+
+# ---- Testing lab: GRP <-> MAP field copy (live only, writes) ----------- #
+@app.post("/api/lab/fields-masks")
+def api_lab_fields_masks(req: LabFieldsMasksRequest):
+    return _lab_guard(lambda: list_masks(_lab_client(req.credentials)))
+
+
+@app.post("/api/lab/fields-mask")
+def api_lab_fields_mask(req: LabFieldsMaskRequest):
+    return _lab_guard(lambda: mask_fields(_lab_client(req.credentials), req.mask_id))
+
+
+@app.post("/api/lab/fields-map-keys")
+def api_lab_fields_map_keys(req: LabFieldsMapKeysRequest):
+    return _lab_guard(lambda: map_keys_for_mask(_lab_client(req.credentials), req.mask_id, sample=req.sample))
+
+
+@app.post("/api/lab/fields-add-grp")
+def api_lab_fields_add_grp(req: LabFieldsAddGrpRequest):
+    return _lab_guard(lambda: add_grp_field(_lab_client(req.credentials), req.mask_id, req.key, req.name))
+
+
+@app.post("/api/lab/fields-copy")
+def api_lab_fields_copy(req: LabFieldsCopyRequest):
+    fn = plan_copy if req.dry_run else execute_copy
+    return _lab_guard(
+        lambda: fn(_lab_client(req.credentials), req.mask_id, direction=req.direction, map_key=req.map_key,
+                   grp_key=req.grp_key, limit=req.limit, overwrite=req.overwrite)
+    )
+
+
+@app.get("/api/lab/fields-source")
+def api_lab_fields_source():
+    return lab_fields_source()
 
 
 @app.post("/api/elo/login-check")
