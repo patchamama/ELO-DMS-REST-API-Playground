@@ -69,6 +69,7 @@ def test_lab_recent_and_workflow_flags_load():
     assert by_id["lab.recent-files"].lab_recent is True
     assert by_id["lab.workflow-usage"].lab_workflows is True
     assert by_id["lab.fs-sync"].lab_recent is False and by_id["lab.fs-sync"].lab_workflows is False
+    assert by_id["lab.grp-to-map"].lab_fields is True
 
 
 def test_default_fixture_is_valid_json_and_has_login():

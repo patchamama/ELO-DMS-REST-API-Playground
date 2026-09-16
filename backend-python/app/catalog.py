@@ -82,6 +82,7 @@ def load_topics(lang: str = "en") -> list[Topic]:
                 lab_perms=bool(d.get("lab_perms", False)),
         lab_recent=bool(d.get("lab_recent", False)),
         lab_workflows=bool(d.get("lab_workflows", False)),
+        lab_fields=bool(d.get("lab_fields", False)),
             )
         )
     topics.sort(key=lambda t: (t.category_id, t.order, t.id))

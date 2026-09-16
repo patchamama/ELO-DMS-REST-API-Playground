@@ -53,6 +53,7 @@ class Topic(BaseModel):
     lab_perms: bool = False     # render the interactive user/folder permissions panel
     lab_recent: bool = False    # render the recent-files browser panel
     lab_workflows: bool = False # render the workflow-usage panel
+    lab_fields: bool = False    # render the GRP <-> MAP field copy panel
 
 
 class Attachment(BaseModel):
@@ -239,4 +240,43 @@ class LabFilePreviewRequest(BaseModel):
 
 class LabWorkflowUsageRequest(BaseModel):
     limit: int = 25
+    credentials: EloCreds | None = None
+
+
+# ---- Testing lab: GRP <-> MAP field copy (live only, WRITES) ----------- #
+class LabFieldsMasksRequest(BaseModel):
+    credentials: EloCreds | None = None
+
+
+class LabFieldsMaskRequest(BaseModel):
+    mask_id: str
+    credentials: EloCreds | None = None
+
+
+class LabFieldsMapKeysRequest(BaseModel):
+    mask_id: str
+    sample: int = 50                         # objects whose MAP is read to collect keys
+    credentials: EloCreds | None = None
+
+
+class LabFieldsAddGrpRequest(BaseModel):
+    """Append a GRP line (``DocMaskLine``) to the mask."""
+
+    mask_id: str
+    key: str                                 # A-Z 0-9 _ , upper-cased server-side
+    name: str = ""                           # label shown in the client; defaults to the key
+    credentials: EloCreds | None = None
+
+
+class LabFieldsCopyRequest(BaseModel):
+    """Copy ``map_key`` <-> ``grp_key`` on every object of the mask.
+    ``dry_run: true`` only reports what would happen."""
+
+    mask_id: str
+    direction: Literal["map_to_grp", "grp_to_map"] = "map_to_grp"
+    map_key: str
+    grp_key: str
+    limit: int = 500
+    overwrite: bool = False
+    dry_run: bool = True
     credentials: EloCreds | None = None
