@@ -140,3 +140,14 @@ def test_spec_raw_live_failure_degrades_to_the_sample(monkeypatch):
     openapi_ref._cache.clear()
     assert len(body["paths"]) == 24
     assert "ConnectError" in body["_fetch_error"]
+
+
+def test_sample_spec_has_no_dangling_refs():
+    """Swagger UI refuses a document whose $refs do not resolve."""
+    import json
+    import re
+
+    spec = openapi_ref.load_spec(None, mock=True)
+    have = set(spec["components"]["schemas"])
+    used = set(re.findall(r'#/components/schemas/([^"]+)"', json.dumps(spec)))
+    assert used - have == set()

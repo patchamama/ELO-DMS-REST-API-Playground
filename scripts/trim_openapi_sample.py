@@ -74,12 +74,21 @@ def main(src: str) -> int:
         frontier = nxt - keep_schemas
     keep_schemas |= {n for n in frontier if n in all_schemas}
 
+    # the depth cap leaves dangling $refs; stub them so Swagger UI can resolve the document
+    stubs = {"type": "object", "description": "Trimmed from the offline sample - connect to ELO (untick Mock) for the full schema."}
+    used: set[str] = set()
+    _refs(kept_paths, used)
+    for n in keep_schemas:
+        _refs(all_schemas[n], used)
+    schemas = {n: all_schemas[n] for n in keep_schemas if n in all_schemas}
+    schemas.update({n: dict(stubs) for n in used if n not in schemas})
+
     sample = {
         "openapi": full.get("openapi", "3.0.1"),
         "info": full.get("info", {}),
         "_note": "Trimmed sample for offline / CI use - see scripts/trim_openapi_sample.py. Live mode fetches the full spec.",
         "paths": dict(sorted(kept_paths.items())),
-        "components": {"schemas": {n: all_schemas[n] for n in sorted(keep_schemas) if n in all_schemas}},
+        "components": {"schemas": dict(sorted(schemas.items()))},
     }
     OUT.write_text(json.dumps(sample, indent=1, ensure_ascii=False), encoding="utf-8")
     print(

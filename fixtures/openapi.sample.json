@@ -2238,6 +2238,10 @@
      }
     }
    },
+   "ContextTerm": {
+    "type": "object",
+    "description": "Trimmed from the offline sample - connect to ELO (untick Mock) for the full schema."
+   },
    "ContextTermResults": {
     "type": "object",
     "properties": {
@@ -2245,6 +2249,14 @@
       "$ref": "#/components/schemas/ListOfContextTerm"
      }
     }
+   },
+   "CopyOptions": {
+    "type": "object",
+    "description": "Trimmed from the offline sample - connect to ELO (untick Mock) for the full schema."
+   },
+   "CopyResult": {
+    "type": "object",
+    "description": "Trimmed from the offline sample - connect to ELO (untick Mock) for the full schema."
    },
    "CountResult": {
     "description": "Class for the results of one count process.",
@@ -4332,6 +4344,10 @@
      }
     }
    },
+   "IndexSearchValue": {
+    "type": "object",
+    "description": "Trimmed from the offline sample - connect to ELO (untick Mock) for the full schema."
+   },
    "IndexServerForArchive": {
     "description": "<p>\nAssociation between Indexserver URL and archive name.\n </p>\n <p>\n Copyright: Copyright (c) 2004\n </p>\n <p>\n Organisation: ELO Digital Office GmbH\n </p>",
     "type": "object",
@@ -4345,6 +4361,10 @@
       "type": "string"
      }
     }
+   },
+   "IndexValue": {
+    "type": "object",
+    "description": "Trimmed from the offline sample - connect to ELO (untick Mock) for the full schema."
    },
    "JobState": {
     "description": "Objects of this class provide information on the state of any background processes.\n<p>\n Copyright: Copyright (c) 2004\n </p>\n <p>\n Organisation: ELO Digital Office GmbH\n </p>",
@@ -4685,6 +4705,10 @@
      "$ref": "#/components/schemas/AspectInfo"
     }
    },
+   "ListOfBucket": {
+    "type": "object",
+    "description": "Trimmed from the offline sample - connect to ELO (untick Mock) for the full schema."
+   },
    "ListOfContextTerm": {
     "type": "array",
     "items": {
@@ -4726,6 +4750,10 @@
     "items": {
      "$ref": "#/components/schemas/Icon"
     }
+   },
+   "ListOfIndexSearchValue": {
+    "type": "object",
+    "description": "Trimmed from the offline sample - connect to ELO (untick Mock) for the full schema."
    },
    "ListOfInteger": {
     "type": "array",
@@ -5202,6 +5230,10 @@
      }
     }
    },
+   "OperatorType": {
+    "type": "object",
+    "description": "Trimmed from the offline sample - connect to ELO (untick Mock) for the full schema."
+   },
    "PointInfo": {
     "description": "This class describes a 2D point.",
     "type": "object",
@@ -5496,6 +5528,10 @@
       "$ref": "#/components/schemas/ListOfString"
      }
     }
+   },
+   "QueryObject": {
+    "type": "object",
+    "description": "Trimmed from the offline sample - connect to ELO (untick Mock) for the full schema."
    },
    "QueryOperator": {
     "allOf": [
@@ -6487,6 +6523,10 @@
      }
     }
    },
+   "SortOrderSequenceE": {
+    "type": "object",
+    "description": "Trimmed from the offline sample - connect to ELO (untick Mock) for the full schema."
+   },
    "Subscription": {
     "description": "This class describes a subscription. A user can subscribe for changes to an object.\nCurrently,\n the only supported object type is a document feed. If the feed receives new comments,\n notification information is inserted into the database for the user. By calling\n FeedService.findFirstActions and setting FindActionsInfo.findNotifications=true, the user can\n search for her notifications.",
     "type": "object",
@@ -6616,6 +6656,10 @@
       "$ref": "#/components/schemas/SubstitutionStatus"
      }
     }
+   },
+   "SubstitutionPeriod": {
+    "type": "object",
+    "description": "Trimmed from the offline sample - connect to ELO (untick Mock) for the full schema."
    },
    "SubstitutionSettings": {
     "description": "This class wraps various boolean settings and parameters for {@link Substitution}",
