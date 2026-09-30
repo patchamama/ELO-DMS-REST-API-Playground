@@ -38,6 +38,7 @@
 <nav class="tabs">
   <button class="tab active" data-view="catalog" data-t="nav.catalog">Catalog</button>
   <button class="tab" data-view="spec" data-t="nav.spec">API reference</button>
+  <button class="tab" data-view="swagger" data-t="nav.swagger">Swagger</button>
   <button class="tab" data-view="scratchpad" data-t="nav.scratchpad">Scratchpad</button>
   <button class="tab" data-view="faq" data-t="nav.faq">FAQ</button>
   <span class="langsw" aria-label="language">
@@ -82,6 +83,11 @@
     <div id="spec-host" class="topic-host">
       <p class="hint" data-t="spec.pick">Pick a service, then an operation.</p>
     </div>
+  </section>
+
+  <section id="view-swagger" class="view" hidden>
+    <div id="swagger-banner" class="swagger-banner"></div>
+    <div id="swagger-ui" class="swagger-host"></div>
   </section>
 
   <section id="view-scratchpad" class="view" hidden>
