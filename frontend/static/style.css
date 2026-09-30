@@ -487,3 +487,9 @@ button.fn-ref { background: none; border: 0; padding: 0; color: var(--blue); cur
 .labfld-same td:last-child { color: var(--muted); }
 .labfld-skip td { color: var(--muted); }
 .labfld-err td:last-child { color: var(--err); font-weight: 600; }
+
+/* ---- Swagger tab ---- */
+.swagger-banner { padding: 10px 26px; font-size: 12px; color: var(--muted); border-bottom: 1px solid var(--line); }
+.swagger-host { padding: 0 18px 24px; }
+.swagger-host .swagger-ui .scheme-container { display: none; } /* servers/authorize: routing is fixed by the playground */
+.swagger-host .swagger-ui .info { margin: 18px 0 10px; }

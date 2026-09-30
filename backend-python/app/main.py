@@ -233,6 +233,12 @@ def api_spec_op(operation_id: str, mock: bool = True, base_url: str | None = Non
     return detail
 
 
+@app.get("/api/spec/raw")
+def api_spec_raw(mock: bool = True, base_url: str | None = None):
+    """The whole OpenAPI document (live from the server, or the sample) for the Swagger tab."""
+    return _spec(mock, base_url)
+
+
 # ---- runner -------------------------------------------------------- #
 @app.post("/api/run", response_model=RunResult)
 def api_run(req: RunRequest):
@@ -264,7 +270,7 @@ def api_proxy(req: ProxyRequest):
             return {"result": {"user": client.user}}
         if req.method == "logout":
             return {"result": {}}
-        return {"result": client.call(req.method, req.body)}
+        return {"result": client.call(req.method, req.body, service=req.service)}
     except EloError as exc:
         return {"error": str(exc)}
     except Exception as exc:  # noqa: BLE001 - a browser call must not 500 the app

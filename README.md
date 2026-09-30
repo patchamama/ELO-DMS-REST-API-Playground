@@ -165,6 +165,10 @@ Pending work and the roadmap live in [`TODO.md`](TODO.md).
   `fixtures/openapi.sample.json` (~24 ops, tagged "sample"). Per operation:
   request parameters, response schema, links to curated topics, and a generated
   `elo.call(...)` skeleton in all three runtimes.
+- **Swagger** - the full Swagger UI over the same `openapi.json`, with **Try it
+  out** on every operation. Mock mode uses the ELO 25 sample spec (~24 ops) and
+  answers from the mock data; live mode loads the server's own
+  `/rest/openapi.json` and sends requests through the playground proxy.
 - **Scratchpad** - CodeMirror editor + language selector + Run.
 
 The bundled CodeMirror distribution includes Python and JavaScript modes only.

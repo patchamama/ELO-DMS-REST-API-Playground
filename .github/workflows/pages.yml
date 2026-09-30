@@ -49,6 +49,9 @@ jobs:
       - name: Verify backend-free mock deployment
         run: |
           test -f dist/api/run-cache.json
+          test -f dist/api/spec/raw.json
+          test -f dist/api/swagger-mock.json
+          test -f dist/vendor/swagger-ui/swagger-ui-bundle.js
           grep -q 'staticMode: true' dist/index.html
           grep -q 'mockDefault: true' dist/index.html
       - uses: actions/configure-pages@v5

@@ -83,6 +83,8 @@
     if (path === "/api/faq") return "api/faq.json";
     if (path === "/api/client-lib") return "api/client-lib.json";
     if (path === "/api/lab/fs-source") return "api/lab/fs-source.json";
+    if (path === "/api/spec/raw") return "api/spec/raw.json";
+    if (path === "/api/swagger-mock") return "api/swagger-mock.json";
     if (path === "/api/spec/services") return "api/spec/services.json";
     if (path === "/api/spec/operations") return `api/spec/operations/${p.get("service")}.json`;
     if ((m = path.match(/^\/api\/spec\/op\/(.+)$/))) return `api/spec/op/${m[1]}.json`;
@@ -568,6 +570,7 @@
     reopenLast();
     SPEC_LOADED = false; // re-render the API-reference tab (labels) on next visit
     if (!$("#view-spec").hidden) loadSpec(true);
+    if (!$("#view-swagger").hidden) loadSwagger(true);
   }
 
   // ---- Run: backend (Python / Node / Go / PHP / Java) ------------- //
@@ -3199,18 +3202,151 @@ ${snippet}
     });
   }
 
-  const VIEWS = ["catalog", "spec", "scratchpad", "faq"];
+  const VIEWS = ["catalog", "spec", "swagger", "scratchpad", "faq"];
   function wireTabs() {
     $$(".tab").forEach((tab) => {
       tab.addEventListener("click", () => {
         $$(".tab").forEach((t) => t.classList.toggle("active", t === tab));
         VIEWS.forEach((v) => ($("#view-" + v).hidden = tab.dataset.view !== v));
         if (tab.dataset.view === "spec") loadSpec();
+        if (tab.dataset.view === "swagger") loadSwagger();
         if (tab.dataset.view === "faq") loadFaq();
         if (tab.dataset.view === "scratchpad" && SCRATCH_CM) setTimeout(() => SCRATCH_CM.refresh(), 0);
       });
     });
     $$(".lang").forEach((b) => b.addEventListener("click", () => setLang(b.dataset.lang)));
+    // Mock checkbox / base URL edited while the Swagger tab is open -> rebuild it
+    $("#conn").addEventListener("change", () => {
+      if (!$("#view-swagger").hidden) loadSwagger();
+    });
+  }
+
+  // ---- "Swagger" tab (Swagger UI over the raw openapi.json) ------ //
+  // Swagger UI is vendored and only loaded on the first visit. Its "Try it out"
+  // requests never hit the network directly: requestInterceptor swaps in
+  // swaggerFetch(), which routes them like every other playground call.
+  let SWAGGER_KEY = ""; // spec query + language the UI was last built for
+  let SWAGGER_MOCK = null; // static demo: merged default mock, fetched once
+  const SWAGGER_CALLS = {}; // static demo: per-method call counter (array mocks)
+  const fmt = (key, vars) => tr(key).replace(/\{(\w+)\}/g, (m, n) => (n in vars ? vars[n] : m));
+  const eloResponse = (obj, status = 200) =>
+    new Response(JSON.stringify(obj), { status, headers: { "Content-Type": "application/json" } });
+
+  function loadSwaggerAssets() {
+    if (window.SwaggerUIBundle) return Promise.resolve();
+    const base = (STATIC ? "" : "/") + "vendor/swagger-ui/";
+    const css = document.createElement("link");
+    css.rel = "stylesheet";
+    css.href = base + "swagger-ui.css";
+    document.head.appendChild(css);
+    return new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = base + "swagger-ui-bundle.js";
+      s.onload = resolve;
+      s.onerror = () => reject(new Error("could not load " + s.src));
+      document.head.appendChild(s);
+    });
+  }
+
+  // Swagger UI paths are /<service>/<method> (POST, JSON body); answer them in ELO's envelope.
+  async function swaggerFetch(url, req) {
+    const parts = String(url).split("?")[0].split("/").filter(Boolean);
+    const method = decodeURIComponent(parts[parts.length - 1] || "");
+    const service = parts[parts.length - 2] || "IXServicePortIF";
+    let body = {};
+    try {
+      body = req.body ? JSON.parse(req.body) : {};
+    } catch (e) {
+      return eloResponse({ exception: "invalid JSON body: " + e.message }, 400);
+    }
+    try {
+      if (STATIC && isMock()) return await swaggerStaticMock(method);
+      if (STATIC) return await swaggerDirect(service, method, body);
+      const r = await postJSON(CFG.proxyUrl, {
+        method,
+        service,
+        body,
+        mock: isMock(),
+        topic_id: null,
+        credentials: isMock() ? null : creds(),
+      });
+      return "error" in r ? eloResponse({ exception: r.error }, 500) : eloResponse({ result: r.result });
+    } catch (e) {
+      return eloResponse({ exception: String(e.message || e) }, 502);
+    }
+  }
+  async function swaggerStaticMock(method) {
+    if (!SWAGGER_MOCK) SWAGGER_MOCK = await getJSON("/api/swagger-mock");
+    if (!(method in SWAGGER_MOCK) || method === "_comment") {
+      return eloResponse({ exception: fmt("swagger.noSample", { method }) }, 404);
+    }
+    let entry = SWAGGER_MOCK[method];
+    if (Array.isArray(entry)) {
+      const i = Math.min(SWAGGER_CALLS[method] || 0, entry.length - 1);
+      SWAGGER_CALLS[method] = i + 1;
+      entry = entry[i];
+    }
+    if (entry && typeof entry === "object" && "exception" in entry) return eloResponse({ exception: entry.exception }, 500);
+    return eloResponse({ result: entry && typeof entry === "object" && "result" in entry ? entry.result : entry });
+  }
+  // static demo + live: the browser calls the entered ELO server itself (needs CORS there)
+  async function swaggerDirect(service, method, body) {
+    const c = creds();
+    const r = await fetch(`${c.base_url}/rest/${service}/${method}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Basic " + btoa(`${c.user}:${c.password}`) },
+      body: JSON.stringify(body),
+    });
+    return new Response(await r.text(), { status: r.status, headers: { "Content-Type": "application/json" } });
+  }
+
+  function renderSwaggerBanner(spec) {
+    const info = spec.info || {};
+    const ops = Object.values(spec.paths || {}).reduce((n, item) => n + Object.keys(item).filter((k) => k !== "parameters").length, 0);
+    const bits = [`<b>${esc(fmt("swagger.spec", { title: info.title || "Indexserver", version: info.version || "", count: ops }))}</b>`];
+    if ("_note" in spec) bits.push(`<span class="tag">sample</span> ${esc(tr("swagger.sample"))}`);
+    else {
+      const url = effectiveBaseUrl() + "/rest/openapi.json";
+      bits.push(`${esc(tr("swagger.live"))} · <a href="${esc(url)}" target="_blank" rel="noopener">${esc(tr("swagger.openJson"))}</a>`);
+    }
+    if (spec._fetch_error) bits.push(`<span class="tag err">offline</span> ${esc(fmt("swagger.offline", { error: spec._fetch_error }))}`);
+    if (STATIC && !isMock()) bits.push(esc(tr("swagger.staticLive")));
+    $("#swagger-banner").innerHTML = bits.join(" · ");
+  }
+
+  async function loadSwagger(force) {
+    const key = specQuery() + "&lang=" + LANG;
+    if (key === SWAGGER_KEY && !force) return;
+    SWAGGER_KEY = key;
+    const host = $("#swagger-ui");
+    host.innerHTML = `<p class="hint">${esc(tr("swagger.loading"))}</p>`;
+    try {
+      const [spec] = await Promise.all([getJSON("/api/spec/raw?" + specQuery()), loadSwaggerAssets()]);
+      renderSwaggerBanner(spec);
+      const doc = JSON.parse(JSON.stringify(spec));
+      delete doc._note;
+      delete doc._fetch_error;
+      doc.servers = [{ url: window.location.origin + "/rest" }]; // same-origin; swaggerFetch does the real routing
+      host.innerHTML = "";
+      window.SwaggerUIBundle({
+        spec: doc,
+        dom_id: "#swagger-ui",
+        presets: [window.SwaggerUIBundle.presets.apis],
+        layout: "BaseLayout",
+        tryItOutEnabled: true,
+        docExpansion: "list",
+        filter: true,
+        persistAuthorization: false,
+        deepLinking: false,
+        requestInterceptor: (req) => {
+          req.userFetch = swaggerFetch;
+          return req;
+        },
+      });
+    } catch (e) {
+      SWAGGER_KEY = "";
+      host.innerHTML = `<p class="err">${esc(String(e))}</p>`;
+    }
   }
 
   // ---- FAQ tab (Markdown, loaded once) ------------------------- //
