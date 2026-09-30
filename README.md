@@ -1,12 +1,50 @@
+<div align="center">
+
 # ELO API Playground
+
+**Learn the ELO IX REST API by example - runnable snippets in Python, Node.js and the browser.**
+
+### 🚀 [**Live demo on GitHub Pages**](https://patchamama.github.io/ELO-DMS-REST-API-Playground/)
+
+*No install, no ELO server needed - runs in mock mode.*
+
+[![Deploy](https://github.com/patchamama/ELO-DMS-REST-API-Playground/actions/workflows/pages.yml/badge.svg)](https://github.com/patchamama/ELO-DMS-REST-API-Playground/actions/workflows/pages.yml)
+[![CI](https://github.com/patchamama/ELO-DMS-REST-API-Playground/actions/workflows/ci.yml/badge.svg)](https://github.com/patchamama/ELO-DMS-REST-API-Playground/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-18+-339933?logo=nodedotjs&logoColor=white)
+![Express](https://img.shields.io/badge/Express-000000?logo=express&logoColor=white)
+![JavaScript](https://img.shields.io/badge/JavaScript-vanilla-F7DF1E?logo=javascript&logoColor=black)
+![CodeMirror](https://img.shields.io/badge/CodeMirror-editor-D30707)
+![Jinja](https://img.shields.io/badge/Jinja2-B41717?logo=jinja&logoColor=white)
+![YAML](https://img.shields.io/badge/YAML-catalog-CB171E?logo=yaml&logoColor=white)
+![pytest](https://img.shields.io/badge/pytest-0A9EDC?logo=pytest&logoColor=white)
+![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-2088FF?logo=githubactions&logoColor=white)
+![GitHub Pages](https://img.shields.io/badge/GitHub_Pages-222222?logo=githubpages&logoColor=white)
+![ELO](https://img.shields.io/badge/ELO_IX-REST_API-0057A8)
+
+</div>
+
+---
+
+## ✨ Highlights
+
+- 🧪 **33 topics across 11 categories** - each shows the minimum call needed for a documented result.
+- 🔀 **Three runtimes, same surface** - Python backend, Node.js backend, browser JS.
+- ▶️ **Run and edit in place** - change a value, press *Run* again; *Reset* restores the original.
+- 🎭 **Mock mode** - works offline; or point it at a real ELO on `localhost`.
+- 🌍 **UI in English / German / Spanish.**
+- ➕ **Extensible** - a new topic is one YAML file (see [Adding a topic](#adding-a-topic)).
+
+## About
 
 An interactive site for **learning the ELO IX REST API by example**. Every topic
 shows the minimum call needed to produce a documented result, in three runtimes -
 **Python backend**, **Node.js backend**, **browser JS** - with short, heavily
 commented snippets you can run live. It works offline in **mock mode** and against
-a real ELO on `localhost`. UI in English / German / Spanish.
-
-33 topics across 11 categories today; adding more is one YAML file each (see below).
+a real ELO on `localhost`.
 
 **Testing lab** is a scratch area: find an object by GUID / id / name, a full
 CRUD lifecycle, owner / colour / permissions, symmetric links, copying a GRP
