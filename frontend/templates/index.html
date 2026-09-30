@@ -82,6 +82,15 @@
     <nav id="specnav" class="catnav" aria-label="operations"></nav>
     <div id="spec-host" class="topic-host">
       <p class="hint" data-t="spec.pick">Pick a service, then an operation.</p>
+      <div class="spec-about">
+        <h3 data-t="specAbout.title">How ELO exposes its API</h3>
+        <p data-t="specAbout.rpc"></p>
+        <pre><code>POST {base_url}/rest/IXServicePortIF/&lt;method&gt;
+Authorization: Basic &lt;base64(user:password)&gt;
+GET  {base_url}/rest/openapi.json</code></pre>
+        <p data-t="specAbout.schema"></p>
+        <p data-t="specAbout.see"></p>
+      </div>
     </div>
   </section>
 

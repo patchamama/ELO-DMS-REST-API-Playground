@@ -493,3 +493,6 @@ button.fn-ref { background: none; border: 0; padding: 0; color: var(--blue); cur
 .swagger-host { padding: 0 18px 24px; }
 .swagger-host .swagger-ui .scheme-container { display: none; } /* servers/authorize: routing is fixed by the playground */
 .swagger-host .swagger-ui .info { margin: 18px 0 10px; }
+
+.spec-about { max-width: 780px; margin-top: 16px; padding: 4px 16px 8px; border: 1px solid var(--line); border-radius: 6px; }
+.spec-about pre { overflow-x: auto; }
