@@ -193,7 +193,7 @@ def main() -> int:
     spec = openapi_ref.load_spec(None, mock=True)
     _write("api/spec/services.json", {"info": openapi_ref.spec_info(spec), "services": openapi_ref.services(spec)})
     _write("api/spec/raw.json", spec)  # the Swagger tab
-    _write("api/swagger-mock.json", default_mock)  # its Try it out answers, static + mock
+    _write("api/swagger-mock.json", mock_data("swagger"))  # its Try it out answers, static + mock
     for svc in openapi_ref.services(spec):
         _write(f"api/spec/operations/{svc['service']}.json", {"operations": openapi_ref.operations(spec, svc["service"])})
     for op in openapi_ref.operations(spec):

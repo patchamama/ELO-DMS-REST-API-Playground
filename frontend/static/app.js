@@ -3267,7 +3267,7 @@ ${snippet}
         service,
         body,
         mock: isMock(),
-        topic_id: null,
+        topic_id: isMock() ? "swagger" : null,
         credentials: isMock() ? null : creds(),
       });
       return "error" in r ? eloResponse({ exception: r.error }, 500) : eloResponse({ result: r.result });

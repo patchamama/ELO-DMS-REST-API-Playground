@@ -30,6 +30,7 @@ from .config import get_settings
 from .models import RunRequest, RunResult
 
 _DEFAULT_FIXTURE = "default.json"
+_SWAGGER_TOPIC = "swagger"  # pseudo topic id sent by the Swagger tab; overlays fixtures/ix/swagger.json
 _MUTATING_METHODS = {
     "createSord", "checkinSord", "checkinDocBegin", "checkinDocEnd", "deleteSord", "checkinUsers", "startWorkFlow",
     # References, links, MAP updates and public downloads mutate archive state
@@ -49,7 +50,11 @@ def mock_data(topic_id: str | None) -> dict:
     default = s.fixtures_dir / _DEFAULT_FIXTURE
     if default.is_file():
         data.update(json.loads(default.read_text(encoding="utf-8")))
-    if topic_id:
+    if topic_id == _SWAGGER_TOPIC:
+        captured = s.fixtures_dir / "swagger.json"
+        if captured.is_file():
+            data.update(json.loads(captured.read_text(encoding="utf-8")))
+    elif topic_id:
         topic = get_topic(topic_id)
         if topic:
             data.update(topic.mock)

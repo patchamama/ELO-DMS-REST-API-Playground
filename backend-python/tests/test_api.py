@@ -157,3 +157,11 @@ def test_proxy_accepts_a_service_for_the_swagger_tab():
     assert r.json()["result"]["version"] == "25.00.001.003"
     # the service ends up in a URL path: only word characters are accepted
     assert client.post("/api/elo/proxy", json={"method": "x", "service": "../x", "mock": True}).status_code == 422
+
+
+def test_swagger_topic_serves_captured_sample_data():
+    for method in ("checkoutSord", "findFirstSords", "checkoutKeywordList"):
+        r = client.post("/api/elo/proxy", json={"method": method, "body": {}, "mock": True, "topic_id": "swagger"})
+        assert "error" not in r.json(), method
+    r = client.post("/api/elo/proxy", json={"method": "findFirstSords", "body": {}, "mock": True, "topic_id": "swagger"})
+    assert r.json()["result"]["sords"]
