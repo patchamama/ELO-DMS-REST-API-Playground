@@ -18,6 +18,8 @@ _PINS = {
     "codemirror.min.css": "11077112ab6955d29fe41085c62365c7d4a2f00a570c7475e2aec2a8cbc85fc4",
     "cm-python.min.js": "6d19a4ba8b05a354935ceebf490582faffa047c86c4715a2b504b14319eb6399",
     "cm-javascript.min.js": "99b46f351b4b1ce8a14cdf04fe4235ecb429b5b7b986867034a7dc195a710a58",
+    "swagger-ui/swagger-ui-bundle.js": "62df541529080464a7660adc793eab7128c6193ce3be24ddc1e0e0a4a63edc2f",
+    "swagger-ui/swagger-ui.css": "1ac324f7dcd27e4b9386b4bd6421271ec147e922a22c05ba24b11515e9aa6321",
     "cm-multiruntime.min.js": "023c5a8e19c8417e4290ce8236fc68337bede7098d53b4e787a87bacfc2dbf0e",
 }
 
