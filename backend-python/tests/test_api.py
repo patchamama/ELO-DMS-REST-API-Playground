@@ -150,3 +150,10 @@ def test_lab_perms_source_lists_the_real_backend_module():
     assert any("lab_perms.py" in t for t in titles)
     assert body["frontend"] and "app.js" in body["frontend"][0]["title"]
     assert "lab-perms slice" in body["frontend"][0]["code"]
+
+
+def test_proxy_accepts_a_service_for_the_swagger_tab():
+    r = client.post("/api/elo/proxy", json={"method": "getServerInfo", "service": "IXServicePortIF", "mock": True})
+    assert r.json()["result"]["version"] == "25.00.001.003"
+    # the service ends up in a URL path: only word characters are accepted
+    assert client.post("/api/elo/proxy", json={"method": "x", "service": "../x", "mock": True}).status_code == 422

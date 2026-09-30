@@ -1,4 +1,5 @@
 """The 'API reference' backend: parse the sample openapi.json + generate calls."""
+import httpx
 from fastapi.testclient import TestClient
 
 from app import openapi_ref
@@ -119,3 +120,23 @@ def test_generated_login_snippet_runs_in_mock():
     op = client.get("/api/spec/op/IXServicePortIF_login?mock=1").json()
     r = client.post("/api/run", json={"language": "python", "code": op["snippets"]["python"], "mock": True})
     assert r.json()["ok"] is True
+
+
+# ---- raw spec for the Swagger tab ------------------------------------ #
+def test_spec_raw_mock_returns_the_whole_sample():
+    body = client.get("/api/spec/raw?mock=1").json()
+    assert body["openapi"].startswith("3.")
+    assert len(body["paths"]) == 24
+    assert "_fetch_error" not in body
+
+
+def test_spec_raw_live_failure_degrades_to_the_sample(monkeypatch):
+    def boom(*args, **kwargs):
+        raise httpx.ConnectError("no route to host")
+
+    monkeypatch.setattr(openapi_ref.httpx, "get", boom)
+    openapi_ref._cache.clear()
+    body = client.get("/api/spec/raw?mock=0&base_url=http://elo.invalid:9090/ix-Repository1").json()
+    openapi_ref._cache.clear()
+    assert len(body["paths"]) == 24
+    assert "ConnectError" in body["_fetch_error"]

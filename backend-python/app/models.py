@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 Lang = Literal["en", "de", "es"]
 RunLanguage = Literal["python", "node", "browser", "go", "php", "java", "rhino"]
@@ -90,6 +90,7 @@ class RuntimeUpdateRequest(BaseModel):
 
 class ProxyRequest(BaseModel):
     method: str
+    service: str = Field("IXServicePortIF", pattern=r"^\w+$")  # side services (PackageService, ...) via the Swagger tab
     body: dict[str, Any] = {}
     mock: bool = True
     topic_id: str | None = None

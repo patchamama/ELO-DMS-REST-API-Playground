@@ -2,7 +2,8 @@
 
 What survives without a backend:
   * the whole catalogue, every snippet, the shared-client source, the deep dives
-  * the "API reference" tab (from the trimmed openapi.sample.json)
+  * the "API reference" and "Swagger" tabs (from the trimmed openapi.sample.json;
+    Try it out answers from fixtures/ix/default.json in mock mode)
   * **Browser** snippets run for real, in the sandboxed iframe, against a
     JavaScript mock seeded from each topic's ``mock:`` block
   * **Python / Node** snippets show their pre-computed mock-mode output (this
@@ -191,6 +192,8 @@ def main() -> int:
 
     spec = openapi_ref.load_spec(None, mock=True)
     _write("api/spec/services.json", {"info": openapi_ref.spec_info(spec), "services": openapi_ref.services(spec)})
+    _write("api/spec/raw.json", spec)  # the Swagger tab
+    _write("api/swagger-mock.json", default_mock)  # its Try it out answers, static + mock
     for svc in openapi_ref.services(spec):
         _write(f"api/spec/operations/{svc['service']}.json", {"operations": openapi_ref.operations(spec, svc["service"])})
     for op in openapi_ref.operations(spec):
